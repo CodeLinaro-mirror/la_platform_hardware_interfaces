@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 
+#define LOG_TAG "android.hardware.bluetooth@1.0-impl"
+
 #include "async_fd_watcher.h"
 
 #include <algorithm>
@@ -22,12 +24,15 @@
 #include <map>
 #include <mutex>
 #include <thread>
+#include <utils/Log.h>
 #include <vector>
 #include "fcntl.h"
 #include "sys/select.h"
 #include "unistd.h"
 
 static const int INVALID_FD = -1;
+
+static const int BT_RT_PRIORITY = 1;
 
 namespace android {
 namespace hardware {
@@ -112,6 +117,14 @@ int AsyncFdWatcher::notifyThread() {
 }
 
 void AsyncFdWatcher::ThreadRoutine() {
+  // Make watching thread RT.
+  struct sched_param rt_params;
+  rt_params.sched_priority = BT_RT_PRIORITY;
+  if (sched_setscheduler(gettid(), SCHED_FIFO, &rt_params)) {
+    ALOGE("%s unable to set SCHED_FIFO for pid %d, tid %d, error %s", __func__,
+          getpid(), gettid(), strerror(errno));
+  }
+
   while (running_) {
     fd_set read_fds;
     FD_ZERO(&read_fds);

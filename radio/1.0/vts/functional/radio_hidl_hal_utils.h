@@ -80,7 +80,7 @@ using ::android::hardware::Return;
 using ::android::hardware::Void;
 using ::android::sp;
 
-#define TIMEOUT_PERIOD 40
+#define TIMEOUT_PERIOD 65
 #define RADIO_SERVICE_NAME "slot1"
 
 class RadioHidlTest;
@@ -499,6 +499,12 @@ class RadioHidlTest : public ::testing::VtsHalHidlTargetTestBase {
 
   /* Test code calls this function to wait for response */
   std::cv_status wait();
+
+  /* Used for checking General Errors */
+  bool CheckGeneralError();
+
+  /* Used for checking OEM Errors */
+  bool CheckOEMError();
 
   sp<IRadio> radio;
   sp<RadioResponse> radioRsp;

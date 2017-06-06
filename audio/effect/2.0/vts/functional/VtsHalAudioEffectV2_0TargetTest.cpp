@@ -47,6 +47,7 @@ using android::hardware::audio::effect::V2_0::Result;
 using android::hardware::MQDescriptorSync;
 using android::hardware::Return;
 using android::hardware::Void;
+using android::hardware::hidl_handle;
 using android::hardware::hidl_memory;
 using android::hardware::hidl_string;
 using android::hardware::hidl_vec;
@@ -140,6 +141,12 @@ TEST_F(AudioEffectsFactoryHidlTest, GetDescriptor) {
         });
   }
   EXPECT_TRUE(ret.isOk());
+}
+
+TEST_F(AudioEffectsFactoryHidlTest, DebugDumpInvalidArgument) {
+    description("Verify that debugDump doesn't crash on invalid arguments");
+    Return<void> ret = effectsFactory->debugDump(hidl_handle());
+    ASSERT_TRUE(ret.isOk());
 }
 
 // Equalizer effect is required by CDD, but only the type is fixed.
@@ -443,14 +450,16 @@ TEST_F(AudioEffectHidlTest, SetAudioSource) {
 }
 
 TEST_F(AudioEffectHidlTest, Offload) {
-  description("Verify that calling Offload methods works for an effect");
+  description("Verify that calling Offload method either works or returns not supported");
   EffectOffloadParameter offloadParam;
   offloadParam.isOffload = false;
   offloadParam.ioHandle =
       static_cast<int>(AudioHandleConsts::AUDIO_IO_HANDLE_NONE);
   Return<Result> ret = effect->offload(offloadParam);
   EXPECT_TRUE(ret.isOk());
-  EXPECT_EQ(Result::OK, ret);
+  EXPECT_TRUE(Result::OK == ret || Result::NOT_SUPPORTED == ret)
+          << "Expected OK or NOT_SUPPORTED, actual value: "
+          << static_cast<int32_t>(static_cast<Result>(ret));
 }
 
 TEST_F(AudioEffectHidlTest, PrepareForProcessing) {
