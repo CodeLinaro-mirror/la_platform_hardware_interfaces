@@ -14,23 +14,20 @@
 // limitations under the License.
 //
 
-cc_library_shared {
-    name: "android.hardware.configstore-utils",
-    vendor_available: true,
+cc_library_static {
+    name: "VtsHalMediaOmxV1_0CommonUtil",
     defaults: ["hidl_defaults"],
-
-    srcs: [ "ConfigStoreUtils.cpp" ],
-
-    export_include_dirs: ["include"],
-
+    srcs: ["media_hidl_test_common.cpp"],
     shared_libs: [
-        "android.hardware.configstore@1.0",
-        "libbase",
-        "libhidlbase"
+        "liblog",
+        "libhidlmemory",
+        "android.hidl.allocator@1.0",
+        "android.hidl.memory@1.0",
+        "android.hardware.media.omx@1.0",
     ],
-    export_shared_lib_headers: [
-        "android.hardware.configstore@1.0",
-        "libbase",
-        "libhidlbase"
+    static_libs: ["VtsHalHidlTargetTestBase"],
+    cflags: [ "-O0", "-g", ],
+    include_dirs: [
+        "frameworks/native/include/media/openmax/",
     ],
 }
