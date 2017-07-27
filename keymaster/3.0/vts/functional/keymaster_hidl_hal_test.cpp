@@ -47,6 +47,7 @@ using ::std::string;
 string service_name = "default";
 
 static bool arm_deleteAllKeys = false;
+static bool dump_Attestations = false;
 
 namespace android {
 namespace hardware {
@@ -233,34 +234,60 @@ string hex2str(string a) {
     return b;
 }
 
-string rsa_key = hex2str("30820275020100300d06092a864886f70d01010105000482025f3082025b"
-                         "02010002818100c6095409047d8634812d5a218176e45c41d60a75b13901"
-                         "f234226cffe776521c5a77b9e389417b71c0b6a44d13afe4e4a2805d46c9"
-                         "da2935adb1ff0c1f24ea06e62b20d776430a4d435157233c6f916783c30e"
-                         "310fcbd89b85c2d56771169785ac12bca244abda72bfb19fc44d27c81e1d"
-                         "92de284f4061edfd99280745ea6d2502030100010281801be0f04d9cae37"
-                         "18691f035338308e91564b55899ffb5084d2460e6630257e05b3ceab0297"
-                         "2dfabcd6ce5f6ee2589eb67911ed0fac16e43a444b8c861e544a05933657"
-                         "72f8baf6b22fc9e3c5f1024b063ac080a7b2234cf8aee8f6c47bbf4fd3ac"
-                         "e7240290bef16c0b3f7f3cdd64ce3ab5912cf6e32f39ab188358afcccd80"
-                         "81024100e4b49ef50f765d3b24dde01aceaaf130f2c76670a91a61ae08af"
-                         "497b4a82be6dee8fcdd5e3f7ba1cfb1f0c926b88f88c92bfab137fba2285"
-                         "227b83c342ff7c55024100ddabb5839c4c7f6bf3d4183231f005b31aa58a"
-                         "ffdda5c79e4cce217f6bc930dbe563d480706c24e9ebfcab28a6cdefd324"
-                         "b77e1bf7251b709092c24ff501fd91024023d4340eda3445d8cd26c14411"
-                         "da6fdca63c1ccd4b80a98ad52b78cc8ad8beb2842c1d280405bc2f6c1bea"
-                         "214a1d742ab996b35b63a82a5e470fa88dbf823cdd02401b7b57449ad30d"
-                         "1518249a5f56bb98294d4b6ac12ffc86940497a5a5837a6cf946262b4945"
-                         "26d328c11e1126380fde04c24f916dec250892db09a6d77cdba351024077"
-                         "62cd8f4d050da56bd591adb515d24d7ccd32cca0d05f866d583514bd7324"
-                         "d5f33645e8ed8b4a1cb3cc4a1d67987399f2a09f5b3fb68c88d5e5d90ac3"
-                         "3492d6");
+char nibble2hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                       '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 
-string ec_key = hex2str("308187020100301306072a8648ce3d020106082a8648ce3d030107046d30"
-                        "6b0201010420737c2ecd7b8d1940bf2930aa9b4ed3ff941eed09366bc032"
-                        "99986481f3a4d859a14403420004bf85d7720d07c25461683bc648b4778a"
-                        "9a14dd8a024e3bdd8c7ddd9ab2b528bbc7aa1b51f14ebbbb0bd0ce21bcc4"
-                        "1c6eb00083cf3376d11fd44949e0b2183bfe");
+string bin2hex(const hidl_vec<uint8_t>& data) {
+    string retval;
+    retval.reserve(data.size() * 2 + 1);
+    for (uint8_t byte : data) {
+        retval.push_back(nibble2hex[0x0F & (byte >> 4)]);
+        retval.push_back(nibble2hex[0x0F & byte]);
+    }
+    return retval;
+}
+
+string rsa_key = hex2str(
+    "30820275020100300d06092a864886f70d01010105000482025f3082025b"
+    "02010002818100c6095409047d8634812d5a218176e45c41d60a75b13901"
+    "f234226cffe776521c5a77b9e389417b71c0b6a44d13afe4e4a2805d46c9"
+    "da2935adb1ff0c1f24ea06e62b20d776430a4d435157233c6f916783c30e"
+    "310fcbd89b85c2d56771169785ac12bca244abda72bfb19fc44d27c81e1d"
+    "92de284f4061edfd99280745ea6d2502030100010281801be0f04d9cae37"
+    "18691f035338308e91564b55899ffb5084d2460e6630257e05b3ceab0297"
+    "2dfabcd6ce5f6ee2589eb67911ed0fac16e43a444b8c861e544a05933657"
+    "72f8baf6b22fc9e3c5f1024b063ac080a7b2234cf8aee8f6c47bbf4fd3ac"
+    "e7240290bef16c0b3f7f3cdd64ce3ab5912cf6e32f39ab188358afcccd80"
+    "81024100e4b49ef50f765d3b24dde01aceaaf130f2c76670a91a61ae08af"
+    "497b4a82be6dee8fcdd5e3f7ba1cfb1f0c926b88f88c92bfab137fba2285"
+    "227b83c342ff7c55024100ddabb5839c4c7f6bf3d4183231f005b31aa58a"
+    "ffdda5c79e4cce217f6bc930dbe563d480706c24e9ebfcab28a6cdefd324"
+    "b77e1bf7251b709092c24ff501fd91024023d4340eda3445d8cd26c14411"
+    "da6fdca63c1ccd4b80a98ad52b78cc8ad8beb2842c1d280405bc2f6c1bea"
+    "214a1d742ab996b35b63a82a5e470fa88dbf823cdd02401b7b57449ad30d"
+    "1518249a5f56bb98294d4b6ac12ffc86940497a5a5837a6cf946262b4945"
+    "26d328c11e1126380fde04c24f916dec250892db09a6d77cdba351024077"
+    "62cd8f4d050da56bd591adb515d24d7ccd32cca0d05f866d583514bd7324"
+    "d5f33645e8ed8b4a1cb3cc4a1d67987399f2a09f5b3fb68c88d5e5d90ac3"
+    "3492d6");
+
+string ec_256_key = hex2str(
+    "308187020100301306072a8648ce3d020106082a8648ce3d030107046d30"
+    "6b0201010420737c2ecd7b8d1940bf2930aa9b4ed3ff941eed09366bc032"
+    "99986481f3a4d859a14403420004bf85d7720d07c25461683bc648b4778a"
+    "9a14dd8a024e3bdd8c7ddd9ab2b528bbc7aa1b51f14ebbbb0bd0ce21bcc4"
+    "1c6eb00083cf3376d11fd44949e0b2183bfe");
+
+string ec_521_key = hex2str(
+    "3081EE020100301006072A8648CE3D020106052B810400230481D63081D3"
+    "02010104420011458C586DB5DAA92AFAB03F4FE46AA9D9C3CE9A9B7A006A"
+    "8384BEC4C78E8E9D18D7D08B5BCFA0E53C75B064AD51C449BAE0258D54B9"
+    "4B1E885DED08ED4FB25CE9A1818903818600040149EC11C6DF0FA122C6A9"
+    "AFD9754A4FA9513A627CA329E349535A5629875A8ADFBE27DCB932C05198"
+    "6377108D054C28C6F39B6F2C9AF81802F9F326B842FF2E5F3C00AB7635CF"
+    "B36157FC0882D574A10D839C1A0C049DC5E0D775E2EE50671A208431BB45"
+    "E78E70BEFE930DB34818EE4D5C26259F5C6B8E28A652950F9F88D7B4B2C9"
+    "D9");
 
 struct RSA_Delete {
     void operator()(RSA* p) { RSA_free(p); }
@@ -273,11 +300,13 @@ X509* parse_cert_blob(const hidl_vec<uint8_t>& blob) {
 
 bool verify_chain(const hidl_vec<hidl_vec<uint8_t>>& chain) {
     for (size_t i = 0; i < chain.size() - 1; ++i) {
-        auto& key_cert_blob = chain[i];
-        auto& signing_cert_blob = chain[i + 1];
-
-        X509_Ptr key_cert(parse_cert_blob(key_cert_blob));
-        X509_Ptr signing_cert(parse_cert_blob(signing_cert_blob));
+        X509_Ptr key_cert(parse_cert_blob(chain[i]));
+        X509_Ptr signing_cert;
+        if (i < chain.size() - 1) {
+            signing_cert.reset(parse_cert_blob(chain[i + 1]));
+        } else {
+            signing_cert.reset(parse_cert_blob(chain[i]));
+        }
         EXPECT_TRUE(!!key_cert.get() && !!signing_cert.get());
         if (!key_cert.get() || !signing_cert.get()) return false;
 
@@ -287,6 +316,24 @@ bool verify_chain(const hidl_vec<hidl_vec<uint8_t>>& chain) {
 
         EXPECT_EQ(1, X509_verify(key_cert.get(), signing_pubkey.get()))
             << "Verification of certificate " << i << " failed";
+
+        char* cert_issuer =  //
+            X509_NAME_oneline(X509_get_issuer_name(key_cert.get()), nullptr, 0);
+        char* signer_subj =
+            X509_NAME_oneline(X509_get_subject_name(signing_cert.get()), nullptr, 0);
+        EXPECT_STREQ(cert_issuer, signer_subj) << "Cert " << i
+                                               << " has wrong issuer.  (Possibly b/38394614)";
+        if (i == 0) {
+            char* cert_sub = X509_NAME_oneline(X509_get_subject_name(key_cert.get()), nullptr, 0);
+            EXPECT_STREQ("/CN=Android Keystore Key", cert_sub)
+                << "Cert " << i << " has wrong subject.  (Possibly b/38394614)";
+            free(cert_sub);
+        }
+
+        free(cert_issuer);
+        free(signer_subj);
+
+        if (dump_Attestations) std::cout << bin2hex(chain[i]) << std::endl;
     }
 
     return true;
@@ -374,7 +421,7 @@ class KeymasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
   public:
     void TearDown() override {
         if (key_blob_.size()) {
-            EXPECT_EQ(ErrorCode::OK, DeleteKey());
+            CheckedDeleteKey();
         }
         AbortIfNeeded();
     }
@@ -491,9 +538,10 @@ class KeymasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
     }
 
     ErrorCode DeleteKey(HidlBuf* key_blob, bool keep_key_blob = false) {
-        ErrorCode error = keymaster_->deleteKey(*key_blob);
+        auto rc = keymaster_->deleteKey(*key_blob);
         if (!keep_key_blob) *key_blob = HidlBuf();
-        return error;
+        if (!rc.isOk()) return ErrorCode::UNKNOWN_ERROR;
+        return rc;
     }
 
     ErrorCode DeleteKey(bool keep_key_blob = false) {
@@ -505,14 +553,24 @@ class KeymasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
         return error;
     }
 
+    void CheckedDeleteKey(HidlBuf* key_blob, bool keep_key_blob = false) {
+        auto rc = DeleteKey(key_blob, keep_key_blob);
+        EXPECT_TRUE(rc == ErrorCode::OK || rc == ErrorCode::UNIMPLEMENTED);
+    }
+
+    void CheckedDeleteKey() { CheckedDeleteKey(&key_blob_); }
+
     ErrorCode GetCharacteristics(const HidlBuf& key_blob, const HidlBuf& client_id,
                                  const HidlBuf& app_data, KeyCharacteristics* key_characteristics) {
-        ErrorCode error;
-        keymaster_->getKeyCharacteristics(
-            key_blob, client_id, app_data,
-            [&](ErrorCode hidl_error, const KeyCharacteristics& hidl_key_characteristics) {
-                error = hidl_error, *key_characteristics = hidl_key_characteristics;
-            });
+        ErrorCode error = ErrorCode::UNKNOWN_ERROR;
+        EXPECT_TRUE(
+            keymaster_
+                ->getKeyCharacteristics(
+                    key_blob, client_id, app_data,
+                    [&](ErrorCode hidl_error, const KeyCharacteristics& hidl_key_characteristics) {
+                        error = hidl_error, *key_characteristics = hidl_key_characteristics;
+                    })
+                .isOk());
         return error;
     }
 
@@ -650,12 +708,16 @@ class KeymasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
                         hidl_vec<hidl_vec<uint8_t>>* cert_chain) {
         SCOPED_TRACE("AttestKey");
         ErrorCode error;
-        keymaster_->attestKey(
+        auto rc = keymaster_->attestKey(
             key_blob, attest_params.hidl_data(),
             [&](ErrorCode hidl_error, const hidl_vec<hidl_vec<uint8_t>>& hidl_cert_chain) {
                 error = hidl_error;
                 *cert_chain = hidl_cert_chain;
             });
+
+        EXPECT_TRUE(rc.isOk()) << rc.description();
+        if (!rc.isOk()) return ErrorCode::UNKNOWN_ERROR;
+
         return error;
     }
 
@@ -718,7 +780,7 @@ class KeymasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
                             KeyFormat::RAW, key));
         string signature = MacMessage(message, digest, expected_mac.size() * 8);
         EXPECT_EQ(expected_mac, signature) << "Test vector didn't match for digest " << (int)digest;
-        DeleteKey();
+        CheckedDeleteKey();
     }
 
     void CheckAesCtrTestVector(const string& key, const string& nonce, const string& message,
@@ -925,11 +987,7 @@ bool verify_attestation_record(const string& challenge, const string& app_id,
                                        &att_tee_enforced,                //
                                        &att_unique_id));
 
-    if (att_keymaster_version == 3) {
-        EXPECT_EQ(2U, att_attestation_version);
-    } else {
-        EXPECT_EQ(1U, att_attestation_version);
-    }
+    EXPECT_TRUE(att_attestation_version == 1 || att_attestation_version == 2);
 
     expected_sw_enforced.push_back(TAG_ATTESTATION_APPLICATION_ID,
                                    HidlBuf(app_id));
@@ -959,11 +1017,13 @@ bool verify_attestation_record(const string& challenge, const string& app_id,
 
     att_sw_enforced.Sort();
     expected_sw_enforced.Sort();
-    EXPECT_EQ(filter_tags(expected_sw_enforced), filter_tags(att_sw_enforced));
+    EXPECT_EQ(filter_tags(expected_sw_enforced), filter_tags(att_sw_enforced))
+        << "(Possibly b/38394619)";
 
     att_tee_enforced.Sort();
     expected_tee_enforced.Sort();
-    EXPECT_EQ(filter_tags(expected_tee_enforced), filter_tags(att_tee_enforced));
+    EXPECT_EQ(filter_tags(expected_tee_enforced), filter_tags(att_tee_enforced))
+        << "(Possibly b/38394619)";
 
     return true;
 }
@@ -1067,7 +1127,7 @@ TEST_F(NewKeyGenerationTest, Rsa) {
         EXPECT_TRUE(crypto_params.Contains(TAG_KEY_SIZE, key_size));
         EXPECT_TRUE(crypto_params.Contains(TAG_RSA_PUBLIC_EXPONENT, 3));
 
-        EXPECT_EQ(ErrorCode::OK, DeleteKey(&key_blob));
+        CheckedDeleteKey(&key_blob);
     }
 }
 
@@ -1112,7 +1172,7 @@ TEST_F(NewKeyGenerationTest, Ecdsa) {
         EXPECT_TRUE(crypto_params.Contains(TAG_ALGORITHM, Algorithm::EC));
         EXPECT_TRUE(crypto_params.Contains(TAG_KEY_SIZE, key_size));
 
-        EXPECT_EQ(ErrorCode::OK, DeleteKey(&key_blob));
+        CheckedDeleteKey(&key_blob);
     }
 }
 
@@ -1161,7 +1221,7 @@ TEST_F(NewKeyGenerationTest, EcdsaAllValidSizes) {
         EXPECT_EQ(ErrorCode::OK,
                   GenerateKey(AuthorizationSetBuilder().EcdsaSigningKey(size).Digest(Digest::NONE)))
             << "Failed to generate size: " << size;
-        DeleteKey();
+        CheckedDeleteKey();
     }
 }
 
@@ -1177,7 +1237,7 @@ TEST_F(NewKeyGenerationTest, EcdsaAllValidCurves) {
             ErrorCode::OK,
             GenerateKey(AuthorizationSetBuilder().EcdsaSigningKey(curve).Digest(Digest::SHA_2_512)))
             << "Failed to generate key on curve: " << curve;
-        DeleteKey();
+        CheckedDeleteKey();
     }
 }
 
@@ -1227,7 +1287,7 @@ TEST_F(NewKeyGenerationTest, Hmac) {
             EXPECT_TRUE(softwareEnforced.Contains(TAG_KEY_SIZE, key_size));
         }
 
-        EXPECT_EQ(ErrorCode::OK, DeleteKey(&key_blob));
+        CheckedDeleteKey(&key_blob);
     }
 }
 
@@ -1255,7 +1315,7 @@ TEST_F(NewKeyGenerationTest, HmacCheckKeySizes) {
                                                      .HmacKey(key_size)
                                                      .Digest(Digest::SHA_2_256)
                                                      .Authorization(TAG_MIN_MAC_LENGTH, 256)));
-            DeleteKey();
+            CheckedDeleteKey();
         }
     }
 }
@@ -1287,7 +1347,7 @@ TEST_F(NewKeyGenerationTest, HmacCheckMinMacLengths) {
                                       .HmacKey(128)
                                       .Digest(Digest::SHA_2_256)
                                       .Authorization(TAG_MIN_MAC_LENGTH, min_mac_length)));
-            DeleteKey();
+            CheckedDeleteKey();
         }
     }
 }
@@ -1333,7 +1393,7 @@ typedef KeymasterHidlTest GetKeyCharacteristicsTest;
  */
 TEST_F(GetKeyCharacteristicsTest, SimpleRsa) {
     ASSERT_EQ(ErrorCode::OK, GenerateKey(AuthorizationSetBuilder()
-                                             .RsaSigningKey(256, 3)
+                                             .RsaSigningKey(1024, 3)
                                              .Digest(Digest::NONE)
                                              .Padding(PaddingMode::NONE)));
 
@@ -1677,7 +1737,7 @@ TEST_F(SigningOperationsTest, EcdsaAllSizesAndHashes) {
             string message(1024, 'a');
             if (digest == Digest::NONE) message.resize(key_size / 8);
             SignMessage(message, AuthorizationSetBuilder().Digest(digest));
-            DeleteKey();
+            CheckedDeleteKey();
         }
     }
 }
@@ -1698,7 +1758,7 @@ TEST_F(SigningOperationsTest, EcdsaAllCurves) {
 
         string message(1024, 'a');
         SignMessage(message, AuthorizationSetBuilder().Digest(Digest::SHA_2_256));
-        DeleteKey();
+        CheckedDeleteKey();
     }
 }
 
@@ -1759,7 +1819,7 @@ TEST_F(SigningOperationsTest, HmacAllDigests) {
         string signature = MacMessage(message, digest, 160);
         EXPECT_EQ(160U / 8U, signature.size())
             << "Failed to sign with HMAC key with digest " << digest;
-        DeleteKey();
+        CheckedDeleteKey();
     }
 }
 
@@ -2146,7 +2206,8 @@ TEST_F(VerificationOperationsTest, EcdsaAllDigestsAndCurves) {
                 << curve << ' ' << digest;
         }
 
-        ASSERT_EQ(ErrorCode::OK, DeleteKey());
+        auto rc = DeleteKey();
+        ASSERT_TRUE(rc == ErrorCode::OK || rc == ErrorCode::UNIMPLEMENTED);
     }
 }
 
@@ -2192,8 +2253,8 @@ TEST_F(VerificationOperationsTest, HmacSigningKeyCannotVerify) {
     VerifyMessage(verification_key, message, signature,
                   AuthorizationSetBuilder().Digest(Digest::SHA1));
 
-    EXPECT_EQ(ErrorCode::OK, DeleteKey(&signing_key));
-    EXPECT_EQ(ErrorCode::OK, DeleteKey(&verification_key));
+    CheckedDeleteKey(&signing_key);
+    CheckedDeleteKey(&verification_key);
 }
 
 typedef KeymasterHidlTest ExportKeyTest;
@@ -2205,7 +2266,7 @@ typedef KeymasterHidlTest ExportKeyTest;
  */
 TEST_F(ExportKeyTest, RsaUnsupportedKeyFormat) {
     ASSERT_EQ(ErrorCode::OK, GenerateKey(AuthorizationSetBuilder()
-                                             .RsaSigningKey(256, 3)
+                                             .RsaSigningKey(1024, 3)
                                              .Digest(Digest::NONE)
                                              .Padding(PaddingMode::NONE)));
     HidlBuf export_data;
@@ -2222,7 +2283,7 @@ TEST_F(ExportKeyTest, RsaUnsupportedKeyFormat) {
 TEST_F(ExportKeyTest, DISABLED_RsaCorruptedKeyBlob) {
     ASSERT_EQ(ErrorCode::OK, GenerateKey(AuthorizationSetBuilder()
                                              .Authorization(TAG_NO_AUTH_REQUIRED)
-                                             .RsaSigningKey(256, 3)
+                                             .RsaSigningKey(1024, 3)
                                              .Digest(Digest::NONE)
                                              .Padding(PaddingMode::NONE)));
     for (size_t i = 0; i < key_blob_.size(); ++i) {
@@ -2337,20 +2398,46 @@ TEST_F(ImportKeyTest, RsaPublicExponentMismatch) {
 /*
  * ImportKeyTest.EcdsaSuccess
  *
- * Verifies that importing and using an ECDSA key pair works correctly.
+ * Verifies that importing and using an ECDSA P-256 key pair works correctly.
  */
 TEST_F(ImportKeyTest, EcdsaSuccess) {
     ASSERT_EQ(ErrorCode::OK, ImportKey(AuthorizationSetBuilder()
                                            .Authorization(TAG_NO_AUTH_REQUIRED)
                                            .EcdsaSigningKey(256)
                                            .Digest(Digest::SHA_2_256),
-                                       KeyFormat::PKCS8, ec_key))
+                                       KeyFormat::PKCS8, ec_256_key))
         << "(Possibly b/33945114)";
 
     CheckKm0CryptoParam(TAG_ALGORITHM, Algorithm::EC);
     CheckKm0CryptoParam(TAG_KEY_SIZE, 256U);
     CheckKm1CryptoParam(TAG_DIGEST, Digest::SHA_2_256);
     CheckKm2CryptoParam(TAG_EC_CURVE, EcCurve::P_256);
+
+    CheckOrigin();
+
+    string message(32, 'a');
+    auto params = AuthorizationSetBuilder().Digest(Digest::SHA_2_256);
+    string signature = SignMessage(message, params);
+    VerifyMessage(message, signature, params);
+}
+
+/*
+ * ImportKeyTest.Ecdsa521Success
+ *
+ * Verifies that importing and using an ECDSA P-521 key pair works correctly.
+ */
+TEST_F(ImportKeyTest, Ecdsa521Success) {
+    ASSERT_EQ(ErrorCode::OK, ImportKey(AuthorizationSetBuilder()
+                                           .Authorization(TAG_NO_AUTH_REQUIRED)
+                                           .EcdsaSigningKey(521)
+                                           .Digest(Digest::SHA_2_256),
+                                       KeyFormat::PKCS8, ec_521_key))
+        << "(Possibly b/33945114)";
+
+    CheckKm0CryptoParam(TAG_ALGORITHM, Algorithm::EC);
+    CheckKm0CryptoParam(TAG_KEY_SIZE, 521U);
+    CheckKm1CryptoParam(TAG_DIGEST, Digest::SHA_2_256);
+    CheckKm2CryptoParam(TAG_EC_CURVE, EcCurve::P_521);
 
     CheckOrigin();
 
@@ -2371,7 +2458,7 @@ TEST_F(ImportKeyTest, EcdsaSizeMismatch) {
               ImportKey(AuthorizationSetBuilder()
                             .EcdsaSigningKey(224 /* Doesn't match key */)
                             .Digest(Digest::NONE),
-                        KeyFormat::PKCS8, ec_key));
+                        KeyFormat::PKCS8, ec_256_key));
 }
 
 /*
@@ -2386,11 +2473,12 @@ TEST_F(ImportKeyTest, EcdsaCurveMismatch) {
         return;
     }
 
-    ASSERT_EQ(ErrorCode::IMPORT_PARAMETER_MISMATCH,
-              ImportKey(AuthorizationSetBuilder()
-                            .EcdsaSigningKey(EcCurve::P_224 /* Doesn't match key */)
-                            .Digest(Digest::NONE),
-                        KeyFormat::PKCS8, ec_key))
+    ASSERT_EQ(
+        ErrorCode::IMPORT_PARAMETER_MISMATCH,
+        ImportKey(AuthorizationSetBuilder()
+                      .EcdsaSigningKey(EcCurve::P_224 /* Doesn't match key */)
+                      .Digest(Digest::NONE),
+                  KeyFormat::PKCS8, ec_256_key))
         << "(Possibly b/36233241)";
 }
 
@@ -3441,14 +3529,14 @@ TEST_F(EncryptionOperationsTest, AesGcmCorruptKey) {
     string key = make_string(key_bytes);
     ASSERT_EQ(ErrorCode::OK, ImportKey(import_params, KeyFormat::RAW, key));
     string plaintext = DecryptMessage(ciphertext, params);
-    EXPECT_EQ(ErrorCode::OK, DeleteKey());
+    CheckedDeleteKey();
 
     // Corrupt key and attempt to decrypt
     key[0] = 0;
     ASSERT_EQ(ErrorCode::OK, ImportKey(import_params, KeyFormat::RAW, key));
     EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::DECRYPT, params));
     EXPECT_EQ(ErrorCode::VERIFICATION_FAILED, Finish(ciphertext, &plaintext));
-    EXPECT_EQ(ErrorCode::OK, DeleteKey());
+    CheckedDeleteKey();
 }
 
 /*
@@ -3839,13 +3927,11 @@ TEST_F(AttestationTest, RsaAttestation) {
                                              .Authorization(TAG_INCLUDE_UNIQUE_ID)));
 
     hidl_vec<hidl_vec<uint8_t>> cert_chain;
-    EXPECT_EQ(
-        ErrorCode::OK,
-        AttestKey(
-            AuthorizationSetBuilder()
-                .Authorization(TAG_ATTESTATION_CHALLENGE, HidlBuf("challenge"))
-                .Authorization(TAG_ATTESTATION_APPLICATION_ID, HidlBuf("foo")),
-            &cert_chain));
+    ASSERT_EQ(ErrorCode::OK,
+              AttestKey(AuthorizationSetBuilder()
+                            .Authorization(TAG_ATTESTATION_CHALLENGE, HidlBuf("challenge"))
+                            .Authorization(TAG_ATTESTATION_APPLICATION_ID, HidlBuf("foo")),
+                        &cert_chain));
     EXPECT_GE(cert_chain.size(), 2U);
     EXPECT_TRUE(verify_chain(cert_chain));
     EXPECT_TRUE(
@@ -3889,13 +3975,11 @@ TEST_F(AttestationTest, EcAttestation) {
                                              .Authorization(TAG_INCLUDE_UNIQUE_ID)));
 
     hidl_vec<hidl_vec<uint8_t>> cert_chain;
-    EXPECT_EQ(
-        ErrorCode::OK,
-        AttestKey(
-            AuthorizationSetBuilder()
-                .Authorization(TAG_ATTESTATION_CHALLENGE, HidlBuf("challenge"))
-                .Authorization(TAG_ATTESTATION_APPLICATION_ID, HidlBuf("foo")),
-            &cert_chain));
+    ASSERT_EQ(ErrorCode::OK,
+              AttestKey(AuthorizationSetBuilder()
+                            .Authorization(TAG_ATTESTATION_CHALLENGE, HidlBuf("challenge"))
+                            .Authorization(TAG_ATTESTATION_APPLICATION_ID, HidlBuf("foo")),
+                        &cert_chain));
     EXPECT_GE(cert_chain.size(), 2U);
     EXPECT_TRUE(verify_chain(cert_chain));
 
@@ -4008,7 +4092,8 @@ TEST_F(KeyDeletionTest, DeleteKey) {
             Begin(KeyPurpose::SIGN, key_blob_, AuthorizationSetBuilder()
                                                    .Digest(Digest::NONE)
                                                    .Padding(PaddingMode::NONE),
-                  &begin_out_params, &op_handle_));
+                  &begin_out_params, &op_handle_))
+            << " (Possibly b/37623742)";
     } else {
         EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::SIGN, key_blob_,
                                        AuthorizationSetBuilder()
@@ -4110,6 +4195,9 @@ int main(int argc, char** argv) {
         if (argv[i][0] == '-') {
             if (std::string(argv[i]) == "--arm_deleteAllKeys") {
                 arm_deleteAllKeys = true;
+            }
+            if (std::string(argv[i]) == "--dump_attestations") {
+                dump_Attestations = true;
             }
         } else {
             positional_args.push_back(argv[i]);

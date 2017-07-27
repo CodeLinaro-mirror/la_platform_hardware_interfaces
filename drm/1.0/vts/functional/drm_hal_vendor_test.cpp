@@ -16,7 +16,6 @@
 
 #define LOG_TAG "drm_hal_vendor_test@1.0"
 
-#include <android-base/logging.h>
 #include <android/hardware/drm/1.0/ICryptoFactory.h>
 #include <android/hardware/drm/1.0/ICryptoPlugin.h>
 #include <android/hardware/drm/1.0/IDrmFactory.h>
@@ -27,8 +26,8 @@
 #include <gtest/gtest.h>
 #include <hidlmemory/mapping.h>
 #include <log/log.h>
-#include <openssl/aes.h>
 #include <memory>
+#include <openssl/aes.h>
 #include <random>
 
 #include "drm_hal_vendor_module_api.h"
@@ -129,7 +128,7 @@ class DrmHalVendorFactoryTest : public testing::TestWithParam<std::string> {
         // Do the same for the crypto factory
         cryptoFactory = VtsTestBase::getService<ICryptoFactory>(name);
         if (cryptoFactory == nullptr) {
-            VtsTestBase::getService<ICryptoFactory>();
+            cryptoFactory = VtsTestBase::getService<ICryptoFactory>();
         }
         ASSERT_NE(cryptoFactory, nullptr);
 

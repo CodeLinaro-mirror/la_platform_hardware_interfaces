@@ -36,6 +36,7 @@ using ::android::hardware::media::omx::V1_0::IOmxNode;
 using ::android::hardware::media::omx::V1_0::Message;
 using ::android::hardware::media::omx::V1_0::CodecBuffer;
 using ::android::hardware::media::omx::V1_0::PortMode;
+using ::android::hardware::media::omx::V1_0::Status;
 using ::android::hidl::allocator::V1_0::IAllocator;
 using ::android::hidl::memory::V1_0::IMemory;
 using ::android::hidl::memory::V1_0::IMapper;
@@ -50,6 +51,121 @@ using ::android::sp;
 #include <media/hardware/HardwareAPI.h>
 #include <media_hidl_test_common.h>
 #include <memory>
+
+// set component role
+Return<android::hardware::media::omx::V1_0::Status> setRole(
+    sp<IOmxNode> omxNode, const char* role) {
+    OMX_PARAM_COMPONENTROLETYPE params;
+    strcpy((char*)params.cRole, role);
+    return setParam(omxNode, OMX_IndexParamStandardComponentRole, &params);
+}
+
+// get/set video component port format
+Return<android::hardware::media::omx::V1_0::Status> setVideoPortFormat(
+    sp<IOmxNode> omxNode, OMX_U32 portIndex,
+    OMX_VIDEO_CODINGTYPE eCompressionFormat, OMX_COLOR_FORMATTYPE eColorFormat,
+    OMX_U32 xFramerate) {
+    OMX_U32 index = 0;
+    OMX_VIDEO_PARAM_PORTFORMATTYPE portFormat;
+    std::vector<OMX_COLOR_FORMATTYPE> arrColorFormat;
+    std::vector<OMX_VIDEO_CODINGTYPE> arrCompressionFormat;
+    android::hardware::media::omx::V1_0::Status status;
+
+    while (1) {
+        portFormat.nIndex = index;
+        status = getPortParam(omxNode, OMX_IndexParamVideoPortFormat, portIndex,
+                              &portFormat);
+        if (status != ::android::hardware::media::omx::V1_0::Status::OK) break;
+        if (eCompressionFormat == OMX_VIDEO_CodingUnused)
+            arrColorFormat.push_back(portFormat.eColorFormat);
+        else
+            arrCompressionFormat.push_back(portFormat.eCompressionFormat);
+        index++;
+        if (index == 512) {
+            // enumerated way too many formats, highly unusual for this to
+            // happen.
+            EXPECT_LE(index, 512U)
+                << "Expecting OMX_ErrorNoMore but not received";
+            break;
+        }
+    }
+    if (!index) return status;
+    if (eCompressionFormat == OMX_VIDEO_CodingUnused) {
+        for (index = 0; index < arrColorFormat.size(); index++) {
+            if (arrColorFormat[index] == eColorFormat) {
+                portFormat.eColorFormat = arrColorFormat[index];
+                break;
+            }
+        }
+        if (index == arrColorFormat.size()) {
+            ALOGE("setting default color format %x", (int)arrColorFormat[0]);
+            portFormat.eColorFormat = arrColorFormat[0];
+        }
+        portFormat.eCompressionFormat = OMX_VIDEO_CodingUnused;
+    } else {
+        for (index = 0; index < arrCompressionFormat.size(); index++) {
+            if (arrCompressionFormat[index] == eCompressionFormat) {
+                portFormat.eCompressionFormat = arrCompressionFormat[index];
+                break;
+            }
+        }
+        if (index == arrCompressionFormat.size()) {
+            ALOGE("setting default compression format %x",
+                  (int)arrCompressionFormat[0]);
+            portFormat.eCompressionFormat = arrCompressionFormat[0];
+        }
+        portFormat.eColorFormat = OMX_COLOR_FormatUnused;
+    }
+    // In setParam call nIndex shall be ignored as per omx-il specification.
+    // see how this holds up by corrupting nIndex
+    portFormat.nIndex = RANDOM_INDEX;
+    portFormat.xFramerate = xFramerate;
+    status = setPortParam(omxNode, OMX_IndexParamVideoPortFormat, portIndex,
+                          &portFormat);
+    return status;
+}
+
+// get/set audio component port format
+Return<android::hardware::media::omx::V1_0::Status> setAudioPortFormat(
+    sp<IOmxNode> omxNode, OMX_U32 portIndex, OMX_AUDIO_CODINGTYPE eEncoding) {
+    OMX_U32 index = 0;
+    OMX_AUDIO_PARAM_PORTFORMATTYPE portFormat;
+    std::vector<OMX_AUDIO_CODINGTYPE> arrEncoding;
+    android::hardware::media::omx::V1_0::Status status;
+
+    while (1) {
+        portFormat.nIndex = index;
+        status = getPortParam(omxNode, OMX_IndexParamAudioPortFormat, portIndex,
+                              &portFormat);
+        if (status != ::android::hardware::media::omx::V1_0::Status::OK) break;
+        arrEncoding.push_back(portFormat.eEncoding);
+        index++;
+        if (index == 512) {
+            // enumerated way too many formats, highly unusual for this to
+            // happen.
+            EXPECT_LE(index, 512U)
+                << "Expecting OMX_ErrorNoMore but not received";
+            break;
+        }
+    }
+    if (!index) return status;
+    for (index = 0; index < arrEncoding.size(); index++) {
+        if (arrEncoding[index] == eEncoding) {
+            portFormat.eEncoding = arrEncoding[index];
+            break;
+        }
+    }
+    if (index == arrEncoding.size()) {
+        ALOGE("setting default Port format %x", (int)arrEncoding[0]);
+        portFormat.eEncoding = arrEncoding[0];
+    }
+    // In setParam call nIndex shall be ignored as per omx-il specification.
+    // see how this holds up by corrupting nIndex
+    portFormat.nIndex = RANDOM_INDEX;
+    status = setPortParam(omxNode, OMX_IndexParamAudioPortFormat, portIndex,
+                          &portFormat);
+    return status;
+}
 
 // allocate buffers needed on a component port
 void allocatePortBuffers(sp<IOmxNode> omxNode,
@@ -293,51 +409,59 @@ size_t getEmptyBufferID(android::Vector<BufferInfo>* buffArray) {
 void dispatchOutputBuffer(sp<IOmxNode> omxNode,
                           android::Vector<BufferInfo>* buffArray,
                           size_t bufferIndex, PortMode portMode) {
-    if (portMode == PortMode::DYNAMIC_ANW_BUFFER) {
-        android::hardware::media::omx::V1_0::Status status;
-        CodecBuffer t = (*buffArray)[bufferIndex].omxBuffer;
-        t.type = CodecBuffer::Type::ANW_BUFFER;
-        native_handle_t* fenceNh = native_handle_create(0, 0);
-        ASSERT_NE(fenceNh, nullptr);
-        status = omxNode->fillBuffer((*buffArray)[bufferIndex].id, t, fenceNh);
-        native_handle_close(fenceNh);
-        native_handle_delete(fenceNh);
-        ASSERT_EQ(status, android::hardware::media::omx::V1_0::Status::OK);
-        buffArray->editItemAt(bufferIndex).owner = component;
-    } else {
-        android::hardware::media::omx::V1_0::Status status;
-        CodecBuffer t;
-        t.sharedMemory = android::hardware::hidl_memory();
-        t.nativeHandle = android::hardware::hidl_handle();
-        t.type = CodecBuffer::Type::PRESET;
-        t.attr.preset.rangeOffset = 0;
-        t.attr.preset.rangeLength = 0;
-        native_handle_t* fenceNh = native_handle_create(0, 0);
-        ASSERT_NE(fenceNh, nullptr);
-        status = omxNode->fillBuffer((*buffArray)[bufferIndex].id, t, fenceNh);
-        native_handle_close(fenceNh);
-        native_handle_delete(fenceNh);
-        ASSERT_EQ(status, android::hardware::media::omx::V1_0::Status::OK);
-        buffArray->editItemAt(bufferIndex).owner = component;
+    android::hardware::media::omx::V1_0::Status status;
+    CodecBuffer t;
+    native_handle_t* fenceNh = native_handle_create(0, 0);
+    ASSERT_NE(fenceNh, nullptr);
+    switch (portMode) {
+        case PortMode::DYNAMIC_ANW_BUFFER:
+            t = (*buffArray)[bufferIndex].omxBuffer;
+            t.type = CodecBuffer::Type::ANW_BUFFER;
+            status =
+                omxNode->fillBuffer((*buffArray)[bufferIndex].id, t, fenceNh);
+            break;
+        case PortMode::PRESET_SECURE_BUFFER:
+        case PortMode::PRESET_BYTE_BUFFER:
+            t.sharedMemory = android::hardware::hidl_memory();
+            t.nativeHandle = android::hardware::hidl_handle();
+            t.type = CodecBuffer::Type::PRESET;
+            t.attr.preset.rangeOffset = 0;
+            t.attr.preset.rangeLength = 0;
+            status =
+                omxNode->fillBuffer((*buffArray)[bufferIndex].id, t, fenceNh);
+            break;
+        default:
+            status = Status::NAME_NOT_FOUND;
     }
+    native_handle_close(fenceNh);
+    native_handle_delete(fenceNh);
+    ASSERT_EQ(status, android::hardware::media::omx::V1_0::Status::OK);
+    buffArray->editItemAt(bufferIndex).owner = component;
 }
 
 // dispatch buffer to input port
 void dispatchInputBuffer(sp<IOmxNode> omxNode,
                          android::Vector<BufferInfo>* buffArray,
                          size_t bufferIndex, int bytesCount, uint32_t flags,
-                         uint64_t timestamp) {
+                         uint64_t timestamp, PortMode portMode) {
     android::hardware::media::omx::V1_0::Status status;
     CodecBuffer t;
-    t.sharedMemory = android::hardware::hidl_memory();
-    t.nativeHandle = android::hardware::hidl_handle();
-    t.type = CodecBuffer::Type::PRESET;
-    t.attr.preset.rangeOffset = 0;
-    t.attr.preset.rangeLength = bytesCount;
     native_handle_t* fenceNh = native_handle_create(0, 0);
     ASSERT_NE(fenceNh, nullptr);
-    status = omxNode->emptyBuffer((*buffArray)[bufferIndex].id, t, flags,
-                                  timestamp, fenceNh);
+    switch (portMode) {
+        case PortMode::PRESET_SECURE_BUFFER:
+        case PortMode::PRESET_BYTE_BUFFER:
+            t.sharedMemory = android::hardware::hidl_memory();
+            t.nativeHandle = android::hardware::hidl_handle();
+            t.type = CodecBuffer::Type::PRESET;
+            t.attr.preset.rangeOffset = 0;
+            t.attr.preset.rangeLength = bytesCount;
+            status = omxNode->emptyBuffer((*buffArray)[bufferIndex].id, t,
+                                          flags, timestamp, fenceNh);
+            break;
+        default:
+            status = Status::NAME_NOT_FOUND;
+    }
     native_handle_close(fenceNh);
     native_handle_delete(fenceNh);
     ASSERT_EQ(status, android::hardware::media::omx::V1_0::Status::OK);
@@ -425,8 +549,15 @@ void testEOS(sp<IOmxNode> omxNode, sp<CodecObserver> observer,
         Message msg;
         status =
             observer->dequeueMessage(&msg, DEFAULT_TIMEOUT, iBuffer, oBuffer);
-        EXPECT_EQ(status,
-                  android::hardware::media::omx::V1_0::Status::TIMED_OUT);
+        if (status == android::hardware::media::omx::V1_0::Status::OK) {
+            if (msg.data.eventData.event == OMX_EventBufferFlag) {
+                // soft omx components donot send this, we will just ignore it
+                // for now
+            } else {
+                // something unexpected happened
+                EXPECT_TRUE(false);
+            }
+        }
         if (eosFlag == true) break;
     }
     // test for flag

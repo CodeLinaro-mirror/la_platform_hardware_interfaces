@@ -209,12 +209,13 @@ class VideoDecHidlTest : public ::testing::VtsHalHidlTargetTestBase {
         isSecure = false;
         size_t suffixLen = strlen(".secure");
         if (strlen(gEnv->getComponent().c_str()) >= suffixLen) {
+            isSecure =
+                !strcmp(gEnv->getComponent().c_str() +
+                            strlen(gEnv->getComponent().c_str()) - suffixLen,
+                        ".secure");
         }
-        isSecure = !strcmp(gEnv->getComponent().c_str() +
-                               strlen(gEnv->getComponent().c_str()) - suffixLen,
-                           ".secure");
         if (isSecure) disableTest = true;
-        if (disableTest) std::cerr << "[          ] Warning !  Test Disabled\n";
+        if (disableTest) std::cout << "[          ] Warning !  Test Disabled\n";
     }
 
     virtual void TearDown() override {
@@ -257,7 +258,7 @@ class VideoDecHidlTest : public ::testing::VtsHalHidlTargetTestBase {
                             EXPECT_EQ(tsHit, true)
                                 << "TimeStamp not recognized";
                         } else {
-                            std::cerr
+                            std::cout
                                 << "[          ] Warning ! Received non-zero "
                                    "output / TimeStamp not recognized \n";
                         }
@@ -478,7 +479,8 @@ void portReconfiguration(sp<IOmxNode> omxNode, sp<CodecObserver> observer,
 
     if (msg.data.eventData.event == OMX_EventPortSettingsChanged) {
         ASSERT_EQ(msg.data.eventData.data1, kPortIndexOutput);
-        if (msg.data.eventData.data2 == 0) {
+        if (msg.data.eventData.data2 == OMX_IndexParamPortDefinition ||
+            msg.data.eventData.data2 == 0) {
             status = omxNode->sendCommand(
                 toRawCommandType(OMX_CommandPortDisable), kPortIndexOutput);
             ASSERT_EQ(status, android::hardware::media::omx::V1_0::Status::OK);
@@ -532,6 +534,20 @@ void portReconfiguration(sp<IOmxNode> omxNode, sp<CodecObserver> observer,
 
                 allocatePortBuffers(omxNode, oBuffer, kPortIndexOutput,
                                     oPortMode);
+                if (oPortMode != PortMode::PRESET_BYTE_BUFFER) {
+                    OMX_PARAM_PORTDEFINITIONTYPE portDef;
+
+                    status = getPortParam(omxNode, OMX_IndexParamPortDefinition,
+                                          kPortIndexOutput, &portDef);
+                    ASSERT_EQ(
+                        status,
+                        ::android::hardware::media::omx::V1_0::Status::OK);
+                    allocateGraphicBuffers(omxNode, kPortIndexOutput, oBuffer,
+                                           portDef.format.video.nFrameWidth,
+                                           portDef.format.video.nFrameHeight,
+                                           &portDef.format.video.nStride,
+                                           portDef.nBufferCountActual);
+                }
                 status = observer->dequeueMessage(&msg, DEFAULT_TIMEOUT,
                                                   iBuffer, oBuffer);
                 ASSERT_EQ(status,
@@ -549,16 +565,19 @@ void portReconfiguration(sp<IOmxNode> omxNode, sp<CodecObserver> observer,
             }
         } else if (msg.data.eventData.data2 ==
                    OMX_IndexConfigCommonOutputCrop) {
-            std::cerr << "[          ] Warning ! OMX_EventPortSettingsChanged/ "
+            std::cout << "[          ] Warning ! OMX_EventPortSettingsChanged/ "
                          "OMX_IndexConfigCommonOutputCrop not handled \n";
         } else if (msg.data.eventData.data2 == OMX_IndexVendorStartUnused + 3) {
-            std::cerr << "[          ] Warning ! OMX_EventPortSettingsChanged/ "
+            std::cout << "[          ] Warning ! OMX_EventPortSettingsChanged/ "
                          "kDescribeColorAspectsIndex not handled \n";
         }
     } else if (msg.data.eventData.event == OMX_EventError) {
-        std::cerr << "[          ] Warning ! OMX_EventError/ "
+        std::cout << "[          ] Warning ! OMX_EventError/ "
                      "Decode Frame Call might be failed \n";
         return;
+    } else if (msg.data.eventData.event == OMX_EventBufferFlag) {
+        // soft omx components donot send this, we will just ignore it
+        // for now
     } else {
         // something unexpected happened
         ASSERT_TRUE(false);
@@ -766,25 +785,15 @@ TEST_F(VideoDecHidlTest, DecodeTest) {
     eleInfo.close();
 
     // set port mode
-    if (isSecure) {
-        portMode[0] = PortMode::PRESET_SECURE_BUFFER;
-        portMode[1] = PortMode::DYNAMIC_ANW_BUFFER;
-        status = omxNode->setPortMode(kPortIndexInput, portMode[0]);
-        ASSERT_EQ(status, ::android::hardware::media::omx::V1_0::Status::OK);
+    portMode[0] = PortMode::PRESET_BYTE_BUFFER;
+    portMode[1] = PortMode::DYNAMIC_ANW_BUFFER;
+    status = omxNode->setPortMode(kPortIndexInput, portMode[0]);
+    ASSERT_EQ(status, ::android::hardware::media::omx::V1_0::Status::OK);
+    status = omxNode->setPortMode(kPortIndexOutput, portMode[1]);
+    if (status != ::android::hardware::media::omx::V1_0::Status::OK) {
+        portMode[1] = PortMode::PRESET_BYTE_BUFFER;
         status = omxNode->setPortMode(kPortIndexOutput, portMode[1]);
         ASSERT_EQ(status, ::android::hardware::media::omx::V1_0::Status::OK);
-    } else {
-        portMode[0] = PortMode::PRESET_BYTE_BUFFER;
-        portMode[1] = PortMode::DYNAMIC_ANW_BUFFER;
-        status = omxNode->setPortMode(kPortIndexInput, portMode[0]);
-        ASSERT_EQ(status, ::android::hardware::media::omx::V1_0::Status::OK);
-        status = omxNode->setPortMode(kPortIndexOutput, portMode[1]);
-        if (status != ::android::hardware::media::omx::V1_0::Status::OK) {
-            portMode[1] = PortMode::PRESET_BYTE_BUFFER;
-            status = omxNode->setPortMode(kPortIndexOutput, portMode[1]);
-            ASSERT_EQ(status,
-                      ::android::hardware::media::omx::V1_0::Status::OK);
-        }
     }
 
     // set Port Params
@@ -1053,11 +1062,11 @@ TEST_F(VideoDecHidlTest, SimpleEOSTest) {
     ASSERT_EQ(eleStream.is_open(), true);
     decodeNFrames(omxNode, observer, &iBuffer, &oBuffer, kPortIndexInput,
                   kPortIndexOutput, eleStream, &Info, 0, (int)Info.size(),
-                  portMode[1]);
+                  portMode[1], false);
     eleStream.close();
     waitOnInputConsumption(omxNode, observer, &iBuffer, &oBuffer,
                            kPortIndexInput, kPortIndexOutput, portMode[1]);
-    testEOS(omxNode, observer, &iBuffer, &oBuffer, false, eosFlag, portMode);
+    testEOS(omxNode, observer, &iBuffer, &oBuffer, true, eosFlag, portMode);
     flushPorts(omxNode, observer, &iBuffer, &oBuffer, kPortIndexInput,
                kPortIndexOutput);
     framesReceived = 0;

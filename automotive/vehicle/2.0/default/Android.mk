@@ -37,12 +37,36 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := \
 LOCAL_SHARED_LIBRARIES := \
     libhidlbase \
     libhidltransport \
-    libhwbinder \
     liblog \
     libutils \
     $(vhal_v2_0) \
 
 include $(BUILD_STATIC_LIBRARY)
+
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := $(vhal_v2_0)-manager-lib-shared
+LOCAL_SRC_FILES := \
+    common/src/SubscriptionManager.cpp \
+    common/src/VehicleHalManager.cpp \
+    common/src/VehicleObjectPool.cpp \
+    common/src/VehiclePropertyStore.cpp \
+    common/src/VehicleUtils.cpp \
+
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/common/include/vhal_v2_0
+
+LOCAL_EXPORT_C_INCLUDE_DIRS := \
+    $(LOCAL_PATH)/common/include
+
+LOCAL_SHARED_LIBRARIES := \
+    libhidlbase \
+    libhidltransport \
+    liblog \
+    libutils \
+    $(vhal_v2_0) \
+
+include $(BUILD_SHARED_LIBRARY)
 
 ###############################################################################
 # Vehicle HAL Protobuf library
@@ -91,13 +115,13 @@ LOCAL_SHARED_LIBRARIES := \
     libbase \
     libhidlbase \
     libhidltransport \
-    libhwbinder \
     liblog \
     libprotobuf-cpp-lite \
     libutils \
     $(vhal_v2_0) \
 
 LOCAL_STATIC_LIBRARIES := \
+    libqemu_pipe \
     $(vhal_v2_0)-libproto-native \
 
 LOCAL_CFLAGS += -Wall -Wextra -Werror
@@ -122,10 +146,12 @@ LOCAL_SRC_FILES:= \
     tests/VehicleObjectPool_test.cpp \
     tests/VehiclePropConfigIndex_test.cpp \
 
+LOCAL_HEADER_LIBRARIES := \
+    libbase_headers
+
 LOCAL_SHARED_LIBRARIES := \
     libhidlbase \
     libhidltransport \
-    libhwbinder \
     liblog \
     libutils \
     $(vhal_v2_0) \
@@ -152,7 +178,6 @@ LOCAL_SHARED_LIBRARIES := \
     libbase \
     libhidlbase \
     libhidltransport \
-    libhwbinder \
     liblog \
     libprotobuf-cpp-lite \
     libutils \
@@ -162,6 +187,7 @@ LOCAL_STATIC_LIBRARIES := \
     $(vhal_v2_0)-manager-lib \
     $(vhal_v2_0)-default-impl-lib \
     $(vhal_v2_0)-libproto-native \
+    libqemu_pipe \
 
 LOCAL_CFLAGS += -Wall -Wextra -Werror
 
