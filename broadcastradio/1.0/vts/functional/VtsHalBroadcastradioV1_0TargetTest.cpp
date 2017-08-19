@@ -46,7 +46,8 @@ using ::android::hardware::broadcastradio::V1_0::BandConfig;
 using ::android::hardware::broadcastradio::V1_0::Direction;
 using ::android::hardware::broadcastradio::V1_0::ProgramInfo;
 using ::android::hardware::broadcastradio::V1_0::MetaData;
-
+using ::android::hardware::broadcastradio::V1_0::MetadataKey;
+using ::android::hardware::broadcastradio::V1_0::MetadataType;
 
 #define RETURN_IF_SKIPPED \
     if (skipped) { \
@@ -228,7 +229,18 @@ class BroadcastRadioHidlTest : public ::testing::VtsHalHidlTargetTestBase,
     bool getProperties();
     bool openTuner();
     bool checkAntenna();
-    BandConfig& getBand(unsigned idx);
+
+    /**
+     * Retrieves AM/FM band configuration from module properties.
+     *
+     * The configuration may not exist: if radio type is other than AM/FM
+     * or provided index is out of bounds.
+     * In such case, empty configuration is returned.
+     *
+     * @param idx Band index to retrieve.
+     * @return Band configuration reference.
+     */
+    const BandConfig& getBand(unsigned idx);
 
     static const nsecs_t kConnectCallbacktimeoutNs = seconds_to_nanoseconds(1);
     static const nsecs_t kConfigCallbacktimeoutNs = seconds_to_nanoseconds(10);
@@ -348,7 +360,7 @@ bool BroadcastRadioHidlTest::checkAntenna()
     return ((halResult == Result::OK) && (halConfig.antennaConnected == true));
 }
 
-BandConfig& BroadcastRadioHidlTest::getBand(unsigned idx) {
+const BandConfig& BroadcastRadioHidlTest::getBand(unsigned idx) {
     static BandConfig dummyBandConfig = {};
     if (radioClass == Class::AM_FM) {
         EXPECT_GT(mHalProperties.bands.size(), idx);
@@ -418,8 +430,12 @@ TEST_P(BroadcastRadioHidlTest, OpenTunerTwice) {
     auto openCb = [&](Result result, const sp<ITuner>&) { halResult = result; };
     auto hidlReturn = mRadio->openTuner(getBand(0), true, mTunerCallback, openCb);
     EXPECT_TRUE(hidlReturn.isOk());
-    if (halResult == Result::INVALID_STATE) {
-        EXPECT_TRUE(waitForCallback(kConfigCallbacktimeoutNs));
+    if (halResult == Result::OK) {
+        if (radioClass == Class::AM_FM) {
+            EXPECT_TRUE(waitForCallback(kConfigCallbacktimeoutNs));
+        }
+    } else {
+        EXPECT_EQ(Result::INVALID_STATE, halResult);
     }
 }
 
@@ -431,6 +447,9 @@ TEST_P(BroadcastRadioHidlTest, OpenTunerTwice) {
  *  - the methods return 0 (no error)
  *  - the configuration callback is received within kConfigCallbacktimeoutNs ns
  *  - the configuration read back from HAl has the same class Id
+ *
+ * Skipped for other radio classes than AM/FM, because setConfiguration
+ * applies only for these bands.
  */
 TEST_P(BroadcastRadioHidlTest, SetAndGetConfiguration) {
     if (radioClass != Class::AM_FM) skipped = true;
@@ -466,6 +485,9 @@ TEST_P(BroadcastRadioHidlTest, SetAndGetConfiguration) {
  * Verifies that:
  *  - the methods returns INVALID_ARGUMENTS on invalid arguments
  *  - the method recovers and succeeds after passing correct arguments
+ *
+ * Skipped for other radio classes than AM/FM, because setConfiguration
+ * applies only for these bands.
  */
 TEST_P(BroadcastRadioHidlTest, SetConfigurationFails) {
     if (radioClass != Class::AM_FM) skipped = true;
@@ -530,6 +552,9 @@ TEST_P(BroadcastRadioHidlTest, Scan) {
  *  - the method returns 0 (no error)
  *  - the tuned callback is received within kTuneCallbacktimeoutNs ns
  *  - skipping sub-channel or not does not fail the call
+ *
+ * Skipped for other radio classes than AM/FM, because step is not possible
+ * on DAB nor satellite.
  */
 TEST_P(BroadcastRadioHidlTest, Step) {
     if (radioClass != Class::AM_FM) skipped = true;
@@ -558,6 +583,9 @@ TEST_P(BroadcastRadioHidlTest, Step) {
  *  - the HAL implements the methods
  *  - the methods return 0 (no error)
  *  - the tuned callback is received within kTuneCallbacktimeoutNs ns after tune()
+ *
+ * Skipped for other radio classes than AM/FM, because tune to frequency
+ * is not possible on DAB nor satellite.
  */
 TEST_P(BroadcastRadioHidlTest, TuneAndGetProgramInformationAndCancel) {
     if (radioClass != Class::AM_FM) skipped = true;
@@ -616,6 +644,9 @@ TEST_P(BroadcastRadioHidlTest, TuneAndGetProgramInformationAndCancel) {
  * Verifies that:
  *  - the method returns INVALID_ARGUMENTS when applicable
  *  - the method recovers and succeeds after passing correct arguments
+ *
+ * Skipped for other radio classes than AM/FM, because tune to frequency
+ * is not possible on DAB nor satellite.
  */
 TEST_P(BroadcastRadioHidlTest, TuneFailsOutOfBounds) {
     if (radioClass != Class::AM_FM) skipped = true;
@@ -646,6 +677,52 @@ TEST_P(BroadcastRadioHidlTest, TuneFailsOutOfBounds) {
     EXPECT_TRUE(tuneResult.isOk());
     EXPECT_EQ(Result::OK, tuneResult);
     EXPECT_TRUE(waitForCallback(kTuneCallbacktimeoutNs));
+}
+
+/**
+ * Test proper image format in metadata.
+ *
+ * Verifies that:
+ * - all images in metadata are provided in-band (as a binary blob, not by id)
+ *
+ * This is a counter-test for OobImagesOnly from 1.1 VTS.
+ */
+TEST_P(BroadcastRadioHidlTest, IbImagesOnly) {
+    RETURN_IF_SKIPPED;
+    ASSERT_TRUE(openTuner());
+    ASSERT_TRUE(checkAntenna());
+
+    bool firstScan = true;
+    uint32_t firstChannel, prevChannel;
+    while (true) {
+        mCallbackCalled = false;
+        auto hidlResult = mTuner->scan(Direction::UP, true);
+        ASSERT_TRUE(hidlResult.isOk());
+        if (hidlResult == Result::TIMEOUT) {
+            ALOGI("Got timeout on scan operation");
+            break;
+        }
+        ASSERT_EQ(Result::OK, hidlResult);
+        ASSERT_EQ(true, waitForCallback(kTuneCallbacktimeoutNs));
+
+        if (firstScan) {
+            firstScan = false;
+            firstChannel = mProgramInfoCallbackData.channel;
+        } else {
+            // scanned the whole band
+            if (mProgramInfoCallbackData.channel >= firstChannel && prevChannel <= firstChannel) {
+                break;
+            }
+        }
+        prevChannel = mProgramInfoCallbackData.channel;
+
+        for (auto&& entry : mProgramInfoCallbackData.metadata) {
+            if (entry.key != MetadataKey::ICON && entry.key != MetadataKey::ART) continue;
+            EXPECT_EQ(MetadataType::RAW, entry.type);
+            EXPECT_EQ(0, entry.intValue);
+            EXPECT_GT(entry.rawValue.size(), 0u);
+        }
+    }
 }
 
 INSTANTIATE_TEST_CASE_P(

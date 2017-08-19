@@ -94,10 +94,10 @@ class DrmHalClearkeyFactoryTest : public ::testing::VtsHalHidlTargetTestBase {
 
         drmFactory =
                 ::testing::VtsHalHidlTargetTestBase::getService<IDrmFactory>();
-        ASSERT_NE(drmFactory, nullptr);
+        ASSERT_NE(nullptr, drmFactory.get());
         cryptoFactory =
                 ::testing::VtsHalHidlTargetTestBase::getService<ICryptoFactory>();
-        ASSERT_NE(cryptoFactory, nullptr);
+        ASSERT_NE(nullptr, cryptoFactory.get());
     }
 
     virtual void TearDown() override {}
@@ -166,7 +166,7 @@ TEST_F(DrmHalClearkeyFactoryTest, CreateClearKeyDrmPlugin) {
             kClearKeyUUID, packageName,
             [&](Status status, const sp<IDrmPlugin>& plugin) {
                 EXPECT_EQ(Status::OK, status);
-                EXPECT_NE(plugin, nullptr);
+                EXPECT_NE(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
@@ -180,7 +180,7 @@ TEST_F(DrmHalClearkeyFactoryTest, CreateClearKeyCryptoPlugin) {
             kClearKeyUUID, initVec,
             [&](Status status, const sp<ICryptoPlugin>& plugin) {
                 EXPECT_EQ(Status::OK, status);
-                EXPECT_NE(plugin, nullptr);
+                EXPECT_NE(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
@@ -194,7 +194,7 @@ TEST_F(DrmHalClearkeyFactoryTest, CreateInvalidDrmPlugin) {
             kInvalidUUID, packageName,
             [&](Status status, const sp<IDrmPlugin>& plugin) {
                 EXPECT_EQ(Status::ERROR_DRM_CANNOT_HANDLE, status);
-                EXPECT_EQ(plugin, nullptr);
+                EXPECT_EQ(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
@@ -208,7 +208,7 @@ TEST_F(DrmHalClearkeyFactoryTest, CreateInvalidCryptoPlugin) {
             kInvalidUUID, initVec,
             [&](Status status, const sp<ICryptoPlugin>& plugin) {
                 EXPECT_EQ(Status::ERROR_DRM_CANNOT_HANDLE, status);
-                EXPECT_EQ(plugin, nullptr);
+                EXPECT_EQ(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
@@ -219,13 +219,13 @@ class DrmHalClearkeyPluginTest : public DrmHalClearkeyFactoryTest {
         // Create factories
         DrmHalClearkeyFactoryTest::SetUp();
 
-        ASSERT_NE(drmFactory, nullptr);
+        ASSERT_NE(nullptr, drmFactory.get());
         hidl_string packageName("android.hardware.drm.test");
         auto res = drmFactory->createPlugin(
                 kClearKeyUUID, packageName,
                 [this](Status status, const sp<IDrmPlugin>& plugin) {
                     EXPECT_EQ(Status::OK, status);
-                    ASSERT_NE(plugin, nullptr);
+                    ASSERT_NE(nullptr, plugin.get());
                     drmPlugin = plugin;
                 });
         ASSERT_OK(res);
@@ -235,7 +235,7 @@ class DrmHalClearkeyPluginTest : public DrmHalClearkeyFactoryTest {
                 kClearKeyUUID, initVec,
                 [this](Status status, const sp<ICryptoPlugin>& plugin) {
                     EXPECT_EQ(Status::OK, status);
-                    ASSERT_NE(plugin, nullptr);
+                    ASSERT_NE(nullptr, plugin.get());
                     cryptoPlugin = plugin;
                 });
         ASSERT_OK(res);
@@ -866,7 +866,7 @@ TEST_F(DrmHalClearkeyPluginTest, NotifyResolution) {
 sp<IMemory> DrmHalClearkeyPluginTest::getDecryptMemory(size_t size,
                                                        size_t index) {
     sp<IAllocator> ashmemAllocator = IAllocator::getService("ashmem");
-    EXPECT_NE(ashmemAllocator, nullptr);
+    EXPECT_NE(nullptr, ashmemAllocator.get());
 
     hidl_memory hidlMemory;
     auto res = ashmemAllocator->allocate(
@@ -878,6 +878,7 @@ sp<IMemory> DrmHalClearkeyPluginTest::getDecryptMemory(size_t size,
     EXPECT_OK(res);
 
     sp<IMemory> mappedMemory = mapMemory(hidlMemory);
+    EXPECT_NE(nullptr, mappedMemory.get());
     EXPECT_OK(cryptoPlugin->setSharedBufferBase(hidlMemory, index));
     return mappedMemory;
 }
@@ -1063,8 +1064,6 @@ void DrmHalClearkeyDecryptTest::aes_cbc_decrypt(uint8_t* dest, uint8_t* src,
     AES_set_encrypt_key(&key[0], 128, &decryptionKey);
 
     size_t offset = 0;
-    size_t num = 0;
-    size_t ecount_buf = 0;
     for (size_t i = 0; i < subSamples.size(); i++) {
         memcpy(dest + offset, src + offset, subSamples[i].numBytesOfClearData);
         offset += subSamples[i].numBytesOfClearData;
@@ -1105,7 +1104,6 @@ TEST_F(DrmHalClearkeyDecryptTest, ClearSegmentTest) {
     Status status = cryptoPlugin->setMediaDrmSession(sessionId);
     EXPECT_EQ(Status::OK, status);
 
-    const bool kNotSecure = false;
     uint32_t byteCount = decrypt(Mode::UNENCRYPTED, &iv[0], subSamples,
             noPattern, Status::OK);
     EXPECT_EQ(kByteCount, byteCount);
@@ -1132,7 +1130,6 @@ TEST_F(DrmHalClearkeyDecryptTest, EncryptedAesCtrSegmentTest) {
     Status status = cryptoPlugin->setMediaDrmSession(sessionId);
     EXPECT_EQ(Status::OK, status);
 
-    const bool kNotSecure = false;
     uint32_t byteCount = decrypt(Mode::AES_CTR, &iv[0], subSamples,
             noPattern, Status::OK);
     EXPECT_EQ(kClearBytes + kEncryptedBytes, byteCount);
@@ -1153,7 +1150,6 @@ TEST_F(DrmHalClearkeyDecryptTest, EncryptedAesCtrSegmentTestNoKeys) {
     Status status = cryptoPlugin->setMediaDrmSession(sessionId);
     EXPECT_EQ(Status::OK, status);
 
-    const bool kNotSecure = false;
     uint32_t byteCount = decrypt(Mode::AES_CTR, &iv[0], subSamples,
             noPattern, Status::ERROR_DRM_NO_LICENSE);
     EXPECT_EQ(0u, byteCount);

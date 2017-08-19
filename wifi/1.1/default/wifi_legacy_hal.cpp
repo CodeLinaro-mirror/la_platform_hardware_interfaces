@@ -752,6 +752,15 @@ wifi_error WifiLegacyHal::setScanningMacOui(const std::array<uint8_t, 3>& oui) {
                                                       oui_internal.data());
 }
 
+wifi_error WifiLegacyHal::selectTxPowerScenario(wifi_power_scenario scenario) {
+  return global_func_table_.wifi_select_tx_power_scenario(
+      wlan_interface_handle_, scenario);
+}
+
+wifi_error WifiLegacyHal::resetTxPowerScenario() {
+  return global_func_table_.wifi_reset_tx_power_scenario(wlan_interface_handle_);
+}
+
 std::pair<wifi_error, uint32_t> WifiLegacyHal::getLoggerSupportedFeatureSet() {
   uint32_t supported_features;
   wifi_error status = global_func_table_.wifi_get_logger_supported_feature_set(
@@ -1275,7 +1284,7 @@ WifiLegacyHal::getGscanCachedResults() {
     for (int i = 0; i < num_scan_results; i++) {
       auto& scan_result = cached_scan_result.results[i];
       if (scan_result.ie_length > 0) {
-        LOG(ERROR) << "Cached scan result has non-zero IE length "
+        LOG(DEBUG) << "Cached scan result has non-zero IE length "
                    << scan_result.ie_length;
         scan_result.ie_length = 0;
       }

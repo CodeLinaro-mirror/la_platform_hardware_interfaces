@@ -18,9 +18,9 @@ LOCAL_JAVA_LIBRARIES := \
 
 
 #
-# Build types.hal (CommonIgnitionMonitors)
+# Build types.hal (DiagnosticFloatSensorIndex)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/CommonIgnitionMonitors.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/DiagnosticFloatSensorIndex.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -30,16 +30,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.CommonIgnitionMonitors
+        android.hardware.automotive.vehicle@2.1::types.DiagnosticFloatSensorIndex
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (CompressionIgnitionMonitors)
+# Build types.hal (DiagnosticIntegerSensorIndex)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/CompressionIgnitionMonitors.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/DiagnosticIntegerSensorIndex.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -49,16 +49,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.CompressionIgnitionMonitors
+        android.hardware.automotive.vehicle@2.1::types.DiagnosticIntegerSensorIndex
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (FuelSystemStatus)
+# Build types.hal (Obd2CommonIgnitionMonitors)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/FuelSystemStatus.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2CommonIgnitionMonitors.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -68,16 +68,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.FuelSystemStatus
+        android.hardware.automotive.vehicle@2.1::types.Obd2CommonIgnitionMonitors
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (FuelType)
+# Build types.hal (Obd2CompressionIgnitionMonitors)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/FuelType.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2CompressionIgnitionMonitors.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -87,16 +87,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.FuelType
+        android.hardware.automotive.vehicle@2.1::types.Obd2CompressionIgnitionMonitors
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (IgnitionMonitorKind)
+# Build types.hal (Obd2FuelSystemStatus)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/IgnitionMonitorKind.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2FuelSystemStatus.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -106,16 +106,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.IgnitionMonitorKind
+        android.hardware.automotive.vehicle@2.1::types.Obd2FuelSystemStatus
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (Obd2FloatSensorIndex)
+# Build types.hal (Obd2FuelType)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2FloatSensorIndex.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2FuelType.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -125,16 +125,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.Obd2FloatSensorIndex
+        android.hardware.automotive.vehicle@2.1::types.Obd2FuelType
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (Obd2IntegerSensorIndex)
+# Build types.hal (Obd2IgnitionMonitorKind)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2IntegerSensorIndex.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2IgnitionMonitorKind.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -144,16 +144,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.Obd2IntegerSensorIndex
+        android.hardware.automotive.vehicle@2.1::types.Obd2IgnitionMonitorKind
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (SecondaryAirStatus)
+# Build types.hal (Obd2SecondaryAirStatus)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/SecondaryAirStatus.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2SecondaryAirStatus.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -163,16 +163,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.SecondaryAirStatus
+        android.hardware.automotive.vehicle@2.1::types.Obd2SecondaryAirStatus
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (SparkIgnitionMonitors)
+# Build types.hal (Obd2SparkIgnitionMonitors)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/SparkIgnitionMonitors.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2SparkIgnitionMonitors.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -182,7 +182,7 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.SparkIgnitionMonitors
+        android.hardware.automotive.vehicle@2.1::types.Obd2SparkIgnitionMonitors
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
@@ -202,6 +202,25 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
         android.hardware.automotive.vehicle@2.1::types.VehicleProperty
+
+$(GEN): $(LOCAL_PATH)/types.hal
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+#
+# Build types.hal (VmsAvailabilityStateIntegerValuesIndex)
+#
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsAvailabilityStateIntegerValuesIndex.java
+$(GEN): $(HIDL)
+$(GEN): PRIVATE_HIDL := $(HIDL)
+$(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
+$(GEN): PRIVATE_OUTPUT_DIR := $(intermediates)
+$(GEN): PRIVATE_CUSTOM_TOOL = \
+        $(PRIVATE_HIDL) -o $(PRIVATE_OUTPUT_DIR) \
+        -Ljava \
+        -randroid.hardware:hardware/interfaces \
+        -randroid.hidl:system/libhidl/transport \
+        android.hardware.automotive.vehicle@2.1::types.VmsAvailabilityStateIntegerValuesIndex
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
@@ -246,6 +265,44 @@ $(GEN): $(LOCAL_PATH)/types.hal
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
+# Build types.hal (VmsMessageWithLayerAndPublisherIdIntegerValuesIndex)
+#
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsMessageWithLayerAndPublisherIdIntegerValuesIndex.java
+$(GEN): $(HIDL)
+$(GEN): PRIVATE_HIDL := $(HIDL)
+$(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
+$(GEN): PRIVATE_OUTPUT_DIR := $(intermediates)
+$(GEN): PRIVATE_CUSTOM_TOOL = \
+        $(PRIVATE_HIDL) -o $(PRIVATE_OUTPUT_DIR) \
+        -Ljava \
+        -randroid.hardware:hardware/interfaces \
+        -randroid.hidl:system/libhidl/transport \
+        android.hardware.automotive.vehicle@2.1::types.VmsMessageWithLayerAndPublisherIdIntegerValuesIndex
+
+$(GEN): $(LOCAL_PATH)/types.hal
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+#
+# Build types.hal (VmsMessageWithLayerIntegerValuesIndex)
+#
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsMessageWithLayerIntegerValuesIndex.java
+$(GEN): $(HIDL)
+$(GEN): PRIVATE_HIDL := $(HIDL)
+$(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
+$(GEN): PRIVATE_OUTPUT_DIR := $(intermediates)
+$(GEN): PRIVATE_CUSTOM_TOOL = \
+        $(PRIVATE_HIDL) -o $(PRIVATE_OUTPUT_DIR) \
+        -Ljava \
+        -randroid.hardware:hardware/interfaces \
+        -randroid.hidl:system/libhidl/transport \
+        android.hardware.automotive.vehicle@2.1::types.VmsMessageWithLayerIntegerValuesIndex
+
+$(GEN): $(LOCAL_PATH)/types.hal
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+#
 # Build types.hal (VmsOfferingMessageIntegerValuesIndex)
 #
 GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsOfferingMessageIntegerValuesIndex.java
@@ -265,9 +322,9 @@ $(GEN): $(LOCAL_PATH)/types.hal
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (VmsSimpleMessageIntegerValuesIndex)
+# Build types.hal (VmsSubscriptionsStateIntegerValuesIndex)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsSimpleMessageIntegerValuesIndex.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsSubscriptionsStateIntegerValuesIndex.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -277,26 +334,7 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.VmsSimpleMessageIntegerValuesIndex
-
-$(GEN): $(LOCAL_PATH)/types.hal
-	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
-
-#
-# Build types.hal (VmsSubscriptionResponseFormat)
-#
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsSubscriptionResponseFormat.java
-$(GEN): $(HIDL)
-$(GEN): PRIVATE_HIDL := $(HIDL)
-$(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
-$(GEN): PRIVATE_OUTPUT_DIR := $(intermediates)
-$(GEN): PRIVATE_CUSTOM_TOOL = \
-        $(PRIVATE_HIDL) -o $(PRIVATE_OUTPUT_DIR) \
-        -Ljava \
-        -randroid.hardware:hardware/interfaces \
-        -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.VmsSubscriptionResponseFormat
+        android.hardware.automotive.vehicle@2.1::types.VmsSubscriptionsStateIntegerValuesIndex
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
@@ -339,9 +377,9 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 
 
 #
-# Build types.hal (CommonIgnitionMonitors)
+# Build types.hal (DiagnosticFloatSensorIndex)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/CommonIgnitionMonitors.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/DiagnosticFloatSensorIndex.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -351,16 +389,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.CommonIgnitionMonitors
+        android.hardware.automotive.vehicle@2.1::types.DiagnosticFloatSensorIndex
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (CompressionIgnitionMonitors)
+# Build types.hal (DiagnosticIntegerSensorIndex)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/CompressionIgnitionMonitors.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/DiagnosticIntegerSensorIndex.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -370,16 +408,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.CompressionIgnitionMonitors
+        android.hardware.automotive.vehicle@2.1::types.DiagnosticIntegerSensorIndex
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (FuelSystemStatus)
+# Build types.hal (Obd2CommonIgnitionMonitors)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/FuelSystemStatus.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2CommonIgnitionMonitors.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -389,16 +427,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.FuelSystemStatus
+        android.hardware.automotive.vehicle@2.1::types.Obd2CommonIgnitionMonitors
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (FuelType)
+# Build types.hal (Obd2CompressionIgnitionMonitors)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/FuelType.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2CompressionIgnitionMonitors.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -408,16 +446,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.FuelType
+        android.hardware.automotive.vehicle@2.1::types.Obd2CompressionIgnitionMonitors
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (IgnitionMonitorKind)
+# Build types.hal (Obd2FuelSystemStatus)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/IgnitionMonitorKind.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2FuelSystemStatus.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -427,16 +465,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.IgnitionMonitorKind
+        android.hardware.automotive.vehicle@2.1::types.Obd2FuelSystemStatus
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (Obd2FloatSensorIndex)
+# Build types.hal (Obd2FuelType)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2FloatSensorIndex.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2FuelType.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -446,16 +484,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.Obd2FloatSensorIndex
+        android.hardware.automotive.vehicle@2.1::types.Obd2FuelType
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (Obd2IntegerSensorIndex)
+# Build types.hal (Obd2IgnitionMonitorKind)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2IntegerSensorIndex.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2IgnitionMonitorKind.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -465,16 +503,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.Obd2IntegerSensorIndex
+        android.hardware.automotive.vehicle@2.1::types.Obd2IgnitionMonitorKind
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (SecondaryAirStatus)
+# Build types.hal (Obd2SecondaryAirStatus)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/SecondaryAirStatus.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2SecondaryAirStatus.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -484,16 +522,16 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.SecondaryAirStatus
+        android.hardware.automotive.vehicle@2.1::types.Obd2SecondaryAirStatus
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (SparkIgnitionMonitors)
+# Build types.hal (Obd2SparkIgnitionMonitors)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/SparkIgnitionMonitors.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/Obd2SparkIgnitionMonitors.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -503,7 +541,7 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.SparkIgnitionMonitors
+        android.hardware.automotive.vehicle@2.1::types.Obd2SparkIgnitionMonitors
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
@@ -523,6 +561,25 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
         android.hardware.automotive.vehicle@2.1::types.VehicleProperty
+
+$(GEN): $(LOCAL_PATH)/types.hal
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+#
+# Build types.hal (VmsAvailabilityStateIntegerValuesIndex)
+#
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsAvailabilityStateIntegerValuesIndex.java
+$(GEN): $(HIDL)
+$(GEN): PRIVATE_HIDL := $(HIDL)
+$(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
+$(GEN): PRIVATE_OUTPUT_DIR := $(intermediates)
+$(GEN): PRIVATE_CUSTOM_TOOL = \
+        $(PRIVATE_HIDL) -o $(PRIVATE_OUTPUT_DIR) \
+        -Ljava \
+        -randroid.hardware:hardware/interfaces \
+        -randroid.hidl:system/libhidl/transport \
+        android.hardware.automotive.vehicle@2.1::types.VmsAvailabilityStateIntegerValuesIndex
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)
@@ -567,6 +624,44 @@ $(GEN): $(LOCAL_PATH)/types.hal
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
+# Build types.hal (VmsMessageWithLayerAndPublisherIdIntegerValuesIndex)
+#
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsMessageWithLayerAndPublisherIdIntegerValuesIndex.java
+$(GEN): $(HIDL)
+$(GEN): PRIVATE_HIDL := $(HIDL)
+$(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
+$(GEN): PRIVATE_OUTPUT_DIR := $(intermediates)
+$(GEN): PRIVATE_CUSTOM_TOOL = \
+        $(PRIVATE_HIDL) -o $(PRIVATE_OUTPUT_DIR) \
+        -Ljava \
+        -randroid.hardware:hardware/interfaces \
+        -randroid.hidl:system/libhidl/transport \
+        android.hardware.automotive.vehicle@2.1::types.VmsMessageWithLayerAndPublisherIdIntegerValuesIndex
+
+$(GEN): $(LOCAL_PATH)/types.hal
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+#
+# Build types.hal (VmsMessageWithLayerIntegerValuesIndex)
+#
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsMessageWithLayerIntegerValuesIndex.java
+$(GEN): $(HIDL)
+$(GEN): PRIVATE_HIDL := $(HIDL)
+$(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
+$(GEN): PRIVATE_OUTPUT_DIR := $(intermediates)
+$(GEN): PRIVATE_CUSTOM_TOOL = \
+        $(PRIVATE_HIDL) -o $(PRIVATE_OUTPUT_DIR) \
+        -Ljava \
+        -randroid.hardware:hardware/interfaces \
+        -randroid.hidl:system/libhidl/transport \
+        android.hardware.automotive.vehicle@2.1::types.VmsMessageWithLayerIntegerValuesIndex
+
+$(GEN): $(LOCAL_PATH)/types.hal
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+#
 # Build types.hal (VmsOfferingMessageIntegerValuesIndex)
 #
 GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsOfferingMessageIntegerValuesIndex.java
@@ -586,9 +681,9 @@ $(GEN): $(LOCAL_PATH)/types.hal
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 #
-# Build types.hal (VmsSimpleMessageIntegerValuesIndex)
+# Build types.hal (VmsSubscriptionsStateIntegerValuesIndex)
 #
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsSimpleMessageIntegerValuesIndex.java
+GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsSubscriptionsStateIntegerValuesIndex.java
 $(GEN): $(HIDL)
 $(GEN): PRIVATE_HIDL := $(HIDL)
 $(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
@@ -598,26 +693,7 @@ $(GEN): PRIVATE_CUSTOM_TOOL = \
         -Ljava \
         -randroid.hardware:hardware/interfaces \
         -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.VmsSimpleMessageIntegerValuesIndex
-
-$(GEN): $(LOCAL_PATH)/types.hal
-	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
-
-#
-# Build types.hal (VmsSubscriptionResponseFormat)
-#
-GEN := $(intermediates)/android/hardware/automotive/vehicle/V2_1/VmsSubscriptionResponseFormat.java
-$(GEN): $(HIDL)
-$(GEN): PRIVATE_HIDL := $(HIDL)
-$(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/types.hal
-$(GEN): PRIVATE_OUTPUT_DIR := $(intermediates)
-$(GEN): PRIVATE_CUSTOM_TOOL = \
-        $(PRIVATE_HIDL) -o $(PRIVATE_OUTPUT_DIR) \
-        -Ljava \
-        -randroid.hardware:hardware/interfaces \
-        -randroid.hidl:system/libhidl/transport \
-        android.hardware.automotive.vehicle@2.1::types.VmsSubscriptionResponseFormat
+        android.hardware.automotive.vehicle@2.1::types.VmsSubscriptionsStateIntegerValuesIndex
 
 $(GEN): $(LOCAL_PATH)/types.hal
 	$(transform-generated-source)

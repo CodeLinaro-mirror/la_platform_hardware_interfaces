@@ -31,7 +31,7 @@ struct AmFmBandConfig {
     V1_0::Band type;
     uint32_t lowerLimit;  // kHz
     uint32_t upperLimit;  // kHz
-    uint32_t spacing;     // kHz
+    std::vector<uint32_t> spacings;  // kHz
 };
 
 struct ModuleConfig {
@@ -63,6 +63,7 @@ struct BroadcastRadio : public V1_1::IBroadcastRadio {
     Return<void> openTuner(const V1_0::BandConfig& config, bool audio,
                            const sp<V1_0::ITunerCallback>& callback,
                            openTuner_cb _hidl_cb) override;
+    Return<void> getImage(int32_t id, getImage_cb _hidl_cb);
 
    private:
     std::mutex mMut;

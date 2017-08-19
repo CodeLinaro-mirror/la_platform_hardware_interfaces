@@ -16,7 +16,7 @@
 #define LOG_TAG "BroadcastRadioDefault.utils"
 //#define LOG_NDEBUG 0
 
-#include "Utils.h"
+#include <broadcastradio-utils/Utils.h>
 
 #include <log/log.h>
 
@@ -24,7 +24,6 @@ namespace android {
 namespace hardware {
 namespace broadcastradio {
 namespace V1_1 {
-namespace implementation {
 namespace utils {
 
 using V1_0::Band;
@@ -54,7 +53,9 @@ static bool anyHaveId(const ProgramSelector& a, const ProgramSelector& b,
 static bool haveEqualIds(const ProgramSelector& a, const ProgramSelector& b,
                          const IdentifierType type) {
     if (!bothHaveId(a, b, type)) return false;
-    // TODO(b/36864090): we should check all Ids of a given type (ie. other AF), not just one
+    /* We should check all Ids of a given type (ie. other AF),
+     * but it doesn't matter for default implementation.
+     */
     auto aId = getId(a, type);
     auto bId = getId(b, type);
     return aId == bId;
@@ -92,8 +93,7 @@ bool tunesTo(const ProgramSelector& a, const ProgramSelector& b) {
                 return haveEqualIds(a, b, IdentifierType::SXM_SERVICE_ID);
             }
             return haveEqualIds(a, b, IdentifierType::SXM_CHANNEL);
-        case ProgramType::VENDOR:
-        default:
+        default:  // includes all vendor types
             ALOGW("Unsupported program type: %s", toString(type).c_str());
             return false;
     }
@@ -113,6 +113,14 @@ bool isAmFm(const ProgramType type) {
         default:
             return false;
     }
+}
+
+bool isAm(const Band band) {
+    return band == Band::AM || band == Band::AM_HD;
+}
+
+bool isFm(const Band band) {
+    return band == Band::FM || band == Band::FM_HD;
 }
 
 bool hasId(const ProgramSelector& sel, const IdentifierType type) {
@@ -149,43 +157,43 @@ ProgramSelector make_selector(Band band, uint32_t channel, uint32_t subChannel) 
 
     // we can't use ProgramType::AM_HD or FM_HD, because we don't know HD station ID
     ProgramType type;
-    switch (band) {
-        case Band::AM:
-        case Band::AM_HD:
-            type = ProgramType::AM;
-            break;
-        case Band::FM:
-        case Band::FM_HD:
-            type = ProgramType::FM;
-            break;
-        default:
-            LOG_ALWAYS_FATAL("Unsupported band: %s", toString(band).c_str());
+    if (isAm(band)) {
+        type = ProgramType::AM;
+    } else if (isFm(band)) {
+        type = ProgramType::FM;
+    } else {
+        LOG_ALWAYS_FATAL("Unsupported band: %s", toString(band).c_str());
     }
 
     sel.programType = static_cast<uint32_t>(type);
     sel.primaryId.type = static_cast<uint32_t>(IdentifierType::AMFM_FREQUENCY);
     sel.primaryId.value = channel;
     if (subChannel > 0) {
-        // stating sub channel for AM/FM channel does not give any guarantees,
-        // but we can't do much more without HD station ID
+        /* stating sub channel for AM/FM channel does not give any guarantees,
+         * but we can't do much more without HD station ID
+         *
+         * The legacy APIs had 1-based subChannels, while ProgramSelector is 0-based.
+         */
         sel.secondaryIds = hidl_vec<ProgramIdentifier>{
-            {static_cast<uint32_t>(IdentifierType::HD_SUBCHANNEL), subChannel},
+            {static_cast<uint32_t>(IdentifierType::HD_SUBCHANNEL), subChannel - 1},
         };
     }
 
     return sel;
 }
 
-bool getLegacyChannel(const ProgramSelector& sel, uint32_t& channelOut, uint32_t& subChannelOut) {
+bool getLegacyChannel(const ProgramSelector& sel, uint32_t* channelOut, uint32_t* subChannelOut) {
+    if (channelOut) *channelOut = 0;
+    if (subChannelOut) *subChannelOut = 0;
     if (isAmFm(getType(sel))) {
-        channelOut = getId(sel, IdentifierType::AMFM_FREQUENCY);
-        subChannelOut = getId(sel, IdentifierType::HD_SUBCHANNEL, 0);
+        if (channelOut) *channelOut = getId(sel, IdentifierType::AMFM_FREQUENCY);
+        if (subChannelOut && hasId(sel, IdentifierType::HD_SUBCHANNEL)) {
+            // The legacy APIs had 1-based subChannels, while ProgramSelector is 0-based.
+            *subChannelOut = getId(sel, IdentifierType::HD_SUBCHANNEL) + 1;
+        }
         return true;
-    } else {
-        channelOut = 0;
-        subChannelOut = 0;
-        return false;
     }
+    return false;
 }
 
 bool isDigital(const ProgramSelector& sel) {
@@ -200,8 +208,27 @@ bool isDigital(const ProgramSelector& sel) {
 }
 
 }  // namespace utils
-}  // namespace implementation
 }  // namespace V1_1
+
+namespace V1_0 {
+
+bool operator==(const BandConfig& l, const BandConfig& r) {
+    if (l.type != r.type) return false;
+    if (l.antennaConnected != r.antennaConnected) return false;
+    if (l.lowerLimit != r.lowerLimit) return false;
+    if (l.upperLimit != r.upperLimit) return false;
+    if (l.spacings != r.spacings) return false;
+    if (V1_1::utils::isAm(l.type)) {
+        return l.ext.am == r.ext.am;
+    } else if (V1_1::utils::isFm(l.type)) {
+        return l.ext.fm == r.ext.fm;
+    } else {
+        ALOGW("Unsupported band config type: %s", toString(l.type).c_str());
+        return false;
+    }
+}
+
+}  // namespace V1_0
 }  // namespace broadcastradio
 }  // namespace hardware
 }  // namespace android

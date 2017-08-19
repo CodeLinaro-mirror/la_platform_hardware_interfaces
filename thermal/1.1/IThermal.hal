@@ -13,33 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "call-barrier.h"
 
-namespace android {
-namespace hardware {
-namespace broadcastradio {
-namespace vts {
+package android.hardware.thermal@1.1;
 
-using std::lock_guard;
-using std::mutex;
-using std::unique_lock;
+import android.hardware.thermal@1.0::IThermal;
+import IThermalCallback;
 
-void CallBarrier::call() {
-    lock_guard<mutex> lk(mMut);
-    mWasCalled = true;
-    mCond.notify_all();
-}
-
-bool CallBarrier::waitForCall(std::chrono::milliseconds timeout) {
-    unique_lock<mutex> lk(mMut);
-
-    if (mWasCalled) return true;
-
-    auto status = mCond.wait_for(lk, timeout);
-    return status == std::cv_status::no_timeout;
-}
-
-}  // namespace vts
-}  // namespace broadcastradio
-}  // namespace hardware
-}  // namespace android
+interface IThermal extends @1.0::IThermal {
+   /**
+    * Register an IThermalCallback, used by the Thermal HAL
+    * to send thermal events to the framework thermal service.
+    *
+    * @param callback the IThermalCallback to use for sending
+    *        thermal events, or nullptr to set no callback
+    */
+    registerThermalCallback(IThermalCallback callback);
+};
