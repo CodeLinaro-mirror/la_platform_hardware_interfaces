@@ -66,8 +66,8 @@ TEST_F(NeuralnetworksHidlTest, StatusTest) {
 // initialization
 TEST_F(NeuralnetworksHidlTest, InitializeTest) {
     Return<void> ret = device->initialize([](const Capabilities& capabilities) {
-        EXPECT_NE(nullptr, capabilities.supportedOperationTypes.data());
-        EXPECT_NE(0ull, capabilities.supportedOperationTypes.size());
+        EXPECT_NE(nullptr, capabilities.supportedOperationTuples.data());
+        EXPECT_NE(0ull, capabilities.supportedOperationTuples.size());
         EXPECT_EQ(0u, static_cast<uint32_t>(capabilities.cachesCompilation) & ~0x1);
         EXPECT_LT(0.0f, capabilities.bootupTime);
         EXPECT_LT(0.0f, capabilities.float16Performance.execTime);
@@ -89,10 +89,11 @@ Model createTestModel() {
     const uint32_t operand1 = 0;
     const uint32_t operand2 = 1;
     const uint32_t operand3 = 2;
+    const uint32_t operand4 = 3;
 
     const std::vector<Operand> operands = {
         {
-            .type = OperandType::FLOAT32,
+            .type = OperandType::TENSOR_FLOAT32,
             .dimensions = {1, 2, 2, 1},
             .numberOfConsumers = 1,
             .scale = 0.0f,
@@ -102,7 +103,7 @@ Model createTestModel() {
                          .length = 0},
         },
         {
-            .type = OperandType::FLOAT32,
+            .type = OperandType::TENSOR_FLOAT32,
             .dimensions = {1, 2, 2, 1},
             .numberOfConsumers = 1,
             .scale = 0.0f,
@@ -112,7 +113,17 @@ Model createTestModel() {
                          .length = size},
         },
         {
-            .type = OperandType::FLOAT32,
+            .type = OperandType::INT32,
+            .dimensions = {},
+            .numberOfConsumers = 1,
+            .scale = 0.0f,
+            .zeroPoint = 0,
+            .location = {.poolIndex = static_cast<uint32_t>(LocationValues::LOCATION_SAME_BLOCK),
+                         .offset = size,
+                         .length = sizeof(int32_t)},
+        },
+        {
+            .type = OperandType::TENSOR_FLOAT32,
             .dimensions = {1, 2, 2, 1},
             .numberOfConsumers = 0,
             .scale = 0.0f,
@@ -124,14 +135,20 @@ Model createTestModel() {
     };
 
     const std::vector<Operation> operations = {{
-        .type = OperationType::ADD_FLOAT32, .inputs = {operand1, operand2}, .outputs = {operand3},
+        .opTuple = {OperationType::ADD, OperandType::TENSOR_FLOAT32},
+        .inputs = {operand1, operand2, operand3},
+        .outputs = {operand4},
     }};
 
     const std::vector<uint32_t> inputIndexes = {operand1};
-    const std::vector<uint32_t> outputIndexes = {operand3};
-    const std::vector<uint8_t> operandValues(reinterpret_cast<const uint8_t*>(operand2Data.data()),
-                                             reinterpret_cast<const uint8_t*>(operand2Data.data()) +
-                                                 operand2Data.size() * sizeof(float));
+    const std::vector<uint32_t> outputIndexes = {operand4};
+    std::vector<uint8_t> operandValues(
+        reinterpret_cast<const uint8_t*>(operand2Data.data()),
+        reinterpret_cast<const uint8_t*>(operand2Data.data()) + size);
+    int32_t activation[1] = {0};
+    operandValues.insert(operandValues.end(), reinterpret_cast<const uint8_t*>(&activation[0]),
+                         reinterpret_cast<const uint8_t*>(&activation[1]));
+
     const std::vector<hidl_memory> pools = {};
 
     return {
