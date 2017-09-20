@@ -31,6 +31,7 @@ using ::android::hardware::neuralnetworks::V1_0::IDevice;
 using ::android::hardware::neuralnetworks::V1_0::IPreparedModel;
 using ::android::hardware::neuralnetworks::V1_0::Capabilities;
 using ::android::hardware::neuralnetworks::V1_0::DeviceStatus;
+using ::android::hardware::neuralnetworks::V1_0::FusedActivationFunc;
 using ::android::hardware::neuralnetworks::V1_0::Model;
 using ::android::hardware::neuralnetworks::V1_0::OperationType;
 using ::android::hardware::neuralnetworks::V1_0::PerformanceInfo;
@@ -59,15 +60,17 @@ class NeuralnetworksHidlEnvironment : public ::testing::VtsHalHidlTargetTestEnvB
     NeuralnetworksHidlEnvironment& operator=(NeuralnetworksHidlEnvironment&&) = delete;
 
    public:
+    ~NeuralnetworksHidlEnvironment() override;
     static NeuralnetworksHidlEnvironment* getInstance();
-    virtual void registerTestServices() override;
+    void registerTestServices() override;
 };
 
 // The main test class for NEURALNETWORKS HIDL HAL.
 class NeuralnetworksHidlTest : public ::testing::VtsHalHidlTargetTestBase {
    public:
-    virtual void SetUp() override;
-    virtual void TearDown() override;
+    ~NeuralnetworksHidlTest() override;
+    void SetUp() override;
+    void TearDown() override;
 
     sp<IDevice> device;
 };

@@ -498,6 +498,21 @@ void portReconfiguration(sp<IOmxNode> omxNode, sp<CodecObserver> observer,
         ASSERT_EQ(msg.data.eventData.data1, kPortIndexOutput);
         if (msg.data.eventData.data2 == OMX_IndexParamPortDefinition ||
             msg.data.eventData.data2 == 0) {
+            // Components can send various kinds of port settings changed events
+            // all at once. Before committing to a full port reconfiguration,
+            // defer any events waiting in the queue to be addressed to a later
+            // point.
+            android::List<Message> msgQueueDefer;
+            while (1) {
+                status = observer->dequeueMessage(&msg, DEFAULT_TIMEOUT,
+                                                  iBuffer, oBuffer);
+                if (status !=
+                    android::hardware::media::omx::V1_0::Status::TIMED_OUT) {
+                    msgQueueDefer.push_back(msg);
+                    continue;
+                } else
+                    break;
+            }
             status = omxNode->sendCommand(
                 toRawCommandType(OMX_CommandPortDisable), kPortIndexOutput);
             ASSERT_EQ(status, android::hardware::media::omx::V1_0::Status::OK);
@@ -576,6 +591,16 @@ void portReconfiguration(sp<IOmxNode> omxNode, sp<CodecObserver> observer,
                 ASSERT_EQ(msg.type, Message::Type::EVENT);
                 ASSERT_EQ(msg.data.eventData.data1, OMX_CommandPortEnable);
                 ASSERT_EQ(msg.data.eventData.data2, kPortIndexOutput);
+
+                // Push back deferred messages to the list
+                android::List<Message>::iterator it = msgQueueDefer.begin();
+                while (it != msgQueueDefer.end()) {
+                    status = omxNode->dispatchMessage(*it);
+                    ASSERT_EQ(
+                        status,
+                        ::android::hardware::media::omx::V1_0::Status::OK);
+                    it++;
+                }
 
                 // dispatch output buffers
                 for (size_t i = 0; i < oBuffer->size(); i++) {
@@ -906,7 +931,7 @@ TEST_F(VideoDecHidlTest, DecodeTest) {
         eleInfo >> flags;
         eleInfo >> timestamp;
         Info.push_back({bytesCount, flags, timestamp});
-        if (flags != OMX_BUFFERFLAG_CODECCONFIG)
+        if (timestampDevTest && (flags != OMX_BUFFERFLAG_CODECCONFIG))
             timestampUslist.push_back(timestamp);
         if (maxBytesCount < bytesCount) maxBytesCount = bytesCount;
     }
@@ -980,7 +1005,7 @@ TEST_F(VideoDecHidlTest, DecodeTest) {
                            kPortIndexInput, kPortIndexOutput, portMode[1]);
     testEOS(omxNode, observer, &iBuffer, &oBuffer, false, eosFlag, portMode,
             portReconfiguration, kPortIndexInput, kPortIndexOutput, nullptr);
-    EXPECT_EQ(timestampUslist.empty(), true);
+    if (timestampDevTest) EXPECT_EQ(timestampUslist.empty(), true);
     // set state to idle
     changeStateExecutetoIdle(omxNode, observer, &iBuffer, &oBuffer);
     // set state to executing
