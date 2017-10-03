@@ -16,12 +16,14 @@
 
 #define LOG_TAG "neuralnetworks_hidl_hal_test"
 
-#include "Event.h"
 #include "VtsHalNeuralnetworksV1_0TargetTest.h"
+#include "Event.h"
+#include "Models.h"
+#include "TestHarness.h"
+
 #include <android-base/logging.h>
 #include <android/hidl/memory/1.0/IMemory.h>
 #include <hidlmemory/mapping.h>
-#include <string>
 
 namespace android {
 namespace hardware {
@@ -31,6 +33,11 @@ namespace vts {
 namespace functional {
 
 using ::android::hardware::neuralnetworks::V1_0::implementation::Event;
+using ::generated_tests::MixedTypedExampleType;
+namespace generated_tests {
+extern void Execute(const sp<IDevice>&, std::function<Model(void)>, std::function<bool(int)>,
+                    const std::vector<MixedTypedExampleType>&);
+}
 
 // A class for test environment setup
 NeuralnetworksHidlEnvironment::NeuralnetworksHidlEnvironment() {}
@@ -59,209 +66,195 @@ void NeuralnetworksHidlTest::SetUp() {
 
 void NeuralnetworksHidlTest::TearDown() {}
 
+sp<IPreparedModel> NeuralnetworksHidlTest::doPrepareModelShortcut(const Model& model) {
+    sp<IPreparedModel> preparedModel;
+    ErrorStatus prepareStatus;
+    sp<Event> preparationEvent = new Event();
+    if (preparationEvent.get() == nullptr) {
+        return nullptr;
+    }
+
+    Return<void> prepareRet = device->prepareModel(
+        model, preparationEvent, [&](ErrorStatus status, const sp<IPreparedModel>& prepared) {
+            prepareStatus = status;
+            preparedModel = prepared;
+        });
+
+    if (!prepareRet.isOk() || prepareStatus != ErrorStatus::NONE ||
+        preparedModel.get() == nullptr) {
+        return nullptr;
+    }
+    Event::Status eventStatus = preparationEvent->wait();
+    if (eventStatus != Event::Status::SUCCESS) {
+        return nullptr;
+    }
+
+    return preparedModel;
+}
+
 // create device test
 TEST_F(NeuralnetworksHidlTest, CreateDevice) {}
 
 // status test
 TEST_F(NeuralnetworksHidlTest, StatusTest) {
-    DeviceStatus status = device->getStatus();
-    EXPECT_EQ(DeviceStatus::AVAILABLE, status);
+    Return<DeviceStatus> status = device->getStatus();
+    ASSERT_TRUE(status.isOk());
+    EXPECT_EQ(DeviceStatus::AVAILABLE, static_cast<DeviceStatus>(status));
 }
 
 // initialization
-TEST_F(NeuralnetworksHidlTest, InitializeTest) {
-    Return<void> ret = device->initialize([](const Capabilities& capabilities) {
-        EXPECT_NE(nullptr, capabilities.supportedOperationTuples.data());
-        EXPECT_NE(0ull, capabilities.supportedOperationTuples.size());
-        EXPECT_EQ(0u, static_cast<uint32_t>(capabilities.cachesCompilation) & ~0x1);
-        EXPECT_LT(0.0f, capabilities.bootupTime);
-        EXPECT_LT(0.0f, capabilities.float16Performance.execTime);
-        EXPECT_LT(0.0f, capabilities.float16Performance.powerUsage);
-        EXPECT_LT(0.0f, capabilities.float32Performance.execTime);
-        EXPECT_LT(0.0f, capabilities.float32Performance.powerUsage);
-        EXPECT_LT(0.0f, capabilities.quantized8Performance.execTime);
-        EXPECT_LT(0.0f, capabilities.quantized8Performance.powerUsage);
-    });
+TEST_F(NeuralnetworksHidlTest, GetCapabilitiesTest) {
+    Return<void> ret =
+        device->getCapabilities([](ErrorStatus status, const Capabilities& capabilities) {
+            EXPECT_EQ(ErrorStatus::NONE, status);
+            EXPECT_LT(0.0f, capabilities.float32Performance.execTime);
+            EXPECT_LT(0.0f, capabilities.float32Performance.powerUsage);
+            EXPECT_LT(0.0f, capabilities.quantized8Performance.execTime);
+            EXPECT_LT(0.0f, capabilities.quantized8Performance.powerUsage);
+        });
     EXPECT_TRUE(ret.isOk());
 }
 
-namespace {
-// create the model
-Model createTestModel() {
-    const std::vector<float> operand2Data = {5.0f, 6.0f, 7.0f, 8.0f};
-    const uint32_t size = operand2Data.size() * sizeof(float);
-
-    const uint32_t operand1 = 0;
-    const uint32_t operand2 = 1;
-    const uint32_t operand3 = 2;
-    const uint32_t operand4 = 3;
-
-    const std::vector<Operand> operands = {
-        {
-            .type = OperandType::TENSOR_FLOAT32,
-            .dimensions = {1, 2, 2, 1},
-            .numberOfConsumers = 1,
-            .scale = 0.0f,
-            .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
-            .location = {.poolIndex = 0,
-                         .offset = 0,
-                         .length = 0},
-        },
-        {
-            .type = OperandType::TENSOR_FLOAT32,
-            .dimensions = {1, 2, 2, 1},
-            .numberOfConsumers = 1,
-            .scale = 0.0f,
-            .zeroPoint = 0,
-            .lifetime = OperandLifeTime::CONSTANT_COPY,
-            .location = {.poolIndex = 0,
-                         .offset = 0,
-                         .length = size},
-        },
-        {
-            .type = OperandType::INT32,
-            .dimensions = {},
-            .numberOfConsumers = 1,
-            .scale = 0.0f,
-            .zeroPoint = 0,
-            .lifetime = OperandLifeTime::CONSTANT_COPY,
-            .location = {.poolIndex = 0,
-                         .offset = size,
-                         .length = sizeof(int32_t)},
-        },
-        {
-            .type = OperandType::TENSOR_FLOAT32,
-            .dimensions = {1, 2, 2, 1},
-            .numberOfConsumers = 0,
-            .scale = 0.0f,
-            .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
-            .location = {.poolIndex = 0,
-                         .offset = 0,
-                         .length = 0},
-        },
-    };
-
-    const std::vector<Operation> operations = {{
-        .opTuple = {OperationType::ADD, OperandType::TENSOR_FLOAT32},
-        .inputs = {operand1, operand2, operand3},
-        .outputs = {operand4},
-    }};
-
-    const std::vector<uint32_t> inputIndexes = {operand1};
-    const std::vector<uint32_t> outputIndexes = {operand4};
-    std::vector<uint8_t> operandValues(
-        reinterpret_cast<const uint8_t*>(operand2Data.data()),
-        reinterpret_cast<const uint8_t*>(operand2Data.data()) + size);
-    int32_t activation[1] = {static_cast<int32_t>(FusedActivationFunc::NONE)};
-    operandValues.insert(operandValues.end(), reinterpret_cast<const uint8_t*>(&activation[0]),
-                         reinterpret_cast<const uint8_t*>(&activation[1]));
-
-    const std::vector<hidl_memory> pools = {};
-
-    return {
-        .operands = operands,
-        .operations = operations,
-        .inputIndexes = inputIndexes,
-        .outputIndexes = outputIndexes,
-        .operandValues = operandValues,
-        .pools = pools,
-    };
+// supported operations positive test
+TEST_F(NeuralnetworksHidlTest, SupportedOperationsPositiveTest) {
+    Model model = createValidTestModel();
+    Return<void> ret = device->getSupportedOperations(
+        model, [&](ErrorStatus status, const hidl_vec<bool>& supported) {
+            EXPECT_EQ(ErrorStatus::NONE, status);
+            EXPECT_EQ(model.operations.size(), supported.size());
+        });
+    EXPECT_TRUE(ret.isOk());
 }
 
-// allocator helper
-hidl_memory allocateSharedMemory(int64_t size, const std::string& type = "ashmem") {
-    hidl_memory memory;
-
-    sp<IAllocator> allocator = IAllocator::getService(type);
-    if (!allocator.get()) {
-        return {};
-    }
-
-    Return<void> ret = allocator->allocate(size, [&](bool success, const hidl_memory& mem) {
-        ASSERT_TRUE(success);
-        memory = mem;
-    });
-    if (!ret.isOk()) {
-        return {};
-    }
-
-    return memory;
-}
-}  // anonymous namespace
-
-// supported subgraph test
-TEST_F(NeuralnetworksHidlTest, SupportedSubgraphTest) {
-    Model model = createTestModel();
-    std::vector<bool> supported;
-    Return<void> ret = device->getSupportedSubgraph(
-        model, [&](const hidl_vec<bool>& hidl_supported) { supported = hidl_supported; });
-    ASSERT_TRUE(ret.isOk());
-    EXPECT_EQ(/*model.operations.size()*/ 0ull, supported.size());
+// supported operations negative test 1
+TEST_F(NeuralnetworksHidlTest, SupportedOperationsNegativeTest1) {
+    Model model = createInvalidTestModel1();
+    Return<void> ret = device->getSupportedOperations(
+        model, [&](ErrorStatus status, const hidl_vec<bool>& supported) {
+            EXPECT_EQ(ErrorStatus::INVALID_ARGUMENT, status);
+            (void)supported;
+        });
+    EXPECT_TRUE(ret.isOk());
 }
 
-// execute simple graph
-TEST_F(NeuralnetworksHidlTest, SimpleExecuteGraphTest) {
-    std::vector<float> inputData = {1.0f, 2.0f, 3.0f, 4.0f};
+// supported operations negative test 2
+TEST_F(NeuralnetworksHidlTest, SupportedOperationsNegativeTest2) {
+    Model model = createInvalidTestModel2();
+    Return<void> ret = device->getSupportedOperations(
+        model, [&](ErrorStatus status, const hidl_vec<bool>& supported) {
+            EXPECT_EQ(ErrorStatus::INVALID_ARGUMENT, status);
+            (void)supported;
+        });
+    EXPECT_TRUE(ret.isOk());
+}
+
+// prepare simple model positive test
+TEST_F(NeuralnetworksHidlTest, SimplePrepareModelPositiveTest) {
+    Model model = createValidTestModel();
+    sp<Event> preparationEvent = new Event();
+    ASSERT_NE(nullptr, preparationEvent.get());
+    Return<void> prepareRet = device->prepareModel(
+        model, preparationEvent, [&](ErrorStatus status, const sp<IPreparedModel>& prepared) {
+            EXPECT_EQ(ErrorStatus::NONE, status);
+            (void)prepared;
+        });
+    ASSERT_TRUE(prepareRet.isOk());
+}
+
+// prepare simple model negative test 1
+TEST_F(NeuralnetworksHidlTest, SimplePrepareModelNegativeTest1) {
+    Model model = createInvalidTestModel1();
+    sp<Event> preparationEvent = new Event();
+    ASSERT_NE(nullptr, preparationEvent.get());
+    Return<void> prepareRet = device->prepareModel(
+        model, preparationEvent, [&](ErrorStatus status, const sp<IPreparedModel>& prepared) {
+            EXPECT_EQ(ErrorStatus::INVALID_ARGUMENT, status);
+            (void)prepared;
+        });
+    ASSERT_TRUE(prepareRet.isOk());
+}
+
+// prepare simple model negative test 2
+TEST_F(NeuralnetworksHidlTest, SimplePrepareModelNegativeTest2) {
+    Model model = createInvalidTestModel2();
+    sp<Event> preparationEvent = new Event();
+    ASSERT_NE(nullptr, preparationEvent.get());
+    Return<void> prepareRet = device->prepareModel(
+        model, preparationEvent, [&](ErrorStatus status, const sp<IPreparedModel>& prepared) {
+            EXPECT_EQ(ErrorStatus::INVALID_ARGUMENT, status);
+            (void)prepared;
+        });
+    ASSERT_TRUE(prepareRet.isOk());
+}
+
+// execute simple graph positive test
+TEST_F(NeuralnetworksHidlTest, SimpleExecuteGraphPositiveTest) {
+    Model model = createValidTestModel();
+    sp<IPreparedModel> preparedModel = doPrepareModelShortcut(model);
+    ASSERT_NE(nullptr, preparedModel.get());
+    Request request = createValidTestRequest();
+
+    sp<Event> executionEvent = new Event();
+    ASSERT_NE(nullptr, executionEvent.get());
+    Return<ErrorStatus> executeStatus = preparedModel->execute(request, executionEvent);
+    ASSERT_TRUE(executeStatus.isOk());
+    EXPECT_EQ(ErrorStatus::NONE, static_cast<ErrorStatus>(executeStatus));
+    Event::Status eventStatus = executionEvent->wait();
+    EXPECT_EQ(Event::Status::SUCCESS, eventStatus);
+
     std::vector<float> outputData = {-1.0f, -1.0f, -1.0f, -1.0f};
     std::vector<float> expectedData = {6.0f, 8.0f, 10.0f, 12.0f};
-    const uint32_t INPUT = 0;
     const uint32_t OUTPUT = 1;
 
-    // prpeare request
-    Model model = createTestModel();
-    sp<IPreparedModel> preparedModel = device->prepareModel(model);
-    ASSERT_NE(nullptr, preparedModel.get());
-
-    // prepare inputs
-    uint32_t inputSize = static_cast<uint32_t>(inputData.size() * sizeof(float));
-    uint32_t outputSize = static_cast<uint32_t>(outputData.size() * sizeof(float));
-    std::vector<RequestArgument> inputs = {{
-        .location = {.poolIndex = INPUT, .offset = 0, .length = inputSize}, .dimensions = {},
-    }};
-    std::vector<RequestArgument> outputs = {{
-        .location = {.poolIndex = OUTPUT, .offset = 0, .length = outputSize}, .dimensions = {},
-    }};
-    std::vector<hidl_memory> pools = {allocateSharedMemory(inputSize),
-                                      allocateSharedMemory(outputSize)};
-    ASSERT_NE(0ull, pools[INPUT].size());
-    ASSERT_NE(0ull, pools[OUTPUT].size());
-
-    // load data
-    sp<IMemory> inputMemory = mapMemory(pools[INPUT]);
-    sp<IMemory> outputMemory = mapMemory(pools[OUTPUT]);
-    ASSERT_NE(nullptr, inputMemory.get());
+    sp<IMemory> outputMemory = mapMemory(request.pools[OUTPUT]);
     ASSERT_NE(nullptr, outputMemory.get());
-    float* inputPtr = reinterpret_cast<float*>(static_cast<void*>(inputMemory->getPointer()));
     float* outputPtr = reinterpret_cast<float*>(static_cast<void*>(outputMemory->getPointer()));
-    ASSERT_NE(nullptr, inputPtr);
     ASSERT_NE(nullptr, outputPtr);
-    inputMemory->update();
-    outputMemory->update();
-    std::copy(inputData.begin(), inputData.end(), inputPtr);
-    std::copy(outputData.begin(), outputData.end(), outputPtr);
-    inputMemory->commit();
-    outputMemory->commit();
-
-    // execute request
-    sp<Event> event = sp<Event>(new Event());
-    ASSERT_NE(nullptr, event.get());
-    bool success = preparedModel->execute({.inputs = inputs, .outputs = outputs, .pools = pools},
-                                          event);
-    EXPECT_TRUE(success);
-    Event::Status status = event->wait();
-    EXPECT_EQ(Event::Status::SUCCESS, status);
-
-    // validate results { 1+5, 2+6, 3+7, 4+8 }
     outputMemory->read();
     std::copy(outputPtr, outputPtr + outputData.size(), outputData.begin());
     outputMemory->commit();
     EXPECT_EQ(expectedData, outputData);
 }
 
+// execute simple graph negative test 1
+TEST_F(NeuralnetworksHidlTest, SimpleExecuteGraphNegativeTest1) {
+    Model model = createValidTestModel();
+    sp<IPreparedModel> preparedModel = doPrepareModelShortcut(model);
+    ASSERT_NE(nullptr, preparedModel.get());
+    Request request = createInvalidTestRequest1();
+
+    sp<Event> executionEvent = new Event();
+    ASSERT_NE(nullptr, executionEvent.get());
+    Return<ErrorStatus> executeStatus = preparedModel->execute(request, executionEvent);
+    ASSERT_TRUE(executeStatus.isOk());
+    EXPECT_EQ(ErrorStatus::INVALID_ARGUMENT, static_cast<ErrorStatus>(executeStatus));
+    executionEvent->wait();
+}
+
+// execute simple graph negative test 2
+TEST_F(NeuralnetworksHidlTest, SimpleExecuteGraphNegativeTest2) {
+    Model model = createValidTestModel();
+    sp<IPreparedModel> preparedModel = doPrepareModelShortcut(model);
+    ASSERT_NE(nullptr, preparedModel.get());
+    Request request = createInvalidTestRequest2();
+
+    sp<Event> executionEvent = new Event();
+    ASSERT_NE(nullptr, executionEvent.get());
+    Return<ErrorStatus> executeStatus = preparedModel->execute(request, executionEvent);
+    ASSERT_TRUE(executeStatus.isOk());
+    EXPECT_EQ(ErrorStatus::INVALID_ARGUMENT, static_cast<ErrorStatus>(executeStatus));
+    executionEvent->wait();
+}
+
+// Mixed-typed examples
+typedef MixedTypedExampleType MixedTypedExample;
+
+// in frameworks/ml/nn/runtime/tests/generated/
+#include "all_generated_vts_tests.cpp"
+
 // TODO: Add tests for execution failure, or wait_for/wait_until timeout.
-//       Discussion: https://googleplex-android-review.git.corp.google.com/#/c/platform/hardware/interfaces/+/2654636/5/neuralnetworks/1.0/vts/functional/VtsHalNeuralnetworksV1_0TargetTest.cpp@222
+//       Discussion:
+//       https://googleplex-android-review.git.corp.google.com/#/c/platform/hardware/interfaces/+/2654636/5/neuralnetworks/1.0/vts/functional/VtsHalNeuralnetworksV1_0TargetTest.cpp@222
 
 }  // namespace functional
 }  // namespace vts

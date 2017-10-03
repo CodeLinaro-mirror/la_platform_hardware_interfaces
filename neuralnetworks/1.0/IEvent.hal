@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-/* This HAL is a work in progress */
-
 package android.hardware.neuralnetworks@1.0;
 
 /**
@@ -29,21 +27,19 @@ package android.hardware.neuralnetworks@1.0;
  * indicate to the Neuralnetworks runtime whether the computation was
  * successful or not, and that the corresponding output is ready to be
  * consumed if the execution was successful.
- *
- * TODO: Mention that "notify" is also called by a runtime thread
- * during CPU fallback execution? Depends on whether the HIDL comments
- * are strictly for vendors or not.
  */
 interface IEvent {
 
     /**
-     * IEvent::notify is called by the server thread (i.e. the thread doing the
-     * work) to mark the event as completed so that any threads requiring the
-     * corresponding resources can continue executing.
+     * IEvent::notify is called by the server thread (i.e., the thread doing
+     * the work) to mark the event as completed so that any threads requiring
+     * the corresponding output can continue executing.
      *
-     * @param status Status of the execution associated with the Event.
-     *               Should be SUCCESS or ERROR.
+     * @param status Error status returned from the asynchronous task, must be:
+     *               - NONE if asynchronous task was successful
+     *               - DEVICE_UNAVAILABLE if driver is offline or busy
+     *               - GENERAL_FAILURE if the asynchronous task resulted in an
+     *                 unspecified error
      */
-    oneway notify(Status status);
-
+    oneway notify(ErrorStatus status);
 };
