@@ -80,6 +80,7 @@
             <xs:enumeration value="r_submix"/>
             <xs:enumeration value="codec_offload"/>
             <xs:enumeration value="stub"/>
+            <xs:enumeration value="eavb"/>
         </xs:restriction>
     </xs:simpleType>
     <xs:complexType name="modules">
