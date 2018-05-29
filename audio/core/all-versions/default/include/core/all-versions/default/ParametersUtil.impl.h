@@ -112,6 +112,12 @@ std::unique_ptr<AudioParameter> ParametersUtil::getParams(const AudioParameter& 
     return std::unique_ptr<AudioParameter>(new AudioParameter(paramsAndValues));
 }
 
+Result ParametersUtil::setParam(const char* name, const char* value) {
+    AudioParameter param;
+    param.add(String8(name), String8(value));
+    return setParams(param);
+}
+
 Result ParametersUtil::setParam(const char* name, bool value) {
     AudioParameter param;
     param.add(String8(name), String8(value ? AudioParameter::valueOn : AudioParameter::valueOff));
@@ -149,26 +155,7 @@ Result ParametersUtil::setParam(const char* name, const DeviceAddress& address) 
 
 Result ParametersUtil::setParams(const AudioParameter& param) {
     int halStatus = halSetParameters(param.toString().string());
-    switch (halStatus) {
-        case OK:
-            return Result::OK;
-        case -EINVAL:
-            return Result::INVALID_ARGUMENTS;
-        case -ENODATA:
-            return Result::INVALID_STATE;
-        case -ENODEV:
-            return Result::NOT_INITIALIZED;
-        // The rest of the API (*::analyseStatus) returns NOT_SUPPORTED
-        // when the legacy API returns -ENOSYS
-        // However the legacy API explicitly state that for get_paramers,
-        // -ENOSYS should be returned if
-        // "the implementation does not accept a parameter change while the
-        //  output is active but the parameter is acceptable otherwise"
-        case -ENOSYS:
-            return Result::INVALID_STATE;
-        default:
-            return Result::INVALID_ARGUMENTS;
-    }
+    return util::analyzeStatus(halStatus);
 }
 
 }  // namespace implementation

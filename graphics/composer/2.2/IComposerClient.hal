@@ -152,6 +152,11 @@ interface IComposerClient extends @2.1::IComposerClient {
      * output of the display remains the same (subject to the note about protected
      * content in the description of setReadbackBuffer).
      *
+     * If the active configuration or color mode of this display has changed
+     * since a previous call to this function, it must be called again prior to
+     * setting a readback buffer such that the returned format and dataspace can
+     * be updated accordingly.
+     *
      * Parameters:
      * @param display - the display on which to create the layer.
      *
@@ -203,7 +208,13 @@ interface IComposerClient extends @2.1::IComposerClient {
      *       must be non-NULL
      * @return error - is HWC2_ERROR_NONE or one of the following errors:
      *         BAD_DISPLAY - an invalid display handle was passed in
-     *         UNSUPPORTED if not supported on underlying HAL
+     *         NO_RESOURCES - the readback operation was successful, but
+     *                        resulted in a different validate result than would
+     *                        have occurred without readback
+     *         UNSUPPORTED - the readback operation was unsuccessful because of
+     *                       resource constraints, the presence of protected
+     *                       content, or other reasons; -1 must be returned for
+     *                       acquireFence
      *
      * See also:
      *   getReadbackBufferAttributes
@@ -383,9 +394,8 @@ interface IComposerClient extends @2.1::IComposerClient {
      * By default, layer dataspaces are mapped to the current color mode
      * colorimetrically with a few exceptions.
      *
-     * When the layer dataspace is a legacy sRGB dataspace
-     * (Dataspace::SRGB_LINEAR, Dataspace::SRGB, or Dataspace::UNKNOWN when
-     * treated as such) and the display render intent is
+     * When the layer dataspace is a legacy dataspace (see
+     * common@1.1::Dataspace) and the display render intent is
      * RenderIntent::ENHANCE, the pixel values can go through an
      * implementation-defined saturation transform before being mapped to the
      * current color mode colorimetrically.
@@ -402,7 +412,7 @@ interface IComposerClient extends @2.1::IComposerClient {
      * this:
      *
      *   (in GLSL)
-     *   linearSrgb = clamp(saturationMatrix * linearSrgb, 0.0, 1.0);
+     *   linearSrgb = saturationMatrix * linearSrgb;
      *
      * @param dataspace must be Dataspace::SRGB_LINEAR.
      * @return error is NONE upon success. Otherwise,

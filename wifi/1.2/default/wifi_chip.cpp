@@ -48,6 +48,7 @@ constexpr ChipModeId kV2ChipModeId = 2;
 constexpr char kCpioMagic[] = "070701";
 constexpr size_t kMaxBufferSizeBytes = 1024 * 1024;
 constexpr uint32_t kMaxRingBufferFileAgeSeconds = 60 * 60;
+constexpr uint32_t kMaxRingBufferFileNum = 20;
 constexpr char kTombstoneFolderPath[] = "/data/vendor/tombstones/wifi/";
 
 template <typename Iface>
@@ -104,7 +105,9 @@ std::string getP2pIfaceName() {
     return buffer.data();
 }
 
-// delete files older than a predefined time in the wifi tombstone dir
+// delete files that meet either conditions:
+// 1. older than a predefined time in the wifi tombstone dir.
+// 2. Files in excess to a predefined amount, starting from the oldest ones
 bool removeOldFilesInternal() {
     time_t now = time(0);
     const time_t delete_files_before = now - kMaxRingBufferFileAgeSeconds;
@@ -116,6 +119,7 @@ bool removeOldFilesInternal() {
     unique_fd dir_auto_closer(dirfd(dir_dump));
     struct dirent* dp;
     bool success = true;
+    std::list<std::pair<const time_t, std::string>> valid_files;
     while ((dp = readdir(dir_dump))) {
         if (dp->d_type != DT_REG) {
             continue;
@@ -129,12 +133,23 @@ bool removeOldFilesInternal() {
             success = false;
             continue;
         }
-        if (cur_file_stat.st_mtime >= delete_files_before) {
-            continue;
-        }
-        if (unlink(cur_file_path.c_str()) != 0) {
-            LOG(ERROR) << "Error deleting file " << strerror(errno);
-            success = false;
+        const time_t cur_file_time = cur_file_stat.st_mtime;
+        valid_files.push_back(
+            std::pair<const time_t, std::string>(cur_file_time, cur_file_path));
+    }
+    valid_files.sort();  // sort the list of files by last modified time from
+                         // small to big.
+    uint32_t cur_file_count = valid_files.size();
+    for (auto cur_file : valid_files) {
+        if (cur_file_count > kMaxRingBufferFileNum ||
+            cur_file.first < delete_files_before) {
+            if (unlink(cur_file.second.c_str()) != 0) {
+                LOG(ERROR) << "Error deleting file " << strerror(errno);
+                success = false;
+            }
+            cur_file_count--;
+        } else {
+            break;
         }
     }
     return success;
@@ -309,6 +324,9 @@ WifiChip::WifiChip(
 }
 
 void WifiChip::invalidate() {
+    if (!writeRingbufferFilesInternal()) {
+        LOG(ERROR) << "Error writing files to flash";
+    }
     invalidateAndRemoveAllIfaces();
     legacy_hal_.reset();
     event_cb_handler_.invalidate();
@@ -1193,10 +1211,17 @@ void WifiChip::populateModes() {
             {chip_iface_combination_limit_1, chip_iface_combination_limit_2}};
         const IWifiChip::ChipIfaceCombination chip_iface_combination_2 = {
             {chip_iface_combination_limit_1, chip_iface_combination_limit_3}};
-        const IWifiChip::ChipMode chip_mode = {
+        if (feature_flags_.lock()->isApDisabled()) {
+          const IWifiChip::ChipMode chip_mode = {
+              kV2ChipModeId,
+              {chip_iface_combination_2}};
+          modes_ = {chip_mode};
+        } else {
+          const IWifiChip::ChipMode chip_mode = {
             kV2ChipModeId,
             {chip_iface_combination_1, chip_iface_combination_2}};
-        modes_ = {chip_mode};
+          modes_ = {chip_mode};
+        }
     } else {
         // V1 Iface combinations for Mode Id = 0. (STA Mode)
         const IWifiChip::ChipIfaceCombinationLimit
@@ -1220,7 +1245,11 @@ void WifiChip::populateModes() {
             {ap_chip_iface_combination_limit}};
         const IWifiChip::ChipMode ap_chip_mode = {kV1ApChipModeId,
                                                   {ap_chip_iface_combination}};
-        modes_ = {sta_chip_mode, ap_chip_mode};
+        if (feature_flags_.lock()->isApDisabled()) {
+          modes_ = {sta_chip_mode};
+        } else {
+          modes_ = {sta_chip_mode, ap_chip_mode};
+        }
     }
 }
 
