@@ -8,4 +8,4 @@ service audio-hal-2-0 /vendor/bin/hw/android.hardware.audio@2.0-service
     # audioflinger restarts itself when it loses connection with the hal
     # and its .rc file has an "onrestart restart audio-hal" rule, thus
     # an additional auto-restart from the init process isn't needed.
-    oneshot
+    #oneshot
