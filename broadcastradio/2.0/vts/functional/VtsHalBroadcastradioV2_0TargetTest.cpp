@@ -137,29 +137,30 @@ TunerCallbackMock::TunerCallbackMock() {
 }
 
 Return<void> TunerCallbackMock::onCurrentProgramInfoChanged(const ProgramInfo& info) {
-    auto logically = utils::getType(info.logicallyTunedTo);
-    if (logically != IdentifierType::INVALID) {
-        EXPECT_TRUE(logically == IdentifierType::AMFM_FREQUENCY ||
-                    logically == IdentifierType::RDS_PI ||
-                    logically == IdentifierType::HD_STATION_ID_EXT ||
-                    logically == IdentifierType::DAB_SID_EXT ||
-                    logically == IdentifierType::DRMO_SERVICE_ID ||
-                    logically == IdentifierType::SXM_SERVICE_ID ||
-                    (logically >= IdentifierType::VENDOR_START &&
-                     logically <= IdentifierType::VENDOR_END) ||
-                    logically > IdentifierType::SXM_CHANNEL);
+    for (auto&& id : info.selector) {
+        EXPECT_NE(IdentifierType::INVALID, utils::getType(id));
     }
 
+    auto logically = utils::getType(info.logicallyTunedTo);
+    /* This field is required for currently tuned program and should be INVALID
+     * for entries from the program list.
+     */
+    EXPECT_TRUE(
+        logically == IdentifierType::AMFM_FREQUENCY || logically == IdentifierType::RDS_PI ||
+        logically == IdentifierType::HD_STATION_ID_EXT ||
+        logically == IdentifierType::DAB_SID_EXT || logically == IdentifierType::DRMO_SERVICE_ID ||
+        logically == IdentifierType::SXM_SERVICE_ID ||
+        (logically >= IdentifierType::VENDOR_START && logically <= IdentifierType::VENDOR_END) ||
+        logically > IdentifierType::SXM_CHANNEL);
+
     auto physically = utils::getType(info.physicallyTunedTo);
-    if (physically != IdentifierType::INVALID) {
-        EXPECT_TRUE(physically == IdentifierType::AMFM_FREQUENCY ||
-                    physically == IdentifierType::DAB_ENSEMBLE ||
-                    physically == IdentifierType::DRMO_FREQUENCY ||
-                    physically == IdentifierType::SXM_CHANNEL ||
-                    (physically >= IdentifierType::VENDOR_START &&
-                     physically <= IdentifierType::VENDOR_END) ||
-                    physically > IdentifierType::SXM_CHANNEL);
-    }
+    // ditto (see "logically" above)
+    EXPECT_TRUE(
+        physically == IdentifierType::AMFM_FREQUENCY ||
+        physically == IdentifierType::DAB_ENSEMBLE ||
+        physically == IdentifierType::DRMO_FREQUENCY || physically == IdentifierType::SXM_CHANNEL ||
+        (physically >= IdentifierType::VENDOR_START && physically <= IdentifierType::VENDOR_END) ||
+        physically > IdentifierType::SXM_CHANNEL);
 
     if (logically == IdentifierType::AMFM_FREQUENCY) {
         auto ps = utils::getMetadataString(info, MetadataKey::RDS_PS);
@@ -307,7 +308,7 @@ static bool supportsFM(const AmFmRegionConfig& config) {
  *  - there is at least one AM/FM band configured;
  *  - FM Deemphasis and RDS are correctly configured for FM-capable radio;
  *  - all channel grids (frequency ranges and spacings) are valid;
- *  - scan spacing is a multiply of manual spacing value.
+ *  - seek spacing is a multiple of the manual spacing value.
  */
 TEST_F(BroadcastRadioHalTest, GetAmFmRegionConfig) {
     AmFmRegionConfig config;
@@ -340,7 +341,7 @@ TEST_F(BroadcastRadioHalTest, GetAmFmRegionConfig) {
  *  - there is at least one AM/FM range supported;
  *  - there is at least one de-emphasis filter mode supported for FM-capable radio;
  *  - all channel grids (frequency ranges and spacings) are valid;
- *  - scan spacing is not set.
+ *  - seek spacing is not set.
  */
 TEST_F(BroadcastRadioHalTest, GetAmFmRegionConfigCapabilities) {
     AmFmRegionConfig config;
@@ -500,14 +501,14 @@ TEST_F(BroadcastRadioHalTest, TuneFailsWithEmpty) {
 }
 
 /**
- * Test scanning to next/prev station.
+ * Test seeking to next/prev station via ITunerSession::scan().
  *
  * Verifies that:
  *  - the method succeeds;
  *  - the program info is changed within timeout::tune;
  *  - works both directions and with or without skipping sub-channel.
  */
-TEST_F(BroadcastRadioHalTest, Scan) {
+TEST_F(BroadcastRadioHalTest, Seek) {
     ASSERT_TRUE(openSession());
 
     // TODO(b/69958777): see FmTune workaround
@@ -563,8 +564,8 @@ TEST_F(BroadcastRadioHalTest, Cancel) {
     ASSERT_TRUE(openSession());
 
     for (int i = 0; i < 10; i++) {
-        auto scanResult = mSession->scan(true /* up */, true /* skip subchannel */);
-        ASSERT_EQ(Result::OK, scanResult);
+        auto result = mSession->scan(true /* up */, true /* skip subchannel */);
+        ASSERT_EQ(Result::OK, result);
 
         auto cancelResult = mSession->cancel();
         ASSERT_TRUE(cancelResult.isOk());
