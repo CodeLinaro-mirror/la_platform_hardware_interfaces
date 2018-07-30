@@ -21,6 +21,9 @@
 
 #include <android-base/macros.h>
 #include <android/hardware/wifi/1.1/IWifiChip.h>
+#ifdef FEATURE_WLAN_DNBS
+#include <vendor/qti/hardware/wifi/1.1/IWifiVendorChip.h>
+#endif
 
 #include "hidl_callback_util.h"
 #include "wifi_ap_iface.h"
@@ -43,7 +46,12 @@ using namespace android::hardware::wifi::V1_0;
  * Since there is only a single chip instance used today, there is no
  * identifying handle information stored here.
  */
-class WifiChip : public V1_1::IWifiChip {
+class WifiChip
+#ifdef FEATURE_WLAN_DNBS
+: public vendor::qti::hardware::wifi::V1_1::IWifiVendorChip {
+#else
+: public V1_1::IWifiChip {
+#endif
  public:
   WifiChip(
       ChipId chip_id,
@@ -131,6 +139,10 @@ class WifiChip : public V1_1::IWifiChip {
       selectTxPowerScenario_cb hidl_status_cb) override;
   Return<void> resetTxPowerScenario(
       resetTxPowerScenario_cb hidl_status_cb) override;
+#ifdef FEATURE_WLAN_DNBS
+  Return<void> setRestrictedOffChannel(const hidl_string& ifname,
+      bool enable, setRestrictedOffChannel_cb hidl_status_cb) override;
+#endif
 
  private:
   void invalidateAndRemoveAllIfaces();
@@ -187,6 +199,9 @@ class WifiChip : public V1_1::IWifiChip {
 
   WifiStatus handleChipConfiguration(ChipModeId mode_id);
   WifiStatus registerDebugRingBufferCallback();
+#ifdef FEATURE_WLAN_DNBS
+  WifiStatus setRestrictedOffChannelInternal(const hidl_string& ifname, bool enable);
+#endif
 
   ChipId chip_id_;
   std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
