@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,26 +14,17 @@
  * limitations under the License.
  */
 
-package android.hardware.health.filesystem@1.0;
+package android.hardware.wifi.hostapd@1.1;
 
 /**
- * Status values for HAL methods.
+ * Top-level object for managing SoftAPs.
  */
-enum Result : uint32_t {
+interface IHostapdCallback {
     /**
-     * Execution of the method is successful.
+     * Invoked when an asynchronous failure is encountered in one of the access
+     * points added via |IHostapd.addAccessPoint|.
+     *
+     * @param ifaceName Name of the interface.
      */
-    SUCCESS = 0,
-    /**
-     * Execution of the method timed out.
-     */
-    TIMEOUT,
-    /**
-     * An IO error is encountered when the HAL communicates with the device.
-     */
-    IO_ERROR,
-    /**
-     * An unknown error is encountered.
-     */
-    UNKNOWN_ERROR,
+    oneway onFailure(string ifaceName);
 };

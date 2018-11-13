@@ -13,21 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package android.hardware.health.filesystem@1.0;
+package android.hardware.health.storage@1.0;
 
 /**
- * IFileSystem is an interface that provides operations on underlying storage
- * devices, including flash memory.
+ * Callback interface to IStorage.garbageCollect.
  */
-interface IFileSystem {
+interface IGarbageCollectCallback {
     /**
-     * Start garbage collection on the driver of storage devices. This function
-     * must be called at regular intervals when it is a good time for a
-     * longer-running cleanup tasks.
+     * When garbage collection has finished, the implementation must
+     * invoke this function to indicate the result of the garbage collection.
      *
      * @return result Execution result. See documentation for Result for
      *     details.
      */
-    garbageCollect() generates (Result result);
+    oneway onFinish(Result result);
 };

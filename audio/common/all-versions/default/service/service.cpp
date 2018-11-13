@@ -24,18 +24,44 @@
 #include <android/hardware/soundtrigger/2.0/ISoundTriggerHw.h>
 #include <android/hardware/soundtrigger/2.1/ISoundTriggerHw.h>
 #include <binder/ProcessState.h>
+#include <cutils/properties.h>
 #include <hidl/HidlTransportSupport.h>
 #include <hidl/LegacySupport.h>
 #include <com/qualcomm/qti/bluetooth_audio/1.0/IBluetoothAudio.h>
+#include <hwbinder/ProcessState.h>
 
 using namespace android::hardware;
 using com::qualcomm::qti::bluetooth_audio::V1_0::IBluetoothAudio;
 using android::OK;
 
+
+#ifdef ARCH_ARM_32
+//default h/w binder memsize is 1 MB
+#define DEFAULT_HW_BINDER_MEM_SIZE_KB 1024
+
+size_t getHWBinderMmapSize(){
+    int32_t value = DEFAULT_HW_BINDER_MEM_SIZE_KB;
+    value = property_get_int32("persist.vendor.audio.hw.binder.size_kbyte", value);
+    ALOGD("Init hw binder with mem  size = %d  ", value);
+    return 1024 * value;
+}
+#endif
+
 int main(int /* argc */, char* /* argv */ []) {
-    android::ProcessState::initWithDriver("/dev/vndbinder");
+#ifdef ARCH_ARM_32
+    android::hardware::ProcessState::initWithMmapSize(getHWBinderMmapSize());
+#endif
+    ::android::ProcessState::initWithDriver("/dev/vndbinder");
     // start a threadpool for vndbinder interactions
-    android::ProcessState::self()->startThreadPool();
+    ::android::ProcessState::self()->startThreadPool();
+
+    const int32_t defaultValue = -1;
+    int32_t value =
+        property_get_int32("persist.vendor.audio.service.hwbinder.size_kbyte", defaultValue);
+    if (value != defaultValue) {
+        ALOGD("Configuring hwbinder with mmap size %d KBytes", value);
+        ProcessState::initWithMmapSize(static_cast<size_t>(value) * 1024);
+    }
     configureRpcThreadpool(16, true /*callerWillJoin*/);
 
     bool fail = registerPassthroughServiceImplementation<audio::V4_0::IDevicesFactory>() != OK &&

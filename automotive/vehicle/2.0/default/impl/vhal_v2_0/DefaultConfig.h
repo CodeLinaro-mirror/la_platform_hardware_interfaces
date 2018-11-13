@@ -36,6 +36,11 @@ constexpr int DOOR_1_LEFT = (int)VehicleAreaDoor::ROW_1_LEFT;
 constexpr int DOOR_1_RIGHT = (int)VehicleAreaDoor::ROW_1_RIGHT;
 constexpr int DOOR_2_LEFT = (int)VehicleAreaDoor::ROW_2_LEFT;
 constexpr int DOOR_2_RIGHT = (int)VehicleAreaDoor::ROW_2_RIGHT;
+constexpr int WINDOW_1_LEFT = (int)VehicleAreaWindow::ROW_1_LEFT;
+constexpr int WINDOW_2_LEFT = (int)VehicleAreaWindow::ROW_2_LEFT;
+constexpr int WINDOW_2_RIGHT = (int)VehicleAreaWindow::ROW_2_RIGHT;
+constexpr int FAN_DIRECTION_FACE = (int)VehicleHvacFanDirection::FACE;
+constexpr int FAN_DIRECTION_FLOOR = (int)VehicleHvacFanDirection::FLOOR;
 constexpr int OBD2_LIVE_FRAME = (int)VehicleProperty::OBD2_LIVE_FRAME;
 constexpr int OBD2_FREEZE_FRAME = (int)VehicleProperty::OBD2_FREEZE_FRAME;
 constexpr int OBD2_FREEZE_FRAME_INFO = (int)VehicleProperty::OBD2_FREEZE_FRAME_INFO;
@@ -222,6 +227,16 @@ const ConfigDeclaration kVehicleProperties[]{
              .maxSampleRate = 10.0f,
          },
      .initialValue = {.floatValues = {0.0f}}},
+
+    {.config =
+         {
+             .prop = toInt(VehicleProperty::INFO_DRIVER_SEAT),
+             .access = VehiclePropertyAccess::READ,
+             .changeMode = VehiclePropertyChangeMode::STATIC,
+             // this was a zoned property on an old vhal, but it is meant to be global
+             .areaConfigs = {VehicleAreaConfig{.areaId = (0)}},
+         },
+     .initialValue = {.int32Values = {SEAT_1_LEFT}}},
 
     {.config =
          {
@@ -436,6 +451,13 @@ const ConfigDeclaration kVehicleProperties[]{
                 .areaConfigs = {VehicleAreaConfig{.areaId = HVAC_ALL}}},
      .initialValue = {.int32Values = {toInt(VehicleHvacFanDirection::FACE)}}},
 
+    {.config = {.prop = toInt(VehicleProperty::HVAC_FAN_DIRECTION_AVAILABLE),
+                .access = VehiclePropertyAccess::READ,
+                .changeMode = VehiclePropertyChangeMode::STATIC,
+                .areaConfigs = {VehicleAreaConfig{.areaId = HVAC_ALL}}},
+     .initialValue = {.int32Values = {FAN_DIRECTION_FACE, FAN_DIRECTION_FLOOR,
+                                      FAN_DIRECTION_FACE | FAN_DIRECTION_FLOOR}}},
+
     {.config = {.prop = toInt(VehicleProperty::HVAC_SEAT_VENTILATION),
                 .access = VehiclePropertyAccess::READ_WRITE,
                 .changeMode = VehiclePropertyChangeMode::ON_CHANGE,
@@ -550,12 +572,19 @@ const ConfigDeclaration kVehicleProperties[]{
     },
 
     {.config = {.prop = toInt(VehicleProperty::DOOR_LOCK),
-                .access = VehiclePropertyAccess::READ,
+                .access = VehiclePropertyAccess::READ_WRITE,
                 .changeMode = VehiclePropertyChangeMode::ON_CHANGE,
                 .areaConfigs = {VehicleAreaConfig{.areaId = DOOR_1_LEFT},
                                 VehicleAreaConfig{.areaId = DOOR_1_RIGHT}}},
      .initialAreaValues = {{DOOR_1_LEFT, {.int32Values = {1}}},
                            {DOOR_1_RIGHT, {.int32Values = {1}}}}},
+
+    {.config = {.prop = toInt(VehicleProperty::WINDOW_LOCK),
+                .access = VehiclePropertyAccess::READ_WRITE,
+                .changeMode = VehiclePropertyChangeMode::ON_CHANGE,
+                .areaConfigs = {VehicleAreaConfig{.areaId = WINDOW_1_LEFT | WINDOW_2_LEFT |
+                                                            WINDOW_2_RIGHT}}},
+     .initialAreaValues = {{WINDOW_1_LEFT | WINDOW_2_LEFT | WINDOW_2_RIGHT, {.int32Values = {0}}}}},
 
     {.config =
          {
