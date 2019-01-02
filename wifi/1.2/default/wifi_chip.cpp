@@ -1240,6 +1240,8 @@ void WifiChip::populateModes() {
     //                             concurrent iface operations.
     //    Interface Combination 2: Will support 1 STA and 1 AP concurrent
     //                             iface operations.
+    //    Interface Combination 4: Will support 1 STA and 1 AP and 1 P2P or NAN
+    //                             concurrent ifae operations.
     // If Aware is enabled (conditional on isAwareSupported()), the iface
     // combination will be modified to support either P2P or NAN in place of
     // just P2P.
@@ -1260,16 +1262,27 @@ void WifiChip::populateModes() {
             {chip_iface_combination_limit_1, chip_iface_combination_limit_2}};
         const IWifiChip::ChipIfaceCombination chip_iface_combination_2 = {
             {chip_iface_combination_limit_1, chip_iface_combination_limit_3}};
+        const IWifiChip::ChipIfaceCombination chip_iface_combination_4 = {
+            {chip_iface_combination_limit_1, chip_iface_combination_limit_2,
+             chip_iface_combination_limit_3}};
         if (feature_flags_.lock()->isApDisabled()) {
           const IWifiChip::ChipMode chip_mode = {
               kV2ChipModeId,
               {chip_iface_combination_2}};
           modes_ = {chip_mode};
+          LOG(ERROR) << "chip mode combination 2 - STA+P2P/NAN";
+        } else if (feature_flags_.lock()->isStaSapP2pEnabled()) {
+          const IWifiChip::ChipMode chip_mode = {
+              kV2ChipModeId,
+              {chip_iface_combination_4}};
+          modes_ = {chip_mode};
+          LOG(ERROR) << "chip mode combination 4 - STA+SAP+P2P/NAN";
         } else {
           const IWifiChip::ChipMode chip_mode = {
             kV2ChipModeId,
             {chip_iface_combination_1, chip_iface_combination_2}};
           modes_ = {chip_mode};
+          LOG(ERROR) << "chip mode combination 1 or 2 - STA+AP or STA+P2P/NAN";
         }
     } else {
         // V1 Iface combinations for Mode Id = 0. (STA Mode)
