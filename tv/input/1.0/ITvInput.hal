@@ -76,4 +76,28 @@ interface ITvInput {
      */
     @callflow(next={"getStreamConfigurations", "openStream", "closeStream"})
     closeStream(int32_t deviceId, int32_t streamId) generates (Result result);
+
+    /**
+     * Dynamically sets the value of a parameter selected by the user.
+     *
+     * @param deviceId Device ID for the stream.
+     * @param streamId Stream ID for the stream.
+     * @param paramId Parameter ID indicated by an enum.
+     * @param paramType Type of the param.
+     * @param paramValue Value to be set.
+     * @return result OK upon success. Otherwise,
+     *         INVALID_STATE if the value could not be set.
+     */
+    setStreamParam(int32_t deviceId, int32_t streamId, int32_t paramId, TvInputParamType paramType, TvInputParamVal paramValue) generates (Result result);
+
+    /**
+     * Gets the value of a parameter selected by the user.
+     *
+     * @param deviceId Device ID for the stream.
+     * @param streamId Stream ID for the stream.
+     * @param paramId Parameter ID indicated by an enum.
+     * @param paramType Type of the param.
+     * @return paramValue Value of the param.
+     */
+    getStreamParam(int32_t deviceId, int32_t streamId, int32_t paramId, TvInputParamType paramType) generates (Result result, TvInputParamVal paramValue);
 };

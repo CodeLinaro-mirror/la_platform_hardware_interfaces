@@ -54,6 +54,18 @@ enum CableConnectionStatus : int32_t {
     DISCONNECTED = 2,
 };
 
+enum TvInputParamType : int32_t {
+    TV_INPUT_PARAM_TYPE_BYTE = 0,
+    TV_INPUT_PARAM_TYPE_INT = 1,
+    TV_INPUT_PARAM_TYPE_FLOAT = 2,
+};
+
+union TvInputParamVal {
+    int8_t    byteval;
+    int32_t   intval;
+    float     floatval;
+};
+
 struct TvInputDeviceInfo {
     int32_t deviceId;
     TvInputType type;

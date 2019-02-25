@@ -140,6 +140,57 @@ Return<Result> TvInput::closeStream(int32_t deviceId, int32_t streamId)  {
     return res;
 }
 
+Return<Result> TvInput::setStreamParam(int32_t deviceId, int32_t streamId, int32_t paramId, TvInputParamType paramType, const TvInputParamVal& paramValue)  {
+    tv_input_param_val_t paramVal;
+    switch (paramType)
+    {
+    case TvInputParamType::TV_INPUT_PARAM_TYPE_BYTE:
+        paramVal.byteval = paramValue.byteval;
+        break;
+    case TvInputParamType::TV_INPUT_PARAM_TYPE_INT:
+        paramVal.intval = paramValue.intval;
+        break;
+    case TvInputParamType::TV_INPUT_PARAM_TYPE_FLOAT:
+        paramVal.floatval = paramValue.floatval;
+        break;
+    default:
+        LOG(ERROR) << "paramType not recognized: " << (tv_input_param_type_t)paramType;
+    }
+    int ret = mDevice->set_stream_param(mDevice, deviceId, streamId, paramId, (tv_input_param_type_t)paramType, paramVal);
+    Result res = Result::UNKNOWN;
+    if (ret == 0) {
+        res = Result::OK;
+    } else if (ret == -ENOENT) {
+        res = Result::INVALID_STATE;
+    } else if (ret == -EINVAL) {
+        res = Result::INVALID_ARGUMENTS;
+    }
+    return res;
+}
+
+Return<void> TvInput::getStreamParam(int32_t deviceId, int32_t streamId, int32_t paramId, TvInputParamType paramType, getStreamParam_cb cb)  {
+    tv_input_param_val_t param_value = mDevice->get_stream_param(mDevice, deviceId, streamId, paramId,
+            (tv_input_param_type_t)paramType);
+    TvInputParamVal paramVal;
+    Result res = Result::OK;
+    switch (paramType)
+    {
+    case TvInputParamType::TV_INPUT_PARAM_TYPE_BYTE:
+        paramVal.byteval = param_value.byteval;
+        break;
+    case TvInputParamType::TV_INPUT_PARAM_TYPE_INT:
+        paramVal.intval = param_value.intval;
+        break;
+    case TvInputParamType::TV_INPUT_PARAM_TYPE_FLOAT:
+        paramVal.floatval = param_value.floatval;
+        break;
+    default:
+        LOG(ERROR) << "paramType not recognized: " << (tv_input_param_type_t)paramType;
+    }
+    cb(res, paramVal);
+    return Void();
+}
+
 // static
 void TvInput::notify(struct tv_input_device* __unused, tv_input_event_t* event,
         void* __unused) {
