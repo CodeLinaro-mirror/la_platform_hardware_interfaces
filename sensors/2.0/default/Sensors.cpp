@@ -31,18 +31,26 @@ using ::android::hardware::sensors::V1_0::RateLevel;
 using ::android::hardware::sensors::V1_0::Result;
 using ::android::hardware::sensors::V1_0::SharedMemInfo;
 using ::android::hardware::sensors::V2_0::SensorTimeout;
+using ::android::hardware::sensors::V2_0::WakeLockQueueFlagBits;
 
 constexpr const char* kWakeLockName = "SensorsHAL_WAKEUP";
 
 Sensors::Sensors()
     : mEventQueueFlag(nullptr),
+      mNextHandle(1),
       mOutstandingWakeUpEvents(0),
       mReadWakeLockQueueRun(false),
       mAutoReleaseWakeLockTime(0),
       mHasWakeLock(false) {
-    std::shared_ptr<AccelSensor> accel =
-        std::make_shared<AccelSensor>(1 /* sensorHandle */, this /* callback */);
-    mSensors[accel->getSensorInfo().sensorHandle] = accel;
+    AddSensor<AccelSensor>();
+    AddSensor<GyroSensor>();
+    AddSensor<AmbientTempSensor>();
+    AddSensor<DeviceTempSensor>();
+    AddSensor<PressureSensor>();
+    AddSensor<MagnetometerSensor>();
+    AddSensor<LightSensor>();
+    AddSensor<ProximitySensor>();
+    AddSensor<RelativeHumiditySensor>();
 }
 
 Sensors::~Sensors() {
@@ -85,6 +93,17 @@ Return<Result> Sensors::initialize(
     const ::android::hardware::MQDescriptorSync<uint32_t>& wakeLockDescriptor,
     const sp<ISensorsCallback>& sensorsCallback) {
     Result result = Result::OK;
+
+    // Ensure that all sensors are disabled
+    for (auto sensor : mSensors) {
+        sensor.second->activate(false /* enable */);
+    }
+
+    // Stop the Wake Lock thread if it is currently running
+    if (mReadWakeLockQueueRun.load()) {
+        mReadWakeLockQueueRun = false;
+        mWakeLockThread.join();
+    }
 
     // Save a reference to the callback
     mCallback = sensorsCallback;
@@ -215,7 +234,9 @@ void Sensors::readWakeLockFMQ() {
 
         // Read events from the Wake Lock FMQ. Timeout after a reasonable amount of time to ensure
         // that any held wake lock is able to be released if it is held for too long.
-        mWakeLockQueue->readBlocking(&eventsHandled, 1 /* count */, kReadTimeoutNs);
+        mWakeLockQueue->readBlocking(&eventsHandled, 1 /* count */, 0 /* readNotification */,
+                                     static_cast<uint32_t>(WakeLockQueueFlagBits::DATA_WRITTEN),
+                                     kReadTimeoutNs);
         updateWakeLock(0 /* eventsWritten */, eventsHandled);
     }
 }

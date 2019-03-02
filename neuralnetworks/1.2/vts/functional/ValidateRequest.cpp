@@ -19,6 +19,7 @@
 #include "VtsHalNeuralnetworks.h"
 
 #include "Callbacks.h"
+#include "ExecutionBurstController.h"
 #include "TestHarness.h"
 #include "Utils.h"
 
@@ -33,14 +34,18 @@ namespace V1_2 {
 namespace vts {
 namespace functional {
 
-using ::android::hardware::neuralnetworks::V1_0::implementation::ExecutionCallback;
-using ::android::hardware::neuralnetworks::V1_0::implementation::PreparedModelCallback;
+using ::android::hardware::neuralnetworks::V1_2::implementation::ExecutionCallback;
+using ::android::hardware::neuralnetworks::V1_2::implementation::PreparedModelCallback;
 using ::android::hidl::memory::V1_0::IMemory;
 using test_helper::for_all;
 using test_helper::MixedTyped;
 using test_helper::MixedTypedExample;
 
 ///////////////////////// UTILITY FUNCTIONS /////////////////////////
+
+static bool badTiming(Timing timing) {
+    return timing.timeOnDevice == UINT64_MAX && timing.timeInDriver == UINT64_MAX;
+}
 
 static void createPreparedModel(const sp<IDevice>& device, const Model& model,
                                 sp<IPreparedModel>* preparedModel) {
@@ -68,7 +73,7 @@ static void createPreparedModel(const sp<IDevice>& device, const Model& model,
     // retrieve prepared model
     preparedModelCallback->wait();
     ErrorStatus prepareReturnStatus = preparedModelCallback->getStatus();
-    *preparedModel = preparedModelCallback->getPreparedModel();
+    *preparedModel = getPreparedModel_1_2(preparedModelCallback);
 
     // The getSupportedOperations_1_2 call returns a list of operations that are
     // guaranteed not to fail if prepareModel_1_2 is called, and
@@ -97,17 +102,88 @@ static void createPreparedModel(const sp<IDevice>& device, const Model& model,
 static void validate(const sp<IPreparedModel>& preparedModel, const std::string& message,
                      Request request, const std::function<void(Request*)>& mutation) {
     mutation(&request);
-    SCOPED_TRACE(message + " [execute]");
 
-    sp<ExecutionCallback> executionCallback = new ExecutionCallback();
-    ASSERT_NE(nullptr, executionCallback.get());
-    Return<ErrorStatus> executeLaunchStatus = preparedModel->execute(request, executionCallback);
-    ASSERT_TRUE(executeLaunchStatus.isOk());
-    ASSERT_EQ(ErrorStatus::INVALID_ARGUMENT, static_cast<ErrorStatus>(executeLaunchStatus));
+    // We'd like to test both with timing requested and without timing
+    // requested. Rather than running each test both ways, we'll decide whether
+    // to request timing by hashing the message. We do not use std::hash because
+    // it is not guaranteed stable across executions.
+    char hash = 0;
+    for (auto c : message) {
+        hash ^= c;
+    };
+    MeasureTiming measure = (hash & 1) ? MeasureTiming::YES : MeasureTiming::NO;
 
-    executionCallback->wait();
-    ErrorStatus executionReturnStatus = executionCallback->getStatus();
-    ASSERT_EQ(ErrorStatus::INVALID_ARGUMENT, executionReturnStatus);
+    // asynchronous
+    {
+        SCOPED_TRACE(message + " [execute_1_2]");
+
+        sp<ExecutionCallback> executionCallback = new ExecutionCallback();
+        ASSERT_NE(nullptr, executionCallback.get());
+        Return<ErrorStatus> executeLaunchStatus =
+                preparedModel->execute_1_2(request, measure, executionCallback);
+        ASSERT_TRUE(executeLaunchStatus.isOk());
+        ASSERT_EQ(ErrorStatus::INVALID_ARGUMENT, static_cast<ErrorStatus>(executeLaunchStatus));
+
+        executionCallback->wait();
+        ErrorStatus executionReturnStatus = executionCallback->getStatus();
+        const auto& outputShapes = executionCallback->getOutputShapes();
+        Timing timing = executionCallback->getTiming();
+        ASSERT_EQ(ErrorStatus::INVALID_ARGUMENT, executionReturnStatus);
+        ASSERT_EQ(outputShapes.size(), 0);
+        ASSERT_TRUE(badTiming(timing));
+    }
+
+    // synchronous
+    {
+        SCOPED_TRACE(message + " [executeSynchronously]");
+
+        Return<void> executeStatus = preparedModel->executeSynchronously(
+                request, measure,
+                [](ErrorStatus error, const hidl_vec<OutputShape>& outputShapes,
+                   const Timing& timing) {
+                    ASSERT_EQ(ErrorStatus::INVALID_ARGUMENT, error);
+                    EXPECT_EQ(outputShapes.size(), 0);
+                    EXPECT_TRUE(badTiming(timing));
+                });
+        ASSERT_TRUE(executeStatus.isOk());
+    }
+
+    // burst
+    {
+        SCOPED_TRACE(message + " [burst]");
+
+        // create burst
+        std::unique_ptr<::android::nn::ExecutionBurstController> burst =
+                ::android::nn::createExecutionBurstController(preparedModel, /*blocking=*/true);
+        ASSERT_NE(nullptr, burst.get());
+
+        // create memory keys
+        std::vector<intptr_t> keys(request.pools.size());
+        for (size_t i = 0; i < keys.size(); ++i) {
+            keys[i] = reinterpret_cast<intptr_t>(&request.pools[i]);
+        }
+
+        // execute and verify
+        ErrorStatus error;
+        std::vector<OutputShape> outputShapes;
+        Timing timing;
+        std::tie(error, outputShapes, timing) = burst->compute(request, measure, keys);
+        EXPECT_EQ(ErrorStatus::INVALID_ARGUMENT, error);
+        EXPECT_EQ(outputShapes.size(), 0);
+        EXPECT_TRUE(badTiming(timing));
+
+        // additional burst testing
+        if (request.pools.size() > 0) {
+            // valid free
+            burst->freeMemory(keys.front());
+
+            // negative test: invalid free of unknown (blank) memory
+            burst->freeMemory(intptr_t{});
+
+            // negative test: double free of memory
+            burst->freeMemory(keys.front());
+        }
+    }
 }
 
 // Delete element from hidl_vec. hidl_vec doesn't support a "remove" operation,

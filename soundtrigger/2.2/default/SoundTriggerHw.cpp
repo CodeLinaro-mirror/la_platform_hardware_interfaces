@@ -380,8 +380,8 @@ struct sound_trigger_sound_model* SoundTriggerHw::convertSoundModelToHal(
                             "malloc failed for size %zu in convertSoundModelToHal PHRASE",
                             allocSize);
 
-        const ISoundTriggerHw::PhraseSoundModel* keyPhraseModel =
-            reinterpret_cast<const ISoundTriggerHw::PhraseSoundModel*>(soundModel);
+        const V2_0::ISoundTriggerHw::PhraseSoundModel* keyPhraseModel =
+            reinterpret_cast<const V2_0::ISoundTriggerHw::PhraseSoundModel*>(soundModel);
 
         size_t i;
         for (i = 0; i < keyPhraseModel->phrases.size() && i < SOUND_TRIGGER_MAX_PHRASES; i++) {
@@ -702,6 +702,11 @@ Return<int32_t> SoundTriggerHw::getModelState(int32_t modelHandle) {
         if (client == 0) {
             return -ENOSYS;
         }
+    }
+
+    if (mHwDevice->common.version < SOUND_TRIGGER_DEVICE_API_VERSION_1_2) {
+        ALOGE("Get model state not supported");
+        return -ENODEV;
     }
 
     if (mHwDevice->get_model_state == NULL) {

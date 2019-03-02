@@ -21,6 +21,9 @@ LOCAL_MODULE := android.hardware.wifi@1.0-service-lib
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_CPPFLAGS := -Wall -Werror -Wextra
+ifdef WIFI_HAL_INTERFACE_COMBINATIONS
+LOCAL_CPPFLAGS += -DWIFI_HAL_INTERFACE_COMBINATIONS="$(WIFI_HAL_INTERFACE_COMBINATIONS)"
+endif
 ifdef WIFI_HIDL_FEATURE_AWARE
 LOCAL_CPPFLAGS += -DWIFI_HIDL_FEATURE_AWARE
 endif
@@ -103,11 +106,43 @@ LOCAL_INIT_RC := android.hardware.wifi@1.0-service.rc
 include $(BUILD_EXECUTABLE)
 
 ###
+### android.hardware.wifi daemon
+###
+include $(CLEAR_VARS)
+LOCAL_MODULE := android.hardware.wifi@1.0-service-lazy
+LOCAL_OVERRIDES_MODULES := android.hardware.wifi@1.0-service
+LOCAL_CFLAGS := -DLAZY_SERVICE
+LOCAL_MODULE_RELATIVE_PATH := hw
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_CPPFLAGS := -Wall -Werror -Wextra
+LOCAL_SRC_FILES := \
+    service.cpp
+LOCAL_SHARED_LIBRARIES := \
+    libbase \
+    libcutils \
+    libhidlbase \
+    libhidltransport \
+    liblog \
+    libnl \
+    libutils \
+    libwifi-hal \
+    libwifi-system-iface \
+    android.hardware.wifi@1.0 \
+    android.hardware.wifi@1.1 \
+    android.hardware.wifi@1.2 \
+    android.hardware.wifi@1.3
+LOCAL_STATIC_LIBRARIES := \
+    android.hardware.wifi@1.0-service-lib
+LOCAL_INIT_RC := android.hardware.wifi@1.0-service-lazy.rc
+include $(BUILD_EXECUTABLE)
+
+###
 ### android.hardware.wifi unit tests.
 ###
 include $(CLEAR_VARS)
 LOCAL_MODULE := android.hardware.wifi@1.0-service-tests
 LOCAL_PROPRIETARY_MODULE := true
+LOCAL_CPPFLAGS := -Wall -Werror -Wextra
 LOCAL_SRC_FILES := \
     tests/hidl_struct_util_unit_tests.cpp \
     tests/main.cpp \

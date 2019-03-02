@@ -29,4 +29,22 @@ enum EventQueueFlagBits : uint32_t {
      * Used to notify the Event FMQ that events should be read and processed.
      */
     READ_AND_PROCESS = 1 << 0,
+
+    /**
+     * Used by the framework to signal to the HAL when events have been
+     * successfully read from the Event FMQ.
+     *
+     * If the MessageQueue::writeBlocking function is being used to write sensor
+     * events to the Event FMQ, then the readNotification parameter must be set
+     * to EVENTS_READ.
+     */
+     EVENTS_READ = 1 << 1,
+};
+
+enum WakeLockQueueFlagBits : uint32_t {
+    /**
+     * Used to notify the HAL that the framework has written data to the Wake
+     * Lock FMQ.
+     */
+     DATA_WRITTEN = 1 << 0,
 };

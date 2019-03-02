@@ -19,6 +19,7 @@
 #include "VtsHalNeuralnetworks.h"
 
 #include "Callbacks.h"
+#include "GeneratedTestHarness.h"
 #include "TestHarness.h"
 #include "Utils.h"
 
@@ -29,19 +30,12 @@
 namespace android {
 namespace hardware {
 namespace neuralnetworks {
-
-namespace generated_tests {
-using ::test_helper::MixedTypedExample;
-extern void Execute(const sp<V1_2::IDevice>&, std::function<V1_2::Model(void)>,
-                    std::function<bool(int)>, const std::vector<MixedTypedExample>&);
-}  // namespace generated_tests
-
 namespace V1_2 {
 namespace vts {
 namespace functional {
 
-using ::android::hardware::neuralnetworks::V1_0::implementation::ExecutionCallback;
-using ::android::hardware::neuralnetworks::V1_0::implementation::PreparedModelCallback;
+using ::android::hardware::neuralnetworks::V1_2::implementation::ExecutionCallback;
+using ::android::hardware::neuralnetworks::V1_2::implementation::PreparedModelCallback;
 using ::android::nn::allocateSharedMemory;
 using ::test_helper::MixedTypedExample;
 
