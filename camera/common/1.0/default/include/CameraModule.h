@@ -17,6 +17,9 @@
 #ifndef CAMERA_COMMON_1_0_CAMERAMODULE_H
 #define CAMERA_COMMON_1_0_CAMERAMODULE_H
 
+#include <string>
+#include <unordered_set>
+
 #include <hardware/camera.h>
 #include <utils/Mutex.h>
 #include <utils/KeyedVector.h>
@@ -67,6 +70,11 @@ public:
     void removeCamera(int cameraId);
     int getPhysicalCameraInfo(int physicalCameraId, camera_metadata_t **physicalInfo);
     int isStreamCombinationSupported(int cameraId, camera_stream_combination_t *streams);
+    void notifyDeviceStateChange(uint64_t deviceState);
+
+    static bool isLogicalMultiCamera(
+            const common::V1_0::helper::CameraMetadata& metadata,
+            std::unordered_set<std::string>* physicalCameraIds);
 
 private:
     // Derive camera characteristics keys defined after HAL device version
