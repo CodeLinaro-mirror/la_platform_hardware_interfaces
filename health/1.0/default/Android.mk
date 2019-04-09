@@ -20,7 +20,13 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_STATIC_LIBRARIES := android.hardware.health@1.0-convert
 
+ifeq ($(call is-board-platform-in-list,msm8996),true)
+ifneq ($(BOARD_VNDK_VERSION),current)
 LOCAL_HAL_STATIC_LIBRARIES := libhealthd
+endif # BOARD_VNDK_VERSION
+else
+LOCAL_HAL_STATIC_LIBRARIES := libhealthd
+endif # msm8996
 
 include $(BUILD_SHARED_LIBRARY)
 
