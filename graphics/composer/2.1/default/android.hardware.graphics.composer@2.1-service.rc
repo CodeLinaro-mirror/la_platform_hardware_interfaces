@@ -3,4 +3,8 @@ service hwcomposer-2-1 /vendor/bin/hw/android.hardware.graphics.composer@2.1-ser
     user system
     group graphics drmrpc
     capabilities SYS_NICE
-    onrestart restart surfaceflinger
+
+# Restart HWC when SurfaceFlinger stops. This turns off the display and prpares
+# a new HWC instance for when SurfaceFlinger gets started again
+on property:init.svc.surfaceflinger=stopped
+    restart hwcomposer-2-1
