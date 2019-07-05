@@ -32,4 +32,4 @@ LOCAL_SHARED_LIBRARIES := \
   libhardware \
   android.hardware.vibrator@1.0
 
-include $(BUILD_EXECUTABLE)
+#include $(BUILD_EXECUTABLE)
