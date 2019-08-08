@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cutils/properties.h>
 #include "wifi_feature_flags.h"
 
 namespace {
@@ -47,7 +48,13 @@ namespace implementation {
 namespace feature_flags {
 
 WifiFeatureFlags::WifiFeatureFlags() {}
-bool WifiFeatureFlags::isAwareSupported() { return wifiHidlFeatureAware; }
+bool WifiFeatureFlags::isAwareSupported() {
+    if (wifiHidlFeatureAware) {
+        return property_get_bool("ro.vendor.wlan.aware", true);
+    } else {
+        return false;
+    }
+}
 bool WifiFeatureFlags::isDualInterfaceSupported() {
     return wifiHidlFeatureDualInterface;
 }
