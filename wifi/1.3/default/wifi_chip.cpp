@@ -1540,7 +1540,7 @@ bool WifiChip::writeRingbufferFilesInternal() {
             }
         }
     }
-    }
+   }
     return true;
 }
 
