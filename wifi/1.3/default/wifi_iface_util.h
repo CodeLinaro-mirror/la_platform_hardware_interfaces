@@ -18,6 +18,7 @@
 #define WIFI_IFACE_UTIL_H_
 
 #include <wifi_system/interface_tool.h>
+#include <wifi_system/bridge_tool.h>
 
 #include <android/hardware/wifi/1.0/IWifi.h>
 
@@ -57,10 +58,24 @@ class WifiIfaceUtil {
                                             IfaceEventHandlers handlers);
     virtual void unregisterIfaceEventHandlers(const std::string& iface_name);
 
+    virtual bool createBridge(const std::string& br_name);
+
+    virtual bool deleteBridge(const std::string& br_name);
+
+    virtual bool addIfaceToBridge(const std::string& br_name,
+                                  const std::string& if_name);
+
+    virtual bool removeIfaceFromBridge(const std::string& br_name,
+                                       const std::string& if_name);
+
+    virtual bool GetInterfacesInBridge(std::string br_name,
+                           std::vector<std::string>* interfaces);
+
    private:
     std::array<uint8_t, 6> createRandomMacAddress();
 
     std::weak_ptr<wifi_system::InterfaceTool> iface_tool_;
+    std::shared_ptr<wifi_system::BridgeTool> bridge_tool_;
     std::unique_ptr<std::array<uint8_t, 6>> random_mac_address_;
     std::map<std::string, IfaceEventHandlers> event_handlers_map_;
 };

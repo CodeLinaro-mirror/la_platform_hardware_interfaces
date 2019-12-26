@@ -69,6 +69,7 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.wifi@1.1 \
     android.hardware.wifi@1.2 \
     android.hardware.wifi@1.3
+LOCAL_WHOLE_STATIC_LIBRARIES := libwifi-system-bridge
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 include $(BUILD_STATIC_LIBRARY)
 
@@ -97,7 +98,8 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.wifi@1.2 \
     android.hardware.wifi@1.3
 LOCAL_STATIC_LIBRARIES := \
-    android.hardware.wifi@1.0-service-lib
+    android.hardware.wifi@1.0-service-lib \
+    libwifi-system-bridge
 LOCAL_INIT_RC := android.hardware.wifi@1.0-service.rc
 include $(BUILD_EXECUTABLE)
 
@@ -128,7 +130,8 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.wifi@1.2 \
     android.hardware.wifi@1.3
 LOCAL_STATIC_LIBRARIES := \
-    android.hardware.wifi@1.0-service-lib
+    android.hardware.wifi@1.0-service-lib \
+    libwifi-system-bridge
 LOCAL_INIT_RC := android.hardware.wifi@1.0-service-lazy.rc
 include $(BUILD_EXECUTABLE)
 
