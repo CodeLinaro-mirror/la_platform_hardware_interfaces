@@ -248,6 +248,16 @@ class WifiChip : public V1_3::IWifiChip {
     std::string allocateStaIfaceName();
     bool writeRingbufferFilesInternal();
 
+    std::pair<WifiStatus, sp<IWifiApIface>> createApBridgeIfaceInternal();
+    sp<WifiApIface> newWifiApIface(std::string ifname);
+    std::string allocateBridgeIfaceName();
+    void invalidateAndClearCreatedAll(std::vector<std::string>& ifaces);
+    void invalidateAndClearBridgeAll();
+    void invalidateAndClearBridge(const std::string& br_name);
+    void removeIfaceIfCreated(const std::string& name);
+    bool createIfaceIfNotExist(const std::string& name, IfaceType type);
+    bool findUsingNameFromBridge(const std::string& name);
+
     ChipId chip_id_;
     std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
     std::weak_ptr<mode_controller::WifiModeController> mode_controller_;
@@ -270,6 +280,10 @@ class WifiChip : public V1_3::IWifiChip {
     bool debug_ring_buffer_cb_registered_;
     hidl_callback_util::HidlCallbackHandler<V1_2::IWifiChipEventCallback>
         event_cb_handler_;
+
+    std::vector<std::string> created_ap_ifaces_;
+    std::vector<std::string> created_sta_ifaces_;
+    std::map<std::string, std::vector<std::string>> br_managed_ifaces_;
 
     DISALLOW_COPY_AND_ASSIGN(WifiChip);
 };
