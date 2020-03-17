@@ -35,8 +35,6 @@ using ::android::hardware::tv::input::V1_0::ITvInputCallback;
 using ::android::hardware::tv::input::V1_0::Result;
 using ::android::hardware::tv::input::V1_0::TvInputEvent;
 using ::android::hardware::tv::input::V1_0::TvStreamConfig;
-using ::android::hardware::tv::input::V1_0::TvInputParamType;
-using ::android::hardware::tv::input::V1_0::TvInputParamVal;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
 using ::android::hardware::hidl_vec;
@@ -52,10 +50,6 @@ struct TvInput : public ITvInput {
     Return<void> openStream(int32_t deviceId, int32_t streamId,
             openStream_cb _hidl_cb)  override;
     Return<Result> closeStream(int32_t deviceId, int32_t streamId)  override;
-    Return<Result> setStreamParam(int32_t deviceId, int32_t streamId, int32_t paramId,
-            TvInputParamType paramType, const TvInputParamVal& paramValue)  override;
-    Return<void> getStreamParam(int32_t deviceId, int32_t streamId, int32_t paramId,
-            TvInputParamType paramType, getStreamParam_cb cb)  override;
 
     static void notify(struct tv_input_device* __unused, tv_input_event_t* event,
             void* __unused);
