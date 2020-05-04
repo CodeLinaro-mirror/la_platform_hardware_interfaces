@@ -366,6 +366,11 @@ class WifiLegacyHal {
     // AP functions.
     wifi_error setCountryCode(const std::string& iface_name,
                               std::array<int8_t, 2> code);
+    wifi_error QcAddInterface(const std::string& iface_name,
+                              const std::string& new_ifname,
+                              uint32_t type);
+    wifi_error QcRemoveInterface(const std::string& iface_name,
+                                 const std::string& ifname);
 
    private:
     // Retrieve interface handles for all the available interfaces.
