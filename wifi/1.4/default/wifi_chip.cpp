@@ -107,6 +107,15 @@ std::string getP2pIfaceName() {
     return buffer.data();
 }
 
+// Returns the dedicated iface name if one is defined.
+std::string getNanIfaceName() {
+    std::array<char, PROPERTY_VALUE_MAX> buffer;
+    if (property_get("wifi.aware.interface", buffer.data(), nullptr) == 0) {
+        return {};
+    }
+    return buffer.data();
+}
+
 void setActiveWlanIfaceNameProperty(const std::string& ifname) {
     auto res = property_set(kActiveWlanIfaceNameProperty, ifname.data());
     if (res != 0) {
@@ -864,9 +873,16 @@ std::pair<WifiStatus, sp<IWifiNanIface>> WifiChip::createNanIfaceInternal() {
     if (!canCurrentModeSupportIfaceOfTypeWithCurrentIfaces(IfaceType::NAN)) {
         return {createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE), {}};
     }
-    // These are still assumed to be based on wlan0.
-    std::string ifname = getFirstActiveWlanIfaceName();
-    sp<WifiNanIface> iface = new WifiNanIface(ifname, legacy_hal_, iface_util_);
+    bool is_dedicated_iface = true;
+    std::string ifname = getNanIfaceName();
+    if (ifname.empty()) {
+        // Use the first shared STA iface (wlan0) if a dedicated aware iface is
+        // not defined.
+        ifname = getFirstActiveWlanIfaceName();
+        is_dedicated_iface = false;
+    }
+    sp<WifiNanIface> iface =
+        new WifiNanIface(ifname, is_dedicated_iface, legacy_hal_, iface_util_);
     nan_ifaces_.push_back(iface);
     for (const auto& callback : event_cb_handler_.getCallbacks()) {
         if (!callback->onIfaceAdded(IfaceType::NAN, ifname).isOk()) {
@@ -1298,13 +1314,18 @@ WifiStatus WifiChip::registerDebugRingBufferCallback() {
                 LOG(ERROR) << "Error converting ring buffer status";
                 return;
             }
-            const auto& target = shared_ptr_this->ringbuffer_map_.find(name);
-            if (target != shared_ptr_this->ringbuffer_map_.end()) {
-                Ringbuffer& cur_buffer = target->second;
-                cur_buffer.append(data);
-            } else {
-                LOG(ERROR) << "Ringname " << name << " not found";
-                return;
+            {
+                std::unique_lock<std::mutex> lk(shared_ptr_this->lock_t);
+                const auto& target =
+                    shared_ptr_this->ringbuffer_map_.find(name);
+                if (target != shared_ptr_this->ringbuffer_map_.end()) {
+                    Ringbuffer& cur_buffer = target->second;
+                    cur_buffer.append(data);
+                } else {
+                    LOG(ERROR) << "Ringname " << name << " not found";
+                    return;
+                }
+                // unlock
             }
         };
     legacy_hal::wifi_error legacy_status =
@@ -1579,25 +1600,29 @@ bool WifiChip::writeRingbufferFilesInternal() {
         return false;
     }
     // write ringbuffers to file
-    for (const auto& item : ringbuffer_map_) {
-        const Ringbuffer& cur_buffer = item.second;
-        if (cur_buffer.getData().empty()) {
-            continue;
-        }
-        const std::string file_path_raw =
-            kTombstoneFolderPath + item.first + "XXXXXXXXXX";
-        const int dump_fd = mkstemp(makeCharVec(file_path_raw).data());
-        if (dump_fd == -1) {
-            PLOG(ERROR) << "create file failed";
-            return false;
-        }
-        unique_fd file_auto_closer(dump_fd);
-        for (const auto& cur_block : cur_buffer.getData()) {
-            if (write(dump_fd, cur_block.data(),
-                      sizeof(cur_block[0]) * cur_block.size()) == -1) {
-                PLOG(ERROR) << "Error writing to file";
+    {
+        std::unique_lock<std::mutex> lk(lock_t);
+        for (const auto& item : ringbuffer_map_) {
+            const Ringbuffer& cur_buffer = item.second;
+            if (cur_buffer.getData().empty()) {
+                continue;
+            }
+            const std::string file_path_raw =
+                kTombstoneFolderPath + item.first + "XXXXXXXXXX";
+            const int dump_fd = mkstemp(makeCharVec(file_path_raw).data());
+            if (dump_fd == -1) {
+                PLOG(ERROR) << "create file failed";
+                return false;
+            }
+            unique_fd file_auto_closer(dump_fd);
+            for (const auto& cur_block : cur_buffer.getData()) {
+                if (write(dump_fd, cur_block.data(),
+                          sizeof(cur_block[0]) * cur_block.size()) == -1) {
+                    PLOG(ERROR) << "Error writing to file";
+                }
             }
         }
+        // unlock
     }
     return true;
 }
