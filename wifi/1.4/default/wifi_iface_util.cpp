@@ -43,7 +43,10 @@ WifiIfaceUtil::WifiIfaceUtil(
     const std::weak_ptr<wifi_system::InterfaceTool> iface_tool)
     : iface_tool_(iface_tool),
       random_mac_address_(nullptr),
-      event_handlers_map_() {}
+      event_handlers_map_() {
+    LOG(INFO) << "bridge_tool_ initialized";
+    bridge_tool_ = std::make_shared<android::wifi_system::BridgeTool>();
+}
 
 std::array<uint8_t, 6> WifiIfaceUtil::getFactoryMacAddress(
     const std::string& iface_name) {
@@ -118,6 +121,39 @@ bool WifiIfaceUtil::setUpState(const std::string& iface_name, bool request_up) {
     }
     return true;
 }
+
+bool WifiIfaceUtil::createBridge(const std::string& br_name) {
+    if (!bridge_tool_->createBridge(br_name)) {
+        return false;
+    }
+
+    if (!iface_tool_.lock()->SetUpState(br_name.c_str(), true)) {
+        LOG(ERROR) << "bridge SetUpState(true) failed.";
+    }
+    return true;
+}
+
+bool WifiIfaceUtil::deleteBridge(const std::string& br_name) {
+    if (!iface_tool_.lock()->SetUpState(br_name.c_str(), false)) {
+        LOG(INFO) << "SetUpState(false) failed for bridge=" << br_name.c_str();
+    }
+
+    return bridge_tool_->deleteBridge(br_name);
+}
+
+bool WifiIfaceUtil::addIfaceToBridge(const std::string& br_name, const std::string& if_name) {
+    return bridge_tool_->addIfaceToBridge(br_name, if_name);
+}
+
+bool WifiIfaceUtil::removeIfaceFromBridge(const std::string& br_name, const std::string& if_name) {
+    return bridge_tool_->removeIfaceFromBridge(br_name, if_name);
+}
+
+bool WifiIfaceUtil::GetInterfacesInBridge(std::string br_name,
+                           std::vector<std::string>* interfaces) {
+   return bridge_tool_->GetInterfacesInBridge(br_name, interfaces);
+}
+
 }  // namespace iface_util
 }  // namespace implementation
 }  // namespace V1_4
