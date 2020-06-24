@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <net/if.h>
 #include <cstddef>
 #include <iostream>
 #include <limits>
@@ -158,6 +159,9 @@ bool WifiIfaceUtil::GetInterfacesInBridge(std::string br_name,
    return bridge_tool_->GetInterfacesInBridge(br_name, interfaces);
 }
 
+unsigned WifiIfaceUtil::ifNameToIndex(const std::string& iface_name) {
+    return if_nametoindex(iface_name.c_str());
+}
 }  // namespace iface_util
 }  // namespace implementation
 }  // namespace V1_4
