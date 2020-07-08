@@ -100,6 +100,13 @@ std::string getWlan1IfaceName() {
     return buffer.data();
 }
 
+std::string getWlan2IfaceName() {
+    std::array<char, PROPERTY_VALUE_MAX> buffer;
+    property_get("wifi.interface.2", buffer.data(), "wlan2");
+    return buffer.data();
+
+}
+
 std::string getP2pIfaceName() {
     std::array<char, PROPERTY_VALUE_MAX> buffer;
     property_get("wifi.direct.interface", buffer.data(), "p2p0");
@@ -1245,6 +1252,8 @@ void WifiChip::populateModes() {
     //                             iface operations.
     //    Interface Combination 4: Will support 1 STA and 1 AP and 1 P2P or NAN
     //                             concurrent ifae operations.
+    //    Interface Combination 5: Will support 1 STA and 2 AP and 1 P2P or NAN
+    //                             concurrent ifae operations. 
     // If Aware is enabled (conditional on isAwareSupported()), the iface
     // combination will be modified to support either P2P or NAN in place of
     // just P2P.
@@ -1261,6 +1270,8 @@ void WifiChip::populateModes() {
         } else {
             chip_iface_combination_limit_3 = {{IfaceType::P2P}, 1};
         }
+        const IWifiChip::ChipIfaceCombinationLimit
+            chip_iface_combination_limit_4 = {{IfaceType::AP}, 2};
         const IWifiChip::ChipIfaceCombination chip_iface_combination_1 = {
             {chip_iface_combination_limit_1, chip_iface_combination_limit_2}};
         const IWifiChip::ChipIfaceCombination chip_iface_combination_2 = {
@@ -1268,6 +1279,9 @@ void WifiChip::populateModes() {
         const IWifiChip::ChipIfaceCombination chip_iface_combination_4 = {
             {chip_iface_combination_limit_1, chip_iface_combination_limit_2,
              chip_iface_combination_limit_3}};
+        const IWifiChip::ChipIfaceCombination chip_iface_combination_5 = {
+            {chip_iface_combination_limit_1, chip_iface_combination_limit_3,
+             chip_iface_combination_limit_4}};
         if (feature_flags_.lock()->isApDisabled()) {
           const IWifiChip::ChipMode chip_mode = {
               kV2ChipModeId,
@@ -1280,6 +1294,12 @@ void WifiChip::populateModes() {
               {chip_iface_combination_4}};
           modes_ = {chip_mode};
           LOG(ERROR) << "chip mode combination 4 - STA+SAP+P2P/NAN";
+        } else if (feature_flags_.lock()->isStaDualSapP2pEnabled()) {
+          const IWifiChip::ChipMode chip_mode = {
+              kV2ChipModeId,
+              {chip_iface_combination_5}};
+          modes_ = {chip_mode};
+          LOG(ERROR) << "chip mode combination 5 - STA+Dual SAP+P2P/NAN";
         } else {
           const IWifiChip::ChipMode chip_mode = {
             kV2ChipModeId,
@@ -1394,6 +1414,7 @@ bool WifiChip::canExpandedIfaceCombinationSupportIfaceOfType(
         }
         size_t num_ifaces_allowed = combo.at(type);
         if (num_ifaces_needed > num_ifaces_allowed) {
+            LOG(ERROR) << "return false in canExpandedIfaceCombinationSupportIfaceOfType";
             return false;
         }
     }
@@ -1431,8 +1452,9 @@ bool WifiChip::isValidModeId(ChipModeId mode_id) {
     return false;
 }
 
-// Return "wlan0", if "wlan0" is not already in use, else return "wlan1".
-// This is based on the assumption that we'll have a max of 2 concurrent
+// Return "wlan0", if "wlan0" is not already in use, else return "wlan1"
+// if "wlan1" is not in use, else return "wlan2".
+// This is based on the assumption that we'll have a max of 3 concurrent
 // AP/STA ifaces.
 std::string WifiChip::allocateApOrStaIfaceName() {
     auto ap_iface = findUsingName(ap_ifaces_, getWlan0IfaceName());
@@ -1445,8 +1467,14 @@ std::string WifiChip::allocateApOrStaIfaceName() {
     if (!ap_iface.get() && !sta_iface.get()) {
         return getWlan1IfaceName();
     }
+    ap_iface = findUsingName(ap_ifaces_, getWlan2IfaceName());
+    sta_iface = findUsingName(sta_ifaces_, getWlan2IfaceName());
+    if (!ap_iface.get() && !sta_iface.get()) {
+        return getWlan2IfaceName();
+    }
+
     // This should never happen. We screwed up somewhere if it did.
-    CHECK(0) << "wlan0 and wlan1 in use already!";
+    CHECK(0) << "wlan0, wlan1 and wlan2 in use already!";
     return {};
 }
 

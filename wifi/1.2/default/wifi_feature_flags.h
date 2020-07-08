@@ -33,6 +33,7 @@ class WifiFeatureFlags {
     virtual bool isDualInterfaceSupported();
     virtual bool isApDisabled();
     virtual bool isStaSapP2pEnabled();
+    virtual bool isStaDualSapP2pEnabled();
 };
 
 }  // namespace feature_flags
