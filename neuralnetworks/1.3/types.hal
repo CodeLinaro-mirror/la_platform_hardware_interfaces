@@ -2012,6 +2012,8 @@ enum OperationType : int32_t {
      *      For a {@link OperandType::TENSOR_QUANT8_ASYMM} and
      *      {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} tensor,
      *      the scale and zeroPoint must be the same as input0.
+     *      If all dimensions are reduced and keep_dims is false, the output
+     *      shape is [1].
      */
     MEAN = @1.2::OperationType:MEAN,
 
@@ -2141,6 +2143,8 @@ enum OperationType : int32_t {
      *      For a {@link OperandType::TENSOR_QUANT8_ASYMM} and
      *      {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} tensor,
      *      the scale and zeroPoint must be the same as input0.
+     *      If all input dimensions are equal to 1 and are to be squeezed, the
+     *      output shape is [1].
      */
     SQUEEZE = @1.2::OperationType:SQUEEZE,
 
@@ -2190,6 +2194,8 @@ enum OperationType : int32_t {
      *      For a {@link OperandType::TENSOR_QUANT8_ASYMM} and
      *      {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} tensor,
      *      the scale and zeroPoint must be the same as input0.
+     *      If shrink_axis_mask is true for all input dimensions, the output
+     *      shape is [1].
      */
     STRIDED_SLICE = @1.2::OperationType:STRIDED_SLICE,
 
@@ -2313,6 +2319,7 @@ enum OperationType : int32_t {
      *
      * Outputs:
      * * 0: An (n - 1)-D {@link OperandType::TENSOR_INT32} tensor.
+     *      If input is 1-dimensional, the output shape is [1].
      */
     // There is no underscore in ARG_MAX to avoid name conflict with
     // the macro defined in libc/kernel/uapi/linux/limits.h.
@@ -2338,6 +2345,7 @@ enum OperationType : int32_t {
      *
      * Outputs:
      * * 0: An (n - 1)-D {@link OperandType::TENSOR_INT32} tensor.
+     *      If input is 1-dimensional, the output shape is [1].
      */
     ARGMIN = @1.2::OperationType:ARGMIN,  // See ARGMAX for naming discussion.
 
@@ -4096,6 +4104,8 @@ enum OperationType : int32_t {
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *      If all dimensions are reduced and keep_dims is false, the output
+     *      shape is [1].
      */
     REDUCE_ALL = @1.2::OperationType:REDUCE_ALL,
 
@@ -4121,6 +4131,8 @@ enum OperationType : int32_t {
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *      If all dimensions are reduced and keep_dims is false, the output
+     *      shape is [1].
      */
     REDUCE_ANY = @1.2::OperationType:REDUCE_ANY,
 
@@ -4149,6 +4161,8 @@ enum OperationType : int32_t {
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *      If all dimensions are reduced and keep_dims is false, the output
+     *      shape is [1].
      *      For a {@link OperandType::TENSOR_QUANT8_ASYMM} and
      *      {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} tensor,
      *      the scale and zeroPoint must be the same as input0.
@@ -4180,6 +4194,8 @@ enum OperationType : int32_t {
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *      If all dimensions are reduced and keep_dims is false, the output
+     *      shape is [1].
      *      For a {@link OperandType::TENSOR_QUANT8_ASYMM} and
      *      {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} tensor,
      *      the scale and zeroPoint must be the same as input0.
@@ -4208,6 +4224,8 @@ enum OperationType : int32_t {
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *      If all dimensions are reduced and keep_dims is false, the output
+     *      shape is [1].
      */
     REDUCE_PROD = @1.2::OperationType:REDUCE_PROD,
 
@@ -4233,6 +4251,8 @@ enum OperationType : int32_t {
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *      If all dimensions are reduced and keep_dims is false, the output
+     *      shape is [1].
      */
     REDUCE_SUM = @1.2::OperationType:REDUCE_SUM,
 
@@ -5082,11 +5102,15 @@ enum OperationType : int32_t {
      * The inputs and outputs of the two referenced subgraphs must agree with the
      * signature of this operation. That is, if the operation has (3 + n) inputs
      * and m outputs, both subgraphs must have n inputs and m outputs with the same
-     * types as the corresponding operation inputs and outputs.
+     * types, ranks, dimensions, scales,
+     * zeroPoints, and extraParams as the corresponding operation inputs and
+     * outputs.
+     * All of the operands mentioned must have fully specified dimensions.
      *
      * Inputs:
      * * 0: A value of type {@link OperandType::TENSOR_BOOL8} and shape [1]
      *      that determines which of the two referenced subgraphs to execute.
+     *      The operand must have fully specified dimensions.
      * * 1: A {@link OperandType::SUBGRAPH} reference to the subgraph to be
      *      executed if the condition is true.
      * * 2: A {@link OperandType::SUBGRAPH} reference to the subgraph to be
@@ -5145,13 +5169,17 @@ enum OperationType : int32_t {
      * Inputs:
      * * 0: A {@link OperandType::SUBGRAPH} reference to the condition
      *      subgraph. The subgraph must have (m + k + n) inputs with
-     *      the same types as the corresponding inputs of the WHILE operation
-     *      and exactly one output of {@link OperandType::TENSOR_BOOL8}
-     *      and shape [1].
+     *      the same types, ranks, dimensions,
+     *      scales, zeroPoints, and extraParams as the corresponding inputs of
+     *      the WHILE operation and exactly one output of
+     *      {@link OperandType::TENSOR_BOOL8} and shape [1].
+     *      All of the operands mentioned must have fully specified dimensions.
      * * 1: A {@link OperandType::SUBGRAPH} reference to the body subgraph.
      *      The subgraph must have (m + k + n) inputs and (m + k) outputs with
-     *      the same types as the corresponding inputs and outputs of the WHILE
-     *      operation.
+     *      the same types, ranks, dimensions,
+     *      scales, zeroPoints, and extraParams as the corresponding inputs and
+     *      outputs of the WHILE operation.
+     *      All of the operands mentioned must have fully specified dimensions.
      * * (m inputs): Initial values for input-output operands.
      * * (k inputs): Initial values for state-only operands.
      * * (n inputs): Values for input-only operands.
@@ -5471,7 +5499,9 @@ struct Operand {
      * If a tensor operand's dimensions are not fully specified, the
      * dimensions of the operand are deduced from the operand
      * dimensions and values of the operation for which that operand
-     * is an output.
+     * is an output or from the corresponding {@link OperationType::IF} or
+     * {@link OperationType::WHILE} operation input operand dimensions in the
+     * case of referenced subgraph input operands.
      *
      * In the following situations, a tensor operand's dimensions must
      * be fully specified:
@@ -5479,8 +5509,8 @@ struct Operand {
      *     . The operand has lifetime CONSTANT_COPY or
      *       CONSTANT_REFERENCE.
      *
-     *     . The operand has lifetime SUBGRAPH_INPUT. Fully
-     *       specified dimensions must either be present in the
+     *     . The operand has lifetime SUBGRAPH_INPUT and belongs to the main
+     *       subgraph. Fully specified dimensions must either be present in the
      *       Operand or they must be provided in the corresponding
      *       RequestArgument.
      *       EXCEPTION: If the input is optional and omitted

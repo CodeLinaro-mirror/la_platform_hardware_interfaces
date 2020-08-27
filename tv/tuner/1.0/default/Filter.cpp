@@ -37,6 +37,38 @@ Filter::Filter(DemuxFilterType type, uint32_t filterId, uint32_t bufferSize,
     mBufferSize = bufferSize;
     mCallback = cb;
     mDemux = demux;
+
+    switch (mType.mainType) {
+        case DemuxFilterMainType::TS:
+            if (mType.subType.tsFilterType() == DemuxTsFilterType::AUDIO ||
+                mType.subType.tsFilterType() == DemuxTsFilterType::VIDEO) {
+                mIsMediaFilter = true;
+            }
+            if (mType.subType.tsFilterType() == DemuxTsFilterType::PCR) {
+                mIsPcrFilter = true;
+            }
+            if (mType.subType.tsFilterType() == DemuxTsFilterType::RECORD) {
+                mIsRecordFilter = true;
+            }
+            break;
+        case DemuxFilterMainType::MMTP:
+            if (mType.subType.mmtpFilterType() == DemuxMmtpFilterType::AUDIO ||
+                mType.subType.mmtpFilterType() == DemuxMmtpFilterType::VIDEO) {
+                mIsMediaFilter = true;
+            }
+            if (mType.subType.mmtpFilterType() == DemuxMmtpFilterType::RECORD) {
+                mIsRecordFilter = true;
+            }
+            break;
+        case DemuxFilterMainType::IP:
+            break;
+        case DemuxFilterMainType::TLV:
+            break;
+        case DemuxFilterMainType::ALP:
+            break;
+        default:
+            break;
+    }
 }
 
 Filter::~Filter() {}
@@ -73,16 +105,8 @@ Return<Result> Filter::configure(const DemuxFilterSettings& settings) {
     switch (mType.mainType) {
         case DemuxFilterMainType::TS:
             mTpid = settings.ts().tpid;
-            if (mType.subType.tsFilterType() == DemuxTsFilterType::AUDIO ||
-                mType.subType.tsFilterType() == DemuxTsFilterType::VIDEO) {
-                mIsMediaFilter = true;
-            }
             break;
         case DemuxFilterMainType::MMTP:
-            if (mType.subType.mmtpFilterType() == DemuxMmtpFilterType::AUDIO ||
-                mType.subType.mmtpFilterType() == DemuxMmtpFilterType::VIDEO) {
-                mIsMediaFilter = true;
-            }
             break;
         case DemuxFilterMainType::IP:
             break;
@@ -517,12 +541,6 @@ Result Filter::startMediaFilterHandler() {
 }
 
 Result Filter::startRecordFilterHandler() {
-    /*DemuxFilterTsRecordEvent tsRecordEvent;
-    tsRecordEvent.pid.tPid(0);
-    tsRecordEvent.indexMask.tsIndexMask(0x01);
-    mFilterEvent.events.resize(1);
-    mFilterEvent.events[0].tsRecord(tsRecordEvent);
-*/
     std::lock_guard<std::mutex> lock(mRecordFilterOutputLock);
     if (mRecordFilterOutput.empty()) {
         return Result::SUCCESS;
@@ -549,7 +567,7 @@ Result Filter::startTemiFilterHandler() {
 
 bool Filter::writeSectionsAndCreateEvent(vector<uint8_t> data) {
     // TODO check how many sections has been read
-    ALOGD("[Filter] section hander");
+    ALOGD("[Filter] section handler");
     std::lock_guard<std::mutex> lock(mFilterEventLock);
     if (!writeDataToFilterMQ(data)) {
         return false;
