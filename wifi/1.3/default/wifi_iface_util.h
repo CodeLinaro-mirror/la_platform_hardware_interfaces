@@ -57,6 +57,7 @@ class WifiIfaceUtil {
     virtual void registerIfaceEventHandlers(const std::string& iface_name,
                                             IfaceEventHandlers handlers);
     virtual void unregisterIfaceEventHandlers(const std::string& iface_name);
+    virtual bool SetUpState(const std::string& iface_name, bool request_up);
 
     virtual bool createBridge(const std::string& br_name);
 

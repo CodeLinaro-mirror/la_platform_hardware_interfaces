@@ -115,6 +115,15 @@ std::array<uint8_t, 6> WifiIfaceUtil::createRandomMacAddress() {
     return address;
 }
 
+bool WifiIfaceUtil::SetUpState(const std::string& iface_name, bool request_up) {
+    LOG(ERROR) << "SetUpState " << request_up << " " << iface_name.c_str();
+    if (!iface_tool_.lock()->SetUpState(iface_name.c_str(), request_up)) {
+        LOG(ERROR) << "SetUpState failed";
+        return false;
+    }
+    return true;
+}
+
 bool WifiIfaceUtil::createBridge(const std::string& br_name) {
     if (bridge_tool_ == nullptr) {
         LOG(ERROR) << "bridge_tool_ is null";
