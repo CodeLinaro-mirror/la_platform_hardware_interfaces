@@ -33,6 +33,7 @@ WifiApIface::WifiApIface(
     const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
     const std::weak_ptr<iface_util::WifiIfaceUtil> iface_util)
     : ifname_(ifname),
+      born_name_(ifname),
       legacy_hal_(legacy_hal),
       iface_util_(iface_util),
       is_valid_(true) {}
@@ -44,7 +45,18 @@ void WifiApIface::invalidate() {
 
 bool WifiApIface::isValid() { return is_valid_; }
 
-std::string WifiApIface::getName() { return ifname_; }
+std::string WifiApIface::getName() { return born_name_; }
+
+bool WifiApIface::setInterfaces(std::vector<std::string> interfaces) {
+    int size = interfaces.size();
+    if (size == 0 || size > 2) return false;
+
+    // save the interfaces, also pick 1st interface for native operation.
+    interfaces_ = interfaces;
+    ifname_ = interfaces[0];
+
+    return true;
+}
 
 Return<void> WifiApIface::getName(getName_cb hidl_status_cb) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_IFACE_INVALID,
@@ -85,7 +97,7 @@ Return<void> WifiApIface::getFactoryMacAddress(
 }
 
 std::pair<WifiStatus, std::string> WifiApIface::getNameInternal() {
-    return {createWifiStatus(WifiStatusCode::SUCCESS), ifname_};
+    return {createWifiStatus(WifiStatusCode::SUCCESS), born_name_};
 }
 
 std::pair<WifiStatus, IfaceType> WifiApIface::getTypeInternal() {
@@ -113,9 +125,27 @@ WifiApIface::getValidFrequenciesForBandInternal(V1_0::WifiBand band) {
 
 WifiStatus WifiApIface::setMacAddressInternal(
     const std::array<uint8_t, 6>& mac) {
-    bool status = iface_util_.lock()->setMacAddress(ifname_, mac);
-    if (!status) {
-        return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
+
+    // Support random MAC up to 2 interfaces
+    if (interfaces_.size() == 2) {
+        int rbyte = 1;
+        for (auto const& intf : interfaces_) {
+            std::array<uint8_t, 6> rmac = mac;
+            // reverse the bits to avoid clision
+            rmac[rbyte] = 0xff - rmac[rbyte];
+            bool status = iface_util_.lock()->setMacAddress(intf, rmac);
+            if (!status) {
+                LOG(INFO) << "Failed to set random mac address on " << ifname_;
+                // fall through
+            }
+            rbyte ++;
+        }
+        return createWifiStatus(WifiStatusCode::SUCCESS);
+    } else {
+        bool status = iface_util_.lock()->setMacAddress(ifname_, mac);
+        if (!status) {
+            return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
+        }
     }
     return createWifiStatus(WifiStatusCode::SUCCESS);
 }

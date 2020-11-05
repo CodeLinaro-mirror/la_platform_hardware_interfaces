@@ -260,6 +260,14 @@ class WifiChip : public V1_4::IWifiChip {
     std::string allocateStaIfaceName();
     bool writeRingbufferFilesInternal();
 
+    std::pair<WifiStatus, sp<IWifiApIface>> createApBridgeIfaceInternal(
+         const int bands);
+    sp<WifiApIface> newWifiApIface(std::string ifname);
+    std::string allocateBridgeIfaceName();
+    void invalidateAndClearBridgeAll();
+    void invalidateAndClearBridge(const std::string& br_name);
+    bool findUsingNameFromBridge(const std::string& name);
+
     ChipId chip_id_;
     std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
     std::weak_ptr<mode_controller::WifiModeController> mode_controller_;
@@ -281,6 +289,8 @@ class WifiChip : public V1_4::IWifiChip {
     bool debug_ring_buffer_cb_registered_;
     hidl_callback_util::HidlCallbackHandler<IWifiChipEventCallback>
         event_cb_handler_;
+
+    std::map<std::string, std::vector<std::string>> br_managed_ifaces_;
 
     DISALLOW_COPY_AND_ASSIGN(WifiChip);
 };

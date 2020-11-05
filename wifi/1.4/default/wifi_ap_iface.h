@@ -42,6 +42,7 @@ class WifiApIface : public V1_4::IWifiApIface {
     void invalidate();
     bool isValid();
     std::string getName();
+    bool setInterfaces(std::vector<std::string> interfaces);
 
     // HIDL methods exposed.
     Return<void> getName(getName_cb hidl_status_cb) override;
@@ -68,6 +69,8 @@ class WifiApIface : public V1_4::IWifiApIface {
     getFactoryMacAddressInternal();
 
     std::string ifname_;
+    std::string born_name_;
+    std::vector<std::string> interfaces_;
     std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
     std::weak_ptr<iface_util::WifiIfaceUtil> iface_util_;
     bool is_valid_;
