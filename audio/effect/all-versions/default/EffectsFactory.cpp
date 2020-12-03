@@ -18,18 +18,20 @@
 #include "EffectsFactory.h"
 #include "AcousticEchoCancelerEffect.h"
 #include "AutomaticGainControlEffect.h"
-#include "BassBoostEffect.h"
 #include "Conversions.h"
-#include "DownmixEffect.h"
 #include "Effect.h"
+#include "HidlUtils.h"
+#include "NoiseSuppressionEffect.h"
+#ifndef  KAI_OPTIMIZATION_ENABLE
+#include "BassBoostEffect.h"
+#include "DownmixEffect.h"
 #include "EnvironmentalReverbEffect.h"
 #include "EqualizerEffect.h"
-#include "HidlUtils.h"
 #include "LoudnessEnhancerEffect.h"
-#include "NoiseSuppressionEffect.h"
 #include "PresetReverbEffect.h"
 #include "VirtualizerEffect.h"
 #include "VisualizerEffect.h"
+#endif
 #include "common/all-versions/default/EffectMap.h"
 
 #include <android/log.h>
@@ -63,6 +65,9 @@ sp<IEffect> EffectsFactory::dispatchEffectInstanceCreation(const effect_descript
         return new AcousticEchoCancelerEffect(handle);
     } else if (memcmp(halUuid, FX_IID_AGC, sizeof(effect_uuid_t)) == 0) {
         return new AutomaticGainControlEffect(handle);
+    } else if (memcmp(halUuid, FX_IID_NS, sizeof(effect_uuid_t)) == 0) {
+        return new NoiseSuppressionEffect(handle);
+#ifndef  KAI_OPTIMIZATION_ENABLE
     } else if (memcmp(halUuid, SL_IID_BASSBOOST, sizeof(effect_uuid_t)) == 0) {
         return new BassBoostEffect(handle);
     } else if (memcmp(halUuid, EFFECT_UIID_DOWNMIX, sizeof(effect_uuid_t)) == 0) {
@@ -73,14 +78,13 @@ sp<IEffect> EffectsFactory::dispatchEffectInstanceCreation(const effect_descript
         return new EqualizerEffect(handle);
     } else if (memcmp(halUuid, FX_IID_LOUDNESS_ENHANCER, sizeof(effect_uuid_t)) == 0) {
         return new LoudnessEnhancerEffect(handle);
-    } else if (memcmp(halUuid, FX_IID_NS, sizeof(effect_uuid_t)) == 0) {
-        return new NoiseSuppressionEffect(handle);
     } else if (memcmp(halUuid, SL_IID_PRESETREVERB, sizeof(effect_uuid_t)) == 0) {
         return new PresetReverbEffect(handle);
     } else if (memcmp(halUuid, SL_IID_VIRTUALIZER, sizeof(effect_uuid_t)) == 0) {
         return new VirtualizerEffect(handle);
     } else if (memcmp(halUuid, SL_IID_VISUALIZATION, sizeof(effect_uuid_t)) == 0) {
         return new VisualizerEffect(handle);
+#endif
     }
     return new Effect(handle);
 }

@@ -15,18 +15,23 @@
  */
 
 #define LOG_TAG "audiohalservice"
-
+#ifndef  KAI_OPTIMIZATION_ENABLE
 #include <android/hardware/audio/2.0/IDevicesFactory.h>
 #include <android/hardware/audio/4.0/IDevicesFactory.h>
+#endif
 #include <android/hardware/audio/5.0/IDevicesFactory.h>
+#ifndef  KAI_OPTIMIZATION_ENABLE
 #include <android/hardware/audio/effect/2.0/IEffectsFactory.h>
 #include <android/hardware/audio/effect/4.0/IEffectsFactory.h>
+#endif
 #include <android/hardware/audio/effect/5.0/IEffectsFactory.h>
 #include <android/hardware/bluetooth/a2dp/1.0/IBluetoothAudioOffload.h>
 #include <android/hardware/bluetooth/audio/2.0/IBluetoothAudioProvidersFactory.h>
+#ifndef  KAI_OPTIMIZATION_ENABLE
 #include <android/hardware/soundtrigger/2.0/ISoundTriggerHw.h>
 #include <android/hardware/soundtrigger/2.1/ISoundTriggerHw.h>
 #include <android/hardware/soundtrigger/2.2/ISoundTriggerHw.h>
+#endif
 #include <binder/ProcessState.h>
 #include <cutils/properties.h>
 #include <hidl/HidlTransportSupport.h>
@@ -66,20 +71,29 @@ int main(int /* argc */, char* /* argv */ []) {
     }
     configureRpcThreadpool(16, true /*callerWillJoin*/);
 
-    bool fail = registerPassthroughServiceImplementation<audio::V5_0::IDevicesFactory>() != OK &&
-                registerPassthroughServiceImplementation<audio::V4_0::IDevicesFactory>() != OK &&
-                registerPassthroughServiceImplementation<audio::V2_0::IDevicesFactory>() != OK;
+    bool fail = registerPassthroughServiceImplementation<audio::V5_0::IDevicesFactory>() != OK
+#ifndef  KAI_OPTIMIZATION_ENABLE
+         && registerPassthroughServiceImplementation<audio::V4_0::IDevicesFactory>() != OK
+         && registerPassthroughServiceImplementation<audio::V2_0::IDevicesFactory>() != OK
+#endif
+     ;
+
     LOG_ALWAYS_FATAL_IF(fail, "Could not register audio core API 2, 4 nor 5");
 
-    fail = registerPassthroughServiceImplementation<audio::effect::V5_0::IEffectsFactory>() != OK &&
-           registerPassthroughServiceImplementation<audio::effect::V4_0::IEffectsFactory>() != OK &&
-           registerPassthroughServiceImplementation<audio::effect::V2_0::IEffectsFactory>() != OK,
+    fail = registerPassthroughServiceImplementation<audio::effect::V5_0::IEffectsFactory>() != OK
+#ifndef  KAI_OPTIMIZATION_ENABLE
+         && registerPassthroughServiceImplementation<audio::V4_0::IEffectsFactory>() != OK
+         && registerPassthroughServiceImplementation<audio::V2_0::IEffectsFactory>() != OK
+#endif
+     ;
     LOG_ALWAYS_FATAL_IF(fail, "Could not register audio effect API 2, 4 nor 5");
 
+#ifndef  KAI_OPTIMIZATION_ENABLE
     fail = registerPassthroughServiceImplementation<soundtrigger::V2_2::ISoundTriggerHw>() != OK &&
            registerPassthroughServiceImplementation<soundtrigger::V2_1::ISoundTriggerHw>() != OK &&
            registerPassthroughServiceImplementation<soundtrigger::V2_0::ISoundTriggerHw>() != OK,
     ALOGW_IF(fail, "Could not register soundtrigger API 2.0, 2.1 nor 2.2");
+#endif
 
     fail = registerPassthroughServiceImplementation<
                    bluetooth::audio::V2_0::IBluetoothAudioProvidersFactory>() != OK;

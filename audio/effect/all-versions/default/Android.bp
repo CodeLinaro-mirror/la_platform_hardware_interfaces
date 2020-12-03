@@ -7,18 +7,10 @@ cc_defaults {
         "AcousticEchoCancelerEffect.cpp",
         "AudioBufferManager.cpp",
         "AutomaticGainControlEffect.cpp",
-        "BassBoostEffect.cpp",
         "Conversions.cpp",
-        "DownmixEffect.cpp",
         "Effect.cpp",
         "EffectsFactory.cpp",
-        "EnvironmentalReverbEffect.cpp",
-        "EqualizerEffect.cpp",
-        "LoudnessEnhancerEffect.cpp",
         "NoiseSuppressionEffect.cpp",
-        "PresetReverbEffect.cpp",
-        "VirtualizerEffect.cpp",
-        "VisualizerEffect.cpp",
     ],
 
     shared_libs: [
@@ -43,6 +35,10 @@ cc_defaults {
         "libhardware_headers",
         "libmedia_headers",
     ],
+
+    cflags: [
+       "-DKAI_OPTIMIZATION_ENABLE",
+    ]
 }
 
 cc_library_shared {

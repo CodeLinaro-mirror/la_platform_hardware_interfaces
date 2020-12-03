@@ -29,6 +29,7 @@ LOCAL_SRC_FILES := \
     service.cpp
 
 LOCAL_CFLAGS := -Wall -Werror
+LOCAL_CFLAGS += -DKAI_OPTIMIZATION_ENABLE
 
 LOCAL_SHARED_LIBRARIES := \
     libcutils \
@@ -39,20 +40,11 @@ LOCAL_SHARED_LIBRARIES := \
     libutils \
     libhardware \
     libhwbinder \
-    android.hardware.audio@2.0 \
-    android.hardware.audio@4.0 \
     android.hardware.audio@5.0 \
-    android.hardware.audio.common@2.0 \
-    android.hardware.audio.common@4.0 \
     android.hardware.audio.common@5.0 \
-    android.hardware.audio.effect@2.0 \
-    android.hardware.audio.effect@4.0 \
     android.hardware.audio.effect@5.0 \
     android.hardware.bluetooth.a2dp@1.0 \
     android.hardware.bluetooth.audio@2.0 \
-    android.hardware.soundtrigger@2.0 \
-    android.hardware.soundtrigger@2.1 \
-    android.hardware.soundtrigger@2.2 \
     com.qualcomm.qti.bluetooth_audio@1.0 \
     libhwbinder \
     libcutils
