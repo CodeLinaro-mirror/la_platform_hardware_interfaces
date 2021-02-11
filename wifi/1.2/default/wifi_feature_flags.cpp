@@ -38,6 +38,11 @@ static const bool qcWifiHidlFeatureStaSapP2p = true;
 #else
 static const bool qcWifiHidlFeatureStaSapP2p = false;
 #endif // WIFI_HIDL_FEATURE_DUAL_INTERFACE && QC_WIFI_HIDL_FEATURE_STA_SAP_P2P
+#if defined(WIFI_HIDL_FEATURE_DUAL_INTERFACE) && defined(QC_WIFI_HIDL_FEATURE_STA_DUAL_SAP_P2P)
+static const bool qcWifiHidlFeatureStaDualSapP2p = true;
+#else
+static const bool qcWifiHidlFeatureStaDualSapP2p = false;
+#endif // WIFI_HIDL_FEATURE_DUAL_INTERFACE && QC_WIFI_HIDL_FEATURE_STA_SAP_P2P
 }  // namespace
 
 namespace android {
@@ -65,7 +70,9 @@ bool WifiFeatureFlags::isApDisabled() {
 bool WifiFeatureFlags::isStaSapP2pEnabled() {
   return qcWifiHidlFeatureStaSapP2p;
 }
-
+bool WifiFeatureFlags::isStaDualSapP2pEnabled() {
+  return qcWifiHidlFeatureStaDualSapP2p;
+}
 }  // namespace feature_flags
 }  // namespace implementation
 }  // namespace V1_2
