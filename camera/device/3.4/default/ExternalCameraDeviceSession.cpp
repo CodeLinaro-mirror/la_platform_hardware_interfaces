@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "ExtCamDevSsn@3.4"
 //#define LOG_NDEBUG 0
 #define ATRACE_TAG ATRACE_TAG_CAMERA
@@ -2357,7 +2364,7 @@ int ExternalCameraDeviceSession::configureV4l2StreamLocked(
     if ((bufferSize == 0) || (bufferSize > expectedMaxBufferSize)) {
         ALOGE("%s: V4L2 buffer size: %u looks invalid. Expected maximum size: %u", __FUNCTION__,
                 bufferSize, expectedMaxBufferSize);
-        return -EINVAL;
+       // return -EINVAL;
     }
     mMaxV4L2BufferSize = bufferSize;
 
@@ -2717,6 +2724,12 @@ Status ExternalCameraDeviceSession::configureStreams(
             v4l2Fmt.width, v4l2Fmt.height);
         return Status::INTERNAL_ERROR;
     }
+     ALOGE("V4L configuration!, format:%c%c%c%c, w %d, h %d",
+            v4l2Fmt.fourcc & 0xFF,
+            (v4l2Fmt.fourcc >> 8) & 0xFF,
+            (v4l2Fmt.fourcc >> 16) & 0xFF,
+            (v4l2Fmt.fourcc >> 24) & 0xFF,
+            v4l2Fmt.width, v4l2Fmt.height);
 
     Size v4lSize = {v4l2Fmt.width, v4l2Fmt.height};
     Size thumbSize { 0, 0 };
