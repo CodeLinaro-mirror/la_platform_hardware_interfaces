@@ -62,7 +62,7 @@ class BurstExecution final : public nn::IExecution,
   private:
     const std::shared_ptr<const Burst> kBurst;
     const Request kRequest;
-    const std::vector<int64_t>& kMemoryIdentifierTokens;
+    const std::vector<int64_t> kMemoryIdentifierTokens;
     const bool kMeasure;
     const int64_t kLoopTimeoutDuration;
     const hal::utils::RequestRelocation kRelocation;
@@ -178,7 +178,8 @@ nn::ExecutionResult<std::pair<std::vector<nn::OutputShape>, nn::Timing>> Burst::
     hal::utils::RequestRelocation relocation;
     const nn::Request& requestInShared =
             NN_TRY(hal::utils::makeExecutionFailure(hal::utils::convertRequestFromPointerToShared(
-                    &request, &maybeRequestInShared, &relocation)));
+                    &request, nn::kDefaultRequestMemoryAlignment, nn::kDefaultRequestMemoryPadding,
+                    &maybeRequestInShared, &relocation)));
 
     const auto aidlRequest = NN_TRY(hal::utils::makeExecutionFailure(convert(requestInShared)));
     const auto aidlMeasure = NN_TRY(hal::utils::makeExecutionFailure(convert(measure)));
@@ -248,7 +249,8 @@ nn::GeneralResult<nn::SharedExecution> Burst::createReusableExecution(
     std::optional<nn::Request> maybeRequestInShared;
     hal::utils::RequestRelocation relocation;
     const nn::Request& requestInShared = NN_TRY(hal::utils::convertRequestFromPointerToShared(
-            &request, &maybeRequestInShared, &relocation));
+            &request, nn::kDefaultRequestMemoryAlignment, nn::kDefaultRequestMemoryPadding,
+            &maybeRequestInShared, &relocation));
 
     auto aidlRequest = NN_TRY(convert(requestInShared));
     const auto aidlMeasure = NN_TRY(convert(measure));
