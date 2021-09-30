@@ -30,12 +30,6 @@ using ::android::hardware::graphics::common::V1_0::Dataspace;
 using ::android::hardware::graphics::common::V1_0::PixelFormat;
 using ::android::hardware::camera::device::V3_2::BufferUsageFlags;
 
-struct Camera3HalInfo
-{
-    HalStream* halStream;         ///< Pointer to the HAL stream
-    void*      hal3StreamPrvInfo; ///< A handle to private information for the HAL3Stream
-};
-
 void convertToHidl(const Camera3Stream* src, HalStream* dst) {
     dst->overrideDataSpace = src->data_space;
     dst->v3_2.id = src->mId;
@@ -54,15 +48,11 @@ void convertToHidl(const Camera3Stream* src, HalStream* dst) {
                 __FUNCTION__, src->stream_type);
     }
 
-    Camera3HalInfo*  halInfo   = reinterpret_cast<Camera3HalInfo*>(src->priv);
-    HalStream*       halStream = NULL;
-
+    HalStream* halStream = NULL;
     if (src->reserved[0] != NULL) {
         halStream = (HalStream*)(src->reserved[0]);
     } else if (src->reserved[1] != NULL) {
         halStream = (HalStream*)(src->reserved[1]);
-    } else if (halInfo != NULL) {
-        halStream = halInfo->halStream;
     }
 
     if (halStream != NULL) {
