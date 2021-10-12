@@ -45,7 +45,7 @@ constexpr char kTombstoneFolderPath[] = "/data/vendor/tombstones/wifi/";
 constexpr char kActiveWlanIfaceNameProperty[] = "wifi.active.interface";
 constexpr char kWlanDualBandProperty[] = "wifi.softap.bands";
 constexpr char kNoActiveWlanIfaceNamePropertyValue[] = "";
-constexpr unsigned kMaxWlanIfaces = 3;
+constexpr unsigned kMaxWlanIfaces = 5;
 constexpr char kBridgeIfacePrefix[] = "wifi_br";
 
 template <typename Iface>
@@ -102,6 +102,16 @@ std::string getWlanIfaceName(unsigned idx) {
     if (res > 0) return buffer.data();
 
     return "wlan" + std::to_string(idx);
+}
+
+// Returns the dedicated iface name if one is defined.
+std::string getApIfaceName() {
+    std::array<char, PROPERTY_VALUE_MAX> buffer;
+    if (property_get("ro.vendor.wifi.sap.interface", buffer.data(), nullptr) ==
+        0) {
+        return {};
+    }
+    return buffer.data();
 }
 
 std::string getP2pIfaceName() {
@@ -1678,19 +1688,18 @@ std::string WifiChip::allocateApOrStaIfaceName(uint32_t start_idx) {
     return {};
 }
 
-// Return the first swlan (swlan0, swlan1) not already in use.
-// kApIfaceCnt depend on whether dual AP mode enabled.
+// AP iface names start with idx 1 for modes supporting
+// concurrent STA and not dual AP, else start with idx 0.
 std::string WifiChip::allocateApIfaceName() {
-    unsigned kApIfaceCnt = br_managed_ifaces_.empty() ? 1 : 2;
-    for (unsigned idx = 0; idx < kApIfaceCnt; ++idx) {
-        std::string ifname = "swlan" + std::to_string(idx);
-        if (findUsingName(ap_ifaces_, ifname)) continue;
-        if (findUsingName(sta_ifaces_, ifname)) continue;
-        if (findUsingNameFromBridge(ifname)) continue;
+    // Check if we have a dedicated iface for AP.
+    std::string ifname = getApIfaceName();
+    if (!ifname.empty()) {
         return ifname;
     }
-    CHECK(false) << "All AP interfaces in use already!";
-    return {};
+    return allocateApOrStaIfaceName((isStaApConcurrencyAllowedInCurrentMode() &&
+                                     !isDualApAllowedInCurrentMode())
+                                        ? 1
+                                        : 0);
 }
 
 // Bridge interface used by AP.
