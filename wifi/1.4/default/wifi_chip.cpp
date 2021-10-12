@@ -104,16 +104,6 @@ std::string getWlanIfaceName(unsigned idx) {
     return "wlan" + std::to_string(idx);
 }
 
-// Returns the dedicated iface name if one is defined.
-std::string getApIfaceName() {
-    std::array<char, PROPERTY_VALUE_MAX> buffer;
-    if (property_get("ro.vendor.wifi.sap.interface", buffer.data(), nullptr) ==
-        0) {
-        return {};
-    }
-    return buffer.data();
-}
-
 std::string getP2pIfaceName() {
     std::array<char, PROPERTY_VALUE_MAX> buffer;
     property_get("wifi.direct.interface", buffer.data(), "p2p0");
@@ -840,6 +830,28 @@ sp<WifiApIface> WifiChip::newWifiApIface(std::string ifname) {
     return iface;
 }
 
+// Returns the dedicated iface name if defined.
+// Returns two ifaces in bridged mode.
+std::vector<std::string> getPredefinedApIfaceNames(bool is_bridged) {
+    std::vector<std::string> ifnames;
+    std::array<char, PROPERTY_VALUE_MAX> buffer;
+    buffer.fill(0);
+    if (property_get("ro.vendor.wifi.sap.interface", buffer.data(), nullptr) ==
+        0) {
+        return ifnames;
+    }
+    ifnames.push_back(buffer.data());
+    if (is_bridged) {
+        buffer.fill(0);
+        if (property_get("ro.vendor.wifi.sap.concurrent.iface", buffer.data(),
+                         nullptr) == 0) {
+            return ifnames;
+        }
+        ifnames.push_back(buffer.data());
+    }
+    return ifnames;
+}
+
 std::pair<WifiStatus, sp<IWifiApIface>> WifiChip::createApIfaceInternal() {
     if (!canCurrentModeSupportIfaceOfTypeWithCurrentIfaces(IfaceType::AP)) {
         return {createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE), {}};
@@ -852,8 +864,14 @@ std::pair<WifiStatus, sp<IWifiApIface>> WifiChip::createApIfaceInternal() {
     LOG(INFO) << "Get dual bands property: " << bands;
     if (bands > 1)
         return createApBridgeIfaceInternal(bands);
-
-    std::string ifname = allocateApIfaceName();
+    // check if we have a dedicated iface for SAP first
+    std::string ifname = "";
+    std::vector<std::string> ifnames = getPredefinedApIfaceNames(false);
+    if (!ifnames.empty()) {
+        ifname = ifnames[0];
+    } else {
+        ifname = allocateApIfaceName();
+    }
     legacy_hal::wifi_error legacy_status =
         legacy_hal_.lock()->createVirtualInterface(
             ifname,
@@ -874,6 +892,8 @@ std::pair<WifiStatus, sp<IWifiApIface>> WifiChip::createApBridgeIfaceInternal(co
 
     sp<WifiApIface> iface;
     std::vector<std::string> managed_interfaces;
+    std::vector<std::string> ifnames;
+    bool dedicated = false;
 
     // Allocate a bridge interface.
     std::string br_name = allocateBridgeIfaceName();
@@ -888,10 +908,16 @@ std::pair<WifiStatus, sp<IWifiApIface>> WifiChip::createApBridgeIfaceInternal(co
     br_managed_ifaces_[br_name] = managed_interfaces;
 
     // Allocate managed AP interfaces
+    // Check if we have dedicated ifaces for SAP first
+    ifnames = getPredefinedApIfaceNames(true);
+    if (ifnames.size() == 2) {
+        dedicated = true;
+    }
     for (int i = 0; i < bands; i ++) {
         legacy_hal::wifi_error legacy_status;
-
-        std::string ifname = allocateApIfaceName();
+        std::string ifname = "";
+        if (dedicated) ifname = ifnames[i];
+        else ifname = allocateApIfaceName();
         legacy_status = legacy_hal_.lock()->createVirtualInterface(
              ifname,
              hidl_struct_util::convertHidlIfaceTypeToLegacy(IfaceType::AP));
@@ -1691,11 +1717,6 @@ std::string WifiChip::allocateApOrStaIfaceName(uint32_t start_idx) {
 // AP iface names start with idx 1 for modes supporting
 // concurrent STA and not dual AP, else start with idx 0.
 std::string WifiChip::allocateApIfaceName() {
-    // Check if we have a dedicated iface for AP.
-    std::string ifname = getApIfaceName();
-    if (!ifname.empty()) {
-        return ifname;
-    }
     return allocateApOrStaIfaceName((isStaApConcurrencyAllowedInCurrentMode() &&
                                      !isDualApAllowedInCurrentMode())
                                         ? 1
