@@ -81,6 +81,19 @@ constexpr int WHEEL_REAR_LEFT = (int)VehicleAreaWheel::LEFT_REAR;
 constexpr int WHEEL_REAR_RIGHT = (int)VehicleAreaWheel::RIGHT_REAR;
 
 /**
+ * These properties are placeholder properties for developers to test new features without
+ * implementing a real property.
+ */
+const int32_t PLACEHOLDER_PROPERTY_INT =
+        0x2a11 | VehiclePropertyGroup::VENDOR | VehicleArea::GLOBAL | VehiclePropertyType::INT32;
+const int32_t PLACEHOLDER_PROPERTY_FLOAT =
+        0x2a11 | VehiclePropertyGroup::VENDOR | VehicleArea::GLOBAL | VehiclePropertyType::FLOAT;
+const int32_t PLACEHOLDER_PROPERTY_BOOLEAN =
+        0x2a11 | VehiclePropertyGroup::VENDOR | VehicleArea::GLOBAL | VehiclePropertyType::BOOLEAN;
+const int32_t PLACEHOLDER_PROPERTY_STRING =
+        0x2a11 | VehiclePropertyGroup::VENDOR | VehicleArea::GLOBAL | VehiclePropertyType::STRING;
+
+/**
  * This property is used for test purpose to generate fake events. Here is the test package that
  * is referencing this property definition: packages/services/Car/tests/vehiclehal_test
  */
@@ -1079,6 +1092,42 @@ const ConfigDeclaration kVehicleProperties[]{
                                 .access = VehiclePropertyAccess::READ_WRITE,
                                 .changeMode = VehiclePropertyChangeMode::ON_CHANGE,
                         },
+        },
+        {
+                .config =
+                        {
+                                .prop = PLACEHOLDER_PROPERTY_INT,
+                                .access = VehiclePropertyAccess::READ_WRITE,
+                                .changeMode = VehiclePropertyChangeMode::ON_CHANGE,
+                        },
+                .initialValue = {.int32Values = {0}},
+        },
+        {
+                .config =
+                        {
+                                .prop = PLACEHOLDER_PROPERTY_FLOAT,
+                                .access = VehiclePropertyAccess::READ_WRITE,
+                                .changeMode = VehiclePropertyChangeMode::ON_CHANGE,
+                        },
+                .initialValue = {.floatValues = {0.0f}},
+        },
+        {
+                .config =
+                        {
+                                .prop = PLACEHOLDER_PROPERTY_BOOLEAN,
+                                .access = VehiclePropertyAccess::READ_WRITE,
+                                .changeMode = VehiclePropertyChangeMode::ON_CHANGE,
+                        },
+                .initialValue = {.int32Values = {0 /* false */}},
+        },
+        {
+                .config =
+                        {
+                                .prop = PLACEHOLDER_PROPERTY_STRING,
+                                .access = VehiclePropertyAccess::READ_WRITE,
+                                .changeMode = VehiclePropertyChangeMode::ON_CHANGE,
+                        },
+                .initialValue = {.stringValue = {"Test"}},
         },
 };
 
