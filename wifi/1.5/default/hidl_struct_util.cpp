@@ -2100,7 +2100,7 @@ bool convertHidlNanDataPathInitiatorRequestToLegacy(
                       "ifaceName too long";
         return false;
     }
-    strncpy(legacy_request->ndp_iface, hidl_request.ifaceName.c_str(),
+    strlcpy(legacy_request->ndp_iface, hidl_request.ifaceName.c_str(),
             IFNAMSIZ + 1);
     legacy_request->ndp_cfg.security_cfg =
         (hidl_request.securityConfig.securityType !=
@@ -2187,7 +2187,7 @@ bool convertHidlNanDataPathIndicationResponseToLegacy(
                       "ifaceName too long";
         return false;
     }
-    strncpy(legacy_request->ndp_iface, hidl_request.ifaceName.c_str(),
+    strlcpy(legacy_request->ndp_iface, hidl_request.ifaceName.c_str(),
             IFNAMSIZ + 1);
     legacy_request->ndp_cfg.security_cfg =
         (hidl_request.securityConfig.securityType !=
