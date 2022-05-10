@@ -17,16 +17,19 @@
 
 #include <android-base/logging.h>
 #include <android/hardware/health/2.1/IHealth.h>
+#include <hidl/HidlTransportSupport.h>
 #include <health2impl/BinderHealth.h>
 
 using ::android::sp;
 using ::android::hardware::health::V2_1::IHealth;
 using ::android::hardware::health::V2_1::implementation::BinderHealth;
 using IHealth_2_0 = ::android::hardware::health::V2_0::IHealth;
+using android::hardware::configureRpcThreadpool;
 
 static constexpr const char* gInstanceName = "default";
 
 int main(int /* argc */, char* /* argv */[]) {
+    configureRpcThreadpool(4, true);
     sp<IHealth> passthrough =
             IHealth::castFrom(IHealth_2_0::getService(gInstanceName, true /* getStub */));
     CHECK(passthrough != nullptr)

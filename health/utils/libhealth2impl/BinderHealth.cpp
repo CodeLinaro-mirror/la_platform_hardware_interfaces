@@ -161,17 +161,6 @@ void BinderHealth::Init(struct healthd_config* config) {
 
     LOG(INFO) << instance_name() << " instance initializing with healthd_config...";
 
-    binder_fd_ = setupTransportPolling();
-
-    if (binder_fd_ >= 0) {
-        auto binder_event = [](auto* health_loop, uint32_t epevents) {
-            static_cast<BinderHealth*>(health_loop)->BinderEvent(epevents);
-        };
-        if (RegisterEvent(binder_fd_, binder_event, EVENT_NO_WAKEUP_FD) != 0) {
-            PLOG(ERROR) << instance_name() << " instance: Register for binder events failed";
-        }
-    }
-
     CHECK_EQ(registerAsService(instance_name()), android::OK)
             << instance_name() << ": Failed to register HAL";
 
