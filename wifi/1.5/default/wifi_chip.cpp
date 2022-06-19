@@ -138,8 +138,10 @@ std::string getPredefinedP2pIfaceName() {
                 strlen(P2P_MGMT_DEVICE_PREFIX)) == 0) {
         /* Get the p2p parent interface name from p2p device interface name set
          * in property */
-        strncpy(p2pParentIfname, buffer.data() + strlen(P2P_MGMT_DEVICE_PREFIX),
-                strlen(buffer.data()) - strlen(P2P_MGMT_DEVICE_PREFIX));
+
+        strlcpy(p2pParentIfname, buffer.data() + strlen(P2P_MGMT_DEVICE_PREFIX),
+                         sizeof(p2pParentIfname));
+
         if (property_get(kActiveWlanIfaceNameProperty, primaryIfaceName.data(),
                          nullptr) == 0) {
             return buffer.data();
