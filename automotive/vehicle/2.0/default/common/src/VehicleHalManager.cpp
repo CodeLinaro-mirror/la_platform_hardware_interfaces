@@ -569,7 +569,10 @@ void VehicleHalManager::handlePropertySetEvent(const VehiclePropValue& value) {
     auto clients =
         mSubscriptionManager.getSubscribedClients(value.prop, SubscribeFlags::EVENTS_FROM_ANDROID);
     for (const auto& client : clients) {
-        client->getCallback()->onPropertySet(value);
+        auto status = client->getCallback()->onPropertySet(value);
+        if (!status.isOk()) {
+            ALOGW("Failed to notify client");
+        }
     }
 }
 
