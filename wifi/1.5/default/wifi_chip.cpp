@@ -235,7 +235,7 @@ bool cpioWriteHeader(int out_fd, struct stat& st, const char* file_name,
                      size_t file_name_len) {
     std::array<char, 32 * 1024> read_buf;
     ssize_t llen =
-        sprintf(read_buf.data(),
+        snprintf(read_buf.data(), read_buf.size(),
                 "%s%08X%08X%08X%08X%08X%08X%08X%08X%08X%08X%08X%08X%08X",
                 kCpioMagic, static_cast<int>(st.st_ino), st.st_mode, st.st_uid,
                 st.st_gid, static_cast<int>(st.st_nlink),
@@ -303,8 +303,8 @@ bool cpioWriteFileTrailer(int out_fd) {
     std::array<char, 4096> read_buf;
     read_buf.fill(0);
     if (write(out_fd, read_buf.data(),
-              sprintf(read_buf.data(), "070701%040X%056X%08XTRAILER!!!", 1,
-                      0x0b, 0) +
+              snprintf(read_buf.data(), read_buf.size(),
+                      "070701%040X%056X%08XTRAILER!!!", 1, 0x0b, 0) +
                   4) == -1) {
         PLOG(ERROR) << "Error writing trailing bytes";
         return false;
@@ -1108,6 +1108,12 @@ WifiStatus WifiChip::removeApIfaceInternal(const std::string& ifname) {
     // here and not make that assumption all over the place.
     invalidateAndRemoveDependencies(ifname);
     if (findUsingName(created_ap_ifaces_, ifname) != nullptr) {
+        legacy_hal::wifi_error legacy_status =
+            legacy_hal_.lock()->deleteVirtualInterface(ifname);
+        if (legacy_status != legacy_hal::WIFI_SUCCESS) {
+            LOG(ERROR) << "Failed to remove interface: " << ifname << " "
+                       << legacyErrorToString(legacy_status);
+        }
         invalidateAndClear(created_ap_ifaces_, iface);
     }
     // Clear the bridge interface and the iface instance.
