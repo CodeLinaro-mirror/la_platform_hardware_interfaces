@@ -281,6 +281,7 @@ class WifiChip : public V1_6::IWifiChip {
             WifiBand band, uint32_t ifaceModeMask, uint32_t filterMask);
     std::pair<WifiStatus, WifiRadioCombinationMatrix> getSupportedRadioCombinationsMatrixInternal();
     std::pair<WifiStatus, std::vector<V1_6::IWifiChip::ChipMode>> getAvailableModesInternal_1_6();
+    void retrieveDynamicIfaceCombination();
 
     ChipId chip_id_;
     std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
@@ -301,6 +302,7 @@ class WifiChip : public V1_6::IWifiChip {
     // registration mechanism. Use this to check if we have already
     // registered a callback.
     bool debug_ring_buffer_cb_registered_;
+    bool using_dynamic_iface_combination_;
     hidl_callback_util::HidlCallbackHandler<V1_4::IWifiChipEventCallback> event_cb_handler_;
 
     const std::function<void(const std::string&)> subsystemCallbackHandler_;
