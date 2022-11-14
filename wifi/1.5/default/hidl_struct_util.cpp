@@ -16,6 +16,7 @@
 
 #include <android-base/logging.h>
 #include <utils/SystemClock.h>
+#include <cutils/properties.h>
 
 #include "hidl_struct_util.h"
 
@@ -540,7 +541,11 @@ bool convertLegacyFeaturesToHidlStaCapabilities(
     }
     // There is no flag for this one in the legacy feature set. Adding it to the
     // set because all the current devices support it.
-    *hidl_caps |= HidlStaIfaceCaps::APF;
+    if (property_get_bool("ro.vendor.wlan.apf", 1)) {
+        *hidl_caps |= HidlStaIfaceCaps::APF;
+    } else {
+        LOG(INFO) << "APF is not supported due to ro.vendor.wlan.apf is false";
+    }
     return true;
 }
 
