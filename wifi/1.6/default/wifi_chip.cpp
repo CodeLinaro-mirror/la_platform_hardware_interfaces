@@ -127,7 +127,14 @@ std::string getPredefinedP2pIfaceName() {
     char p2pParentIfname[100];
     std::string p2pDevIfName = "";
     std::array<char, PROPERTY_VALUE_MAX> buffer;
-    property_get("wifi.direct.interface", buffer.data(), "p2p0");
+    char kHasDualWlan[PROPERTY_VALUE_MAX];
+    //single wlan chip case
+    if (property_get(kDualWlanProperty, kHasDualWlan, nullptr) == 0) {
+        property_get("wifi.direct.interface", buffer.data(), "p2p0");
+    } else {
+        // dual wlan chip case
+        property_get("ro.vendor.wlan.secondary.p2p.iface", buffer.data(), "p2p1");
+    }
     if (strncmp(buffer.data(), P2P_MGMT_DEVICE_PREFIX, strlen(P2P_MGMT_DEVICE_PREFIX)) == 0) {
         /* Get the p2p parent interface name from p2p device interface name set
          * in property */
