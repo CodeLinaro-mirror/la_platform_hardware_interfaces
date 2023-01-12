@@ -40,6 +40,7 @@ cc_binary {
     init_rc: ["android.hardware.audio.service.rc"],
     relative_install_path: "hw",
     vendor: true,
+    compile_multilib: "32",
     srcs: ["service.cpp"],
 
     cflags: [
