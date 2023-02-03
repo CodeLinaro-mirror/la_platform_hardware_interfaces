@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef SYSTEM_SECURITY_KEYSTORE_KEYMASTER_TAGS_H_
@@ -72,6 +77,8 @@ namespace V4_0 {
 // need these old values to be able to support old keys that use them.
 static const int32_t KM_TAG_DIGEST_OLD = static_cast<int32_t>(TagType::ENUM) | 5;
 static const int32_t KM_TAG_PADDING_OLD = static_cast<int32_t>(TagType::ENUM) | 7;
+
+static const int32_t KM_TAG_FBE_ICE = static_cast<int32_t>(TagType::BOOL) | 16201;
 
 constexpr TagType typeFromTag(Tag tag) {
     return static_cast<TagType>(static_cast<uint32_t>(tag) & static_cast<uint32_t>(0xf0000000));
