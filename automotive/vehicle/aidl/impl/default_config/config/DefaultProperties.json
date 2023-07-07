@@ -2164,6 +2164,7 @@
             "property": "VehicleProperty::HVAC_FAN_DIRECTION_AVAILABLE",
             "defaultValue": {
                 "int32Values": [
+                    "Constants::FAN_DIRECTION_UNKNOWN",
                     "Constants::FAN_DIRECTION_FACE",
                     "Constants::FAN_DIRECTION_FLOOR",
                     "Constants::FAN_DIRECTION_FACE_FLOOR",
@@ -2371,7 +2372,7 @@
                     66.19999694824219,
                     "VehicleUnit::FAHRENHEIT",
                     19.0,
-                    66.5
+                    66.0
                 ]
             }
         },
@@ -3537,50 +3538,6 @@
             ]
         },
         {
-            "property": "VehicleProperty::DRIVER_ATTENTION_MONITORING_ENABLED",
-            "defaultValue": {
-                "int32Values": [
-                    1
-                ]
-            }
-        },
-        {
-            "property": "VehicleProperty::DRIVER_ATTENTION_MONITORING_STATE",
-            "defaultValue": {
-                "int32Values": [
-                    "DriverAttentionMonitoringState::NOT_DISTRACTED"
-                ]
-            },
-            "areas": [
-                {
-                    "areaId": 0,
-                    "supportedEnumValues": [
-                        "ErrorState::NOT_AVAILABLE_DISABLED",
-                        "DriverAttentionMonitoringState::DISTRACTED",
-                        "DriverAttentionMonitoringState::NOT_DISTRACTED"
-                    ]
-                }
-            ]
-        },
-        {
-            "property": "VehicleProperty::DRIVER_ATTENTION_MONITORING_WARNING",
-            "defaultValue": {
-                "int32Values": [
-                    "DriverAttentionMonitoringWarning::NO_WARNING"
-                ]
-            },
-            "areas": [
-                {
-                    "areaId": 0,
-                    "supportedEnumValues": [
-                        "ErrorState::NOT_AVAILABLE_DISABLED",
-                        "DriverAttentionMonitoringWarning::NO_WARNING",
-                        "DriverAttentionMonitoringWarning::WARNING"
-                    ]
-                }
-            ]
-        },
-        {
             "property": "VehicleProperty::INITIAL_USER_INFO"
         },
         {
@@ -3749,7 +3706,19 @@
             },
             "areas": [
                 {
-                    "areaId": "Constants::MIRROR_DRIVER_LEFT_RIGHT",
+                    "areaId": "VehicleAreaMirror::DRIVER_LEFT",
+                    "supportedEnumValues": [
+                        "ErrorState::NOT_AVAILABLE_SAFETY",
+                        "ErrorState::NOT_AVAILABLE_POOR_VISIBILITY",
+                        "ErrorState::NOT_AVAILABLE_SPEED_HIGH",
+                        "ErrorState::NOT_AVAILABLE_SPEED_LOW",
+                        "ErrorState::NOT_AVAILABLE_DISABLED",
+                        "BlindSpotWarningState::NO_WARNING",
+                        "BlindSpotWarningState::WARNING"
+                    ]
+                },
+                {
+                    "areaId": "VehicleAreaMirror::DRIVER_RIGHT",
                     "supportedEnumValues": [
                         "ErrorState::NOT_AVAILABLE_SAFETY",
                         "ErrorState::NOT_AVAILABLE_POOR_VISIBILITY",

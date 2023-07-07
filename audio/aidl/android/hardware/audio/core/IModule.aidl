@@ -192,6 +192,19 @@ interface IModule {
      * device address is specified for a point-to-multipoint external device
      * connection.
      *
+     * Since not all modules have a DSP that could perform sample rate and
+     * format conversions, behavior related to mix port configurations may vary.
+     * For modules with a DSP, mix ports can be pre-configured and have a fixed
+     * set of audio profiles supported by the DSP. For modules without a DSP,
+     * audio profiles of mix ports may change after connecting an external
+     * device. The typical case is that the mix port has an empty set of
+     * profiles when no external devices are connected, and after external
+     * device connection it receives the same set of profiles as the device
+     * ports that they can be routed to. The client will re-query current port
+     * configurations using 'getAudioPorts'. All mix ports that can be routed to
+     * the connected device port must have a non-empty set of audio profiles
+     * after successful connection of an external device.
+     *
      * Handling of a disconnect is done in a reverse order:
      *  1. Reset port configuration using the 'resetAudioPortConfig' method.
      *  2. Release the connected device port by calling the 'disconnectExternalDevice'
@@ -220,6 +233,12 @@ interface IModule {
      * been disconnected. The 'portId' must be of a connected device port
      * instance previously instantiated using the 'connectExternalDevice'
      * method.
+     *
+     * The framework will call this method before closing streams and resetting
+     * patches. This call can be used by the HAL module to prepare itself to
+     * device disconnection. If the HAL module indicates an error after the first
+     * call, the framework will call this method once again after closing associated
+     * streams and patches.
      *
      * @throws EX_ILLEGAL_ARGUMENT In the following cases:
      *                             - If the port can not be found by the ID.
