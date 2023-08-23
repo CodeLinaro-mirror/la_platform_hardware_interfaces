@@ -1965,13 +1965,13 @@ std::string WifiChip::allocateApIfaceName() {
         //dual wlan chip case
         getPredefinedApIfaceNamesForDualWlan();
         property_get(kApIfaceOnDualWlanProperty, ApIfaceMappingOnDualWlan, "ApOnPrimary");
-        LOG(ERROR) << "ApIfaceMappingOnDualWlan: " << ApIfaceMappingOnDualWlan;
+        LOG(INFO) << "ApIfaceMappingOnDualWlan: " << ApIfaceMappingOnDualWlan;
         if (strncmp(ApIfaceMappingOnDualWlan, "1stIfaceOnSecondary", 19) == 0)
              ifnames.push_back(kSapIfaceNameOnDual[2]);
         else if (strncmp(ApIfaceMappingOnDualWlan, "2ndIfaceOnSecondary", 19) == 0)
              ifnames.push_back(kSapIfaceNameOnDual[3]);
         else
-             LOG(ERROR) << "Currently skip non-bridged AP mapping on primary wlan case";
+             ifnames.push_back(kSapIfaceNameOnDual[0]);
     }
 
     if (!ifnames.empty()) {
