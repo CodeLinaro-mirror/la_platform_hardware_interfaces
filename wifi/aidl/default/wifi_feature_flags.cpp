@@ -196,11 +196,39 @@ static const std::vector<std::pair<std::string, std::vector<IWifiChip::ChipMode>
 
 WifiFeatureFlags::WifiFeatureFlags() {}
 
+std::vector<IWifiChip::ChipMode> removeDualSta(
+        const std::vector<IWifiChip::ChipMode> &modes) {
+    std::vector<IWifiChip::ChipMode> res = modes;
+    typedef std::vector<android::hardware::wifi::IWifiChip::ChipMode>::size_type size_t;
+
+    for (size_t i = 0; i < modes.size(); ++i) {
+        auto tmpCombination = modes[i].availableCombinations;
+        for (size_t j = 0; j < tmpCombination.size(); ++j) {
+            auto tmpLimitations = tmpCombination[j].limits;
+            for (size_t k = 0; k < tmpLimitations.size(); ++k) {
+                auto tmpTypes = tmpLimitations[k].types;
+                for (auto type : tmpTypes) {
+                    if (type == IfaceConcurrencyType::STA) {
+                        res[i].availableCombinations[j].limits[k].maxIfaces = 1;
+                    }
+                }
+            }
+        }
+    }
+
+    return res;
+}
+
 std::vector<IWifiChip::ChipMode> WifiFeatureFlags::getChipModesForPrimary() {
     std::array<char, PROPERTY_VALUE_MAX> buffer;
     auto res = property_get(kDebugPresetInterfaceCombinationIdxProperty, buffer.data(), nullptr);
     // Debug property not set, use the device preset concurrency combination.
-    if (res <= 0) return kChipModesPrimary;
+    if (res <= 0) {
+        bool dualSta = property_get_bool("ro.vendor.wlan.sta_plus_sta", true);
+        if (!dualSta)
+            return removeDualSta(kChipModesPrimary);
+        return kChipModesPrimary;
+    }
 
     // Debug property set, use one of the debug preset concurrency combination.
     unsigned long idx = std::stoul(buffer.data());
