@@ -27,6 +27,7 @@
 
 #include "CameraProvider_2_5.h"
 #include "LegacyCameraProviderImpl_2_5.h"
+#include <sched.h>
 
 using android::status_t;
 using android::hardware::camera::provider::V2_5::ICameraProvider;
@@ -42,6 +43,34 @@ int main()
     using namespace android::hardware::camera::provider::V2_5::implementation;
 
     ALOGI("CameraProvider@2.5 legacy service is starting.");
+
+    struct sched_param param = {0};
+
+    if(sched_getparam(0, &param) != 0)
+    {
+        ALOGE("Fail to get scheduling param: %d", errno);
+    }
+
+    else
+    {
+        int currentSchedPolicy = -1;
+
+        currentSchedPolicy = sched_getscheduler(0);
+
+        if (currentSchedPolicy < 0)
+        {
+            ALOGE("Fail to get current policy %d", errno);
+        }
+        else
+        {
+            if (sched_setscheduler(0, currentSchedPolicy | SCHED_RESET_ON_FORK,
+                &param) != 0)
+            {
+                ALOGE("Fail to set SCHED_RESET_ON_FORK: %d", errno);
+                ALOGE("The current scheduling policy is %d", currentSchedPolicy);
+            }
+        }
+    }
 
     ::android::hardware::configureRpcThreadpool(/*threads*/ HWBINDER_THREAD_COUNT, /*willJoin*/ true);
 
