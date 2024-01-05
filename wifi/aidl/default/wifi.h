@@ -13,13 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #ifndef WIFI_H_
 #define WIFI_H_
 
 #include <aidl/android/hardware/wifi/BnWifi.h>
+#include <aidl/android/hardware/wifi/IWifiEventCallback.h>
 #include <android-base/macros.h>
-#include <utils/Looper.h>
 
 #include <functional>
 
@@ -29,6 +34,7 @@
 #include "wifi_legacy_hal.h"
 #include "wifi_legacy_hal_factory.h"
 #include "wifi_mode_controller.h"
+#include "wifi_config.h"
 
 namespace aidl {
 namespace android {

@@ -13,19 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #ifndef AIDL_STRUCT_UTIL_H_
 #define AIDL_STRUCT_UTIL_H_
 
 #include <aidl/android/hardware/wifi/IWifiChip.h>
 #include <aidl/android/hardware/wifi/IWifiChipEventCallback.h>
+#ifdef SUPPORT_NAN
 #include <aidl/android/hardware/wifi/NanBandIndex.h>
+#endif
 #include <aidl/android/hardware/wifi/StaBackgroundScanBucketEventReportSchemeMask.h>
 #include <aidl/android/hardware/wifi/StaScanDataFlagMask.h>
+#include <aidl/android/hardware/wifi/StaScanData.h>
 #include <aidl/android/hardware/wifi/WifiDebugRingBufferFlags.h>
 #include <aidl/android/hardware/wifi/WifiIfaceMode.h>
 
 #include <vector>
+#include <string.h>
 
 #include "wifi_legacy_hal.h"
 
@@ -38,6 +47,10 @@ namespace android {
 namespace hardware {
 namespace wifi {
 namespace aidl_struct_util {
+
+using ::aidl::android::hardware::wifi::WifiInformationElement;
+using ::aidl::android::hardware::wifi::StaScanResult;
+using ::aidl::android::hardware::wifi::StaScanData;
 
 // Chip conversion methods.
 bool convertLegacyChipFeaturesToAidl(uint64_t legacy_feature_set, uint32_t* aidl_feature_set);
@@ -106,7 +119,7 @@ bool convertLegacyVectorOfDebugTxPacketFateToAidl(
 bool convertLegacyVectorOfDebugRxPacketFateToAidl(
         const std::vector<legacy_hal::wifi_rx_report>& legacy_fates,
         std::vector<WifiDebugRxPacketFateReport>* aidl_fates);
-
+#ifdef SUPPORT_NAN
 // NAN iface conversion methods.
 void convertToNanStatus(legacy_hal::NanStatusType type, const char* str, size_t max_len,
                         NanStatus* nanStatus);
@@ -144,7 +157,8 @@ bool convertLegacyNanDataPathConfirmIndToAidl(const legacy_hal::NanDataPathConfi
 bool convertLegacyNanDataPathScheduleUpdateIndToAidl(
         const legacy_hal::NanDataPathScheduleUpdateInd& legacy_ind,
         NanDataPathScheduleUpdateInd* aidl_ind);
-
+#endif
+#ifdef SUPPORT_RTT
 // RTT controller conversion methods.
 bool convertAidlVectorOfRttConfigToLegacy(const std::vector<RttConfig>& aidl_configs,
                                           std::vector<legacy_hal::wifi_rtt_config>* legacy_configs);
@@ -167,6 +181,7 @@ bool convertLegacyVectorOfRttResultToAidl(
 bool convertLegacyVectorOfRttResultV2ToAidl(
         const std::vector<const legacy_hal::wifi_rtt_result_v2*>& legacy_results,
         std::vector<RttResult>* aidl_results);
+#endif
 uint32_t convertAidlWifiBandToLegacyMacBand(WifiBand band);
 uint32_t convertAidlWifiIfaceModeToLegacy(uint32_t aidl_iface_mask);
 uint32_t convertAidlUsableChannelFilterToLegacy(uint32_t aidl_filter_mask);
@@ -180,6 +195,7 @@ bool convertLegacyWifiRateInfoToAidl(const legacy_hal::wifi_rate& legacy_rate,
 bool convertLegacyWifiChipCapabilitiesToAidl(
         const legacy_hal::wifi_chip_capabilities& legacy_chip_capabilities,
         WifiChipCapabilities& aidl_chip_capabilities);
+#ifdef SUPPORT_NAN
 bool convertAidlNanPairingInitiatorRequestToLegacy(const NanPairingRequest& aidl_request,
                                                    legacy_hal::NanPairingRequest* legacy_request);
 bool convertAidlNanPairingIndicationResponseToLegacy(
@@ -201,6 +217,7 @@ bool convertLegacyNanBootstrappingRequestIndToAidl(
 bool convertLegacyNanBootstrappingConfirmIndToAidl(
         const legacy_hal::NanBootstrappingConfirmInd& legacy_ind,
         NanBootstrappingConfirmInd* aidl_ind);
+#endif
 uint32_t convertAidlChannelCategoryToLegacy(uint32_t aidl_channel_category_mask);
 }  // namespace aidl_struct_util
 }  // namespace wifi

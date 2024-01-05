@@ -13,11 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include "wifi.h"
 
 #include <android-base/logging.h>
 
+#include "wifi_hal_instance.h"
 #include "aidl_return_util.h"
 #include "aidl_sync_util.h"
 #include "wifi_status_util.h"
@@ -130,10 +136,12 @@ ndk::ScopedAStatus Wifi::startInternal() {
         // Create the chip instance once the HAL is started.
         int32_t chipId = kPrimaryChipId;
         for (auto& hal : legacy_hals_) {
-            chips_.push_back(
-                    WifiChip::create(chipId, chipId == kPrimaryChipId, hal, mode_controller_,
-                                     std::make_shared<iface_util::WifiIfaceUtil>(iface_tool_, hal),
-                                     feature_flags_, on_subsystem_restart_callback, false));
+            auto chip = WifiChip::create(chipId, chipId == kPrimaryChipId,
+                                         hal, mode_controller_,
+                                         std::make_shared<iface_util::WifiIfaceUtil>(iface_tool_, hal),
+                                         feature_flags_, on_subsystem_restart_callback, false);
+            chips_.push_back(chip);
+            WifiHalOnChipCreated(chip);
             chipId++;
         }
         run_state_ = RunState::STARTED;

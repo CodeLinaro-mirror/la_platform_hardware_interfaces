@@ -13,16 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include "wifi_legacy_hal.h"
 
 #include <android-base/logging.h>
-#include <cutils/properties.h>
 #include <net/if.h>
 
 #include <array>
 #include <chrono>
 
+#include "wifi_config.h"
 #include "aidl_sync_util.h"
 #include "wifi_legacy_hal_stubs.h"
 

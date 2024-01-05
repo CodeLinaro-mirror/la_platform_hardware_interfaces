@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #ifndef AIDL_CALLBACK_UTIL_H_
 #define AIDL_CALLBACK_UTIL_H_
@@ -40,23 +45,16 @@ template <typename CallbackType>
 class AidlCallbackHandler {
   public:
     AidlCallbackHandler() {
-        death_handler_ = AIBinder_DeathRecipient_new(AidlCallbackHandler::onCallbackDeath);
     }
     ~AidlCallbackHandler() { invalidate(); }
 
     bool addCallback(const std::shared_ptr<CallbackType>& cb) {
         std::unique_lock<std::mutex> lk(callback_handler_lock_);
-        void* cbPtr = reinterpret_cast<void*>(cb->asBinder().get());
+        void* cbPtr = reinterpret_cast<void*>(cb->get());
         const auto& cbPosition = findCbInSet(cbPtr);
         if (cbPosition != cb_set_.end()) {
             LOG(WARNING) << "Duplicate death notification registration";
             return true;
-        }
-
-        if (AIBinder_linkToDeath(cb->asBinder().get(), death_handler_, cbPtr /* cookie */) !=
-            STATUS_OK) {
-            LOG(ERROR) << "Failed to register death notification";
-            return false;
         }
 
         callback_handler_map_[cbPtr] = reinterpret_cast<void*>(this);
@@ -74,10 +72,7 @@ class AidlCallbackHandler {
     void invalidate() {
         std::unique_lock<std::mutex> lk(callback_handler_lock_);
         for (auto cb : cb_set_) {
-            void* cookie = reinterpret_cast<void*>(cb->asBinder().get());
-            if (AIBinder_unlinkToDeath(cb->asBinder().get(), death_handler_, cookie) != STATUS_OK) {
-                LOG(ERROR) << "Failed to deregister death notification";
-            }
+            void* cookie = reinterpret_cast<void*>(cb->get());
             if (!removeCbFromHandlerMap(cookie)) {
                 LOG(ERROR) << "Failed to remove callback from handler map";
             }
@@ -86,34 +81,13 @@ class AidlCallbackHandler {
         // unique_lock unlocked here
     }
 
-    // Entry point for the death handling logic. AIBinder_DeathRecipient
-    // can only call a static function, so use the cookie to find the
-    // proper handler and route the request there.
-    static void onCallbackDeath(void* cookie) {
-        std::unique_lock<std::mutex> lk(callback_handler_lock_);
-        auto cbQuery = callback_handler_map_.find(cookie);
-        if (cbQuery == callback_handler_map_.end()) {
-            LOG(ERROR) << "Invalid death cookie received";
-            return;
-        }
-
-        AidlCallbackHandler* cbHandler = reinterpret_cast<AidlCallbackHandler*>(cbQuery->second);
-        if (cbHandler == nullptr) {
-            LOG(ERROR) << "Handler mapping contained an invalid handler";
-            return;
-        }
-        cbHandler->handleCallbackDeath(cbQuery->first);
-        // unique_lock unlocked here
-    }
-
   private:
     std::set<std::shared_ptr<CallbackType>> cb_set_;
-    AIBinder_DeathRecipient* death_handler_;
 
     typename std::set<std::shared_ptr<CallbackType>>::iterator findCbInSet(void* cbPtr) {
         const auto& cbPosition = std::find_if(
                 cb_set_.begin(), cb_set_.end(), [cbPtr](const std::shared_ptr<CallbackType>& p) {
-                    return cbPtr == reinterpret_cast<void*>(p->asBinder().get());
+                    return cbPtr == reinterpret_cast<void*>(p->get());
                 });
         return cbPosition;
     }
@@ -125,19 +99,6 @@ class AidlCallbackHandler {
             return true;
         }
         return false;
-    }
-
-    void handleCallbackDeath(void* cbPtr) {
-        const auto& cbPosition = findCbInSet(cbPtr);
-        if (cbPosition == cb_set_.end()) {
-            LOG(ERROR) << "Unknown callback death notification received";
-            return;
-        }
-        cb_set_.erase(cbPosition);
-
-        if (!removeCbFromHandlerMap(cbPtr)) {
-            LOG(ERROR) << "Callback was not in callback handler map";
-        }
     }
 
     DISALLOW_COPY_AND_ASSIGN(AidlCallbackHandler);

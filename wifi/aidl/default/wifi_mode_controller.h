@@ -13,11 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #ifndef WIFI_MODE_CONTROLLER_H_
 #define WIFI_MODE_CONTROLLER_H_
 
 #include <aidl/android/hardware/wifi/IWifi.h>
+#include <aidl/android/hardware/wifi/IfaceType.h>
 #include <wifi_hal/driver_tool.h>
 
 namespace aidl {
@@ -25,7 +31,7 @@ namespace android {
 namespace hardware {
 namespace wifi {
 namespace mode_controller {
-
+using aidl::android::hardware::wifi::IfaceType;
 /**
  * Class that encapsulates all firmware mode configuration.
  * This class will perform the necessary firmware reloads to put the chip in the

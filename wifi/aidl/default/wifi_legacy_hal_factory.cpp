@@ -13,20 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include "wifi_legacy_hal_factory.h"
 
 #include <android-base/logging.h>
-#include <dirent.h>
+//#include <dirent.h>
 #include <dlfcn.h>
+#ifdef SUPPORT_XML
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include <libxml/xmlmemory.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include "wifi_legacy_hal_stubs.h"
-
+#if 0
 namespace {
 static constexpr char kVendorHalsDescPath[] = "/vendor/etc/wifi/vendor_hals";
 static constexpr char kVendorHalsDescExt[] = ".xml";
@@ -58,7 +65,7 @@ bool isFileExtension(const char* name, const char* ext) {
     return true;
 }
 };  // namespace
-
+#endif
 namespace aidl {
 namespace android {
 namespace hardware {
@@ -126,6 +133,7 @@ bool WifiLegacyHalFactory::initLinkedHalFunctionTable(wifi_hal_fn* hal_fn) {
  * </WifiVendorHal>
  */
 void WifiLegacyHalFactory::initVendorHalsDescriptorList() {
+#if 0
     xmlDocPtr xml;
     xmlNodePtr node, cnode;
     char* version = NULL;
@@ -206,9 +214,11 @@ void WifiLegacyHalFactory::initVendorHalsDescriptorList() {
         }
     }
     ::closedir(dirPtr);
+#endif
 }
 
 bool WifiLegacyHalFactory::loadVendorHalLib(const std::string& path, wifi_hal_lib_desc& desc) {
+#if 0
     void* h = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
     init_wifi_vendor_hal_func_table_t initfn;
     wifi_error res;
@@ -246,6 +256,7 @@ bool WifiLegacyHalFactory::loadVendorHalLib(const std::string& path, wifi_hal_li
     return true;
 out_err:
     dlclose(h);
+#endif
     return false;
 }
 

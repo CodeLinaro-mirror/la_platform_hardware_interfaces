@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include "wifi_sta_iface.h"
 
@@ -21,6 +26,10 @@
 #include "aidl_return_util.h"
 #include "aidl_struct_util.h"
 #include "wifi_status_util.h"
+
+namespace {
+constexpr int32_t wifiStaIfaceInstanceId = 0x11110000;
+}
 
 namespace aidl {
 namespace android {
@@ -37,13 +46,15 @@ WifiStaIface::WifiStaIface(const std::string& ifname,
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
         LOG(ERROR) << "Failed to set DFS flag; DFS channels may be unavailable.";
     }
+
+    instanceId_ = wifiStaIfaceInstanceId + iface_util_.lock()->ifNameToIndex(ifname);
 }
 
 std::shared_ptr<WifiStaIface> WifiStaIface::create(
         const std::string& ifname, const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
         const std::weak_ptr<iface_util::WifiIfaceUtil> iface_util) {
     std::shared_ptr<WifiStaIface> ptr =
-            ndk::SharedRefBase::make<WifiStaIface>(ifname, legacy_hal, iface_util);
+            std::make_shared<WifiStaIface>(ifname, legacy_hal, iface_util);
     std::weak_ptr<WifiStaIface> weak_ptr_this(ptr);
     ptr->setWeakPtr(weak_ptr_this);
     return ptr;
@@ -65,6 +76,10 @@ bool WifiStaIface::isValid() {
 
 std::string WifiStaIface::getName() {
     return ifname_;
+}
+
+int32_t WifiStaIface::getInstanceId() {
+    return instanceId_;
 }
 
 std::set<std::shared_ptr<IWifiStaIfaceEventCallback>> WifiStaIface::getEventCallbacks() {

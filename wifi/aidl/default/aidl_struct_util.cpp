@@ -13,9 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include <android-base/logging.h>
 #include <utils/SystemClock.h>
+#include <cutils/memory.h>
 
 #include "aidl_struct_util.h"
 
@@ -1141,6 +1147,7 @@ legacy_hal::fw_roaming_state_t convertAidlRoamingStateToLegacy(StaRoamingState s
     CHECK(false);
 }
 
+#ifdef SUPPORT_NAN
 legacy_hal::NanMatchAlg convertAidlNanMatchAlgToLegacy(NanMatchAlg type) {
     switch (type) {
         case NanMatchAlg::MATCH_ONCE:
@@ -2379,7 +2386,9 @@ bool convertLegacyNanDataPathScheduleUpdateIndToAidl(
 
     return true;
 }
+#endif
 
+#ifdef SUPPORT_RTT
 legacy_hal::wifi_rtt_type convertAidlRttTypeToLegacy(RttType type) {
     switch (type) {
         case RttType::ONE_SIDED:
@@ -2415,6 +2424,7 @@ legacy_hal::rtt_peer_type convertAidlRttPeerTypeToLegacy(RttPeerType type) {
     };
     CHECK(false);
 }
+#endif
 
 legacy_hal::wifi_channel_width convertAidlWifiChannelWidthToLegacy(WifiChannelWidthInMhz type) {
     switch (type) {
@@ -2463,6 +2473,7 @@ WifiChannelWidthInMhz convertLegacyWifiChannelWidthToAidl(legacy_hal::wifi_chann
     };
 }
 
+#ifdef SUPPORT_RTT
 legacy_hal::wifi_rtt_preamble convertAidlRttPreambleToLegacy(RttPreamble type) {
     switch (type) {
         case RttPreamble::LEGACY:
@@ -2550,6 +2561,7 @@ legacy_hal::wifi_motion_pattern convertAidlRttMotionPatternToLegacy(RttMotionPat
     };
     CHECK(false);
 }
+#endif
 
 WifiRatePreamble convertLegacyWifiRatePreambleToAidl(uint8_t preamble) {
     switch (preamble) {
@@ -2586,6 +2598,7 @@ WifiRateNss convertLegacyWifiRateNssToAidl(uint8_t nss) {
     return {};
 }
 
+#ifdef SUPPORT_RTT
 RttStatus convertLegacyRttStatusToAidl(legacy_hal::wifi_rtt_status status) {
     switch (status) {
         case legacy_hal::RTT_STATUS_SUCCESS:
@@ -2627,6 +2640,7 @@ RttStatus convertLegacyRttStatusToAidl(legacy_hal::wifi_rtt_status status) {
     };
     CHECK(false) << "Unknown legacy status: " << status;
 }
+#endif
 
 bool convertAidlWifiChannelInfoToLegacy(const WifiChannelInfo& aidl_info,
                                         legacy_hal::wifi_channel_info* legacy_info) {
@@ -2654,6 +2668,7 @@ bool convertLegacyWifiChannelInfoToAidl(const legacy_hal::wifi_channel_info& leg
     return true;
 }
 
+#ifdef SUPPORT_RTT
 bool convertAidlRttConfigToLegacy(const RttConfig& aidl_config,
                                   legacy_hal::wifi_rtt_config* legacy_config) {
     if (!legacy_config) {
@@ -2794,6 +2809,7 @@ bool convertLegacyRttCapabilitiesToAidl(
     aidl_capabilities->mcVersion = legacy_capabilities.mc_version;
     return true;
 }
+#endif
 
 bool convertLegacyWifiRateInfoToAidl(const legacy_hal::wifi_rate& legacy_rate,
                                      WifiRateInfo* aidl_rate) {
@@ -2810,6 +2826,7 @@ bool convertLegacyWifiRateInfoToAidl(const legacy_hal::wifi_rate& legacy_rate,
     return true;
 }
 
+#ifdef SUPPORT_RTT
 bool convertLegacyRttResultToAidl(const legacy_hal::wifi_rtt_result& legacy_result,
                                   RttResult* aidl_result) {
     if (!aidl_result) {
@@ -2890,6 +2907,7 @@ bool convertLegacyVectorOfRttResultV2ToAidl(
     }
     return true;
 }
+#endif
 
 legacy_hal::wifi_interface_type convertAidlIfaceTypeToLegacy(IfaceType aidl_interface_type) {
     switch (aidl_interface_type) {
@@ -3033,6 +3051,7 @@ bool convertLegacyRadioCombinationsMatrixToAidl(
     return true;
 }
 
+#ifdef SUPPORT_NAN
 bool convertAidlNanPairingInitiatorRequestToLegacy(const NanPairingRequest& aidl_request,
                                                    legacy_hal::NanPairingRequest* legacy_request) {
     if (!legacy_request) {
@@ -3269,6 +3288,7 @@ bool convertLegacyNanBootstrappingConfirmIndToAidl(
             std::vector<uint8_t>(legacy_ind.cookie, legacy_ind.cookie + legacy_ind.cookie_length);
     return true;
 }
+#endif
 
 bool convertLegacyWifiChipCapabilitiesToAidl(
         const legacy_hal::wifi_chip_capabilities& legacy_chip_capabilities,

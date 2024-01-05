@@ -13,11 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #ifndef WIFI_AP_IFACE_H_
 #define WIFI_AP_IFACE_H_
 
 #include <aidl/android/hardware/wifi/BnWifiApIface.h>
+#include <aidl/android/hardware/wifi/ScopedAStatus.h>
 #include <android-base/macros.h>
 
 #include "wifi_iface_util.h"

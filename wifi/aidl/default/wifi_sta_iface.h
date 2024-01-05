@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #ifndef WIFI_STA_IFACE_H_
 #define WIFI_STA_IFACE_H_
@@ -49,6 +54,7 @@ class WifiStaIface : public BnWifiStaIface {
     bool isValid();
     std::set<std::shared_ptr<IWifiStaIfaceEventCallback>> getEventCallbacks();
     std::string getName();
+    int32_t getInstanceId();
 
     // AIDL methods exposed.
     ndk::ScopedAStatus getName(std::string* _aidl_return) override;
@@ -133,6 +139,7 @@ class WifiStaIface : public BnWifiStaIface {
 
     void setWeakPtr(std::weak_ptr<WifiStaIface> ptr);
 
+    int32_t instanceId_;
     std::string ifname_;
     std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
     std::weak_ptr<iface_util::WifiIfaceUtil> iface_util_;
