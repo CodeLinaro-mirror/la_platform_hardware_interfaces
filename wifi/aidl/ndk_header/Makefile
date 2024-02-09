@@ -1,7 +1,6 @@
-
 #Wifi Hal NDK headers configuration
+CONFIG_AP :=n
 CONFIG_P2P := n
-
 
 # WiFi Hal NDK Headers library
 LIBRARY=libwifi-ndk-header.so.0
@@ -15,7 +14,7 @@ CPPFLAGS += -I. -I$(INC_DIR)
 LDFLAGS += -lstdc++ -lutils
 LDFLAGS += -shared -Wl,-soname,$(LIBRARY)
 
-SRCS := wifi_hal_delegator.cpp
+SRCS := wifi_instance_util.cpp
 CXXOBJECTS := $(SRCS:.cpp=.o)
 
 $(LIBRARY): $(CXXOBJECTS)
