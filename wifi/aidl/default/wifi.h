@@ -30,11 +30,11 @@
 
 #include "aidl_callback_util.h"
 #include "wifi_chip.h"
+#include "wifi_config.h"
 #include "wifi_feature_flags.h"
 #include "wifi_legacy_hal.h"
 #include "wifi_legacy_hal_factory.h"
 #include "wifi_mode_controller.h"
-#include "wifi_config.h"
 
 namespace aidl {
 namespace android {
@@ -62,8 +62,6 @@ class Wifi : public BnWifi {
     ndk::ScopedAStatus getChipIds(std::vector<int32_t>* _aidl_return) override;
     ndk::ScopedAStatus getChip(int32_t in_chipId,
                                std::shared_ptr<IWifiChip>* _aidl_return) override;
-    binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
-
   private:
     enum class RunState { STOPPED, STARTED, STOPPING };
 

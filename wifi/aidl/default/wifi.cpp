@@ -22,8 +22,8 @@
 #include "wifi.h"
 
 #include <android-base/logging.h>
+#include <wifi_rpc_event.h>
 
-#include "wifi_hal_instance.h"
 #include "aidl_return_util.h"
 #include "aidl_sync_util.h"
 #include "wifi_status_util.h"
@@ -37,6 +37,9 @@ namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
+
+using aidl::android::hardware::wifi::IWifiChipEventCallback;
+using aidl::android::hardware::wifi::WifiChipRpcEvent;
 using aidl_return_util::validateAndCall;
 using aidl_return_util::validateAndCallWithLock;
 using aidl_sync_util::acquireGlobalLock;
@@ -85,21 +88,6 @@ ndk::ScopedAStatus Wifi::getChip(int32_t in_chipId, std::shared_ptr<IWifiChip>* 
                            _aidl_return, in_chipId);
 }
 
-binder_status_t Wifi::dump(int fd, const char** args, uint32_t numArgs) {
-    const auto lock = acquireGlobalLock();
-    LOG(INFO) << "-----------Debug was called----------------";
-    if (chips_.size() == 0) {
-        LOG(INFO) << "No chips to display.";
-        return STATUS_OK;
-    }
-
-    for (std::shared_ptr<WifiChip> chip : chips_) {
-        if (!chip.get()) continue;
-        chip->dump(fd, args, numArgs);
-    }
-    return STATUS_OK;
-}
-
 ndk::ScopedAStatus Wifi::registerEventCallbackInternal(
         const std::shared_ptr<IWifiEventCallback>& event_callback) {
     if (!event_cb_handler_.addCallback(event_callback)) {
@@ -141,7 +129,13 @@ ndk::ScopedAStatus Wifi::startInternal() {
                                          std::make_shared<iface_util::WifiIfaceUtil>(iface_tool_, hal),
                                          feature_flags_, on_subsystem_restart_callback, false);
             chips_.push_back(chip);
-            WifiHalOnChipCreated(chip);
+
+            /* Register WifiChip Event Callback */
+            std::shared_ptr<IWifiChipEventCallback> chip_event_callback =
+                std::make_shared<WifiChipRpcEvent>(chipId);
+            if (!chip->registerEventCallback(chip_event_callback).isOk())
+                LOG(ERROR) << "Failed to register chip rpc event callback";
+
             chipId++;
         }
         run_state_ = RunState::STARTED;

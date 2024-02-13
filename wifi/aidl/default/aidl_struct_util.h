@@ -24,7 +24,7 @@
 
 #include <aidl/android/hardware/wifi/IWifiChip.h>
 #include <aidl/android/hardware/wifi/IWifiChipEventCallback.h>
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
 #include <aidl/android/hardware/wifi/NanBandIndex.h>
 #endif
 #include <aidl/android/hardware/wifi/StaBackgroundScanBucketEventReportSchemeMask.h>
@@ -119,7 +119,7 @@ bool convertLegacyVectorOfDebugTxPacketFateToAidl(
 bool convertLegacyVectorOfDebugRxPacketFateToAidl(
         const std::vector<legacy_hal::wifi_rx_report>& legacy_fates,
         std::vector<WifiDebugRxPacketFateReport>* aidl_fates);
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
 // NAN iface conversion methods.
 void convertToNanStatus(legacy_hal::NanStatusType type, const char* str, size_t max_len,
                         NanStatus* nanStatus);
@@ -158,7 +158,7 @@ bool convertLegacyNanDataPathScheduleUpdateIndToAidl(
         const legacy_hal::NanDataPathScheduleUpdateInd& legacy_ind,
         NanDataPathScheduleUpdateInd* aidl_ind);
 #endif
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
 // RTT controller conversion methods.
 bool convertAidlVectorOfRttConfigToLegacy(const std::vector<RttConfig>& aidl_configs,
                                           std::vector<legacy_hal::wifi_rtt_config>* legacy_configs);
@@ -195,7 +195,7 @@ bool convertLegacyWifiRateInfoToAidl(const legacy_hal::wifi_rate& legacy_rate,
 bool convertLegacyWifiChipCapabilitiesToAidl(
         const legacy_hal::wifi_chip_capabilities& legacy_chip_capabilities,
         WifiChipCapabilities& aidl_chip_capabilities);
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
 bool convertAidlNanPairingInitiatorRequestToLegacy(const NanPairingRequest& aidl_request,
                                                    legacy_hal::NanPairingRequest* legacy_request);
 bool convertAidlNanPairingIndicationResponseToLegacy(

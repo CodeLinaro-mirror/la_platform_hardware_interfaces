@@ -24,7 +24,7 @@
 
 #include <aidl/android/hardware/wifi/BnWifiChip.h>
 #include <aidl/android/hardware/wifi/ScopedAStatus.h>
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
 #include <aidl/android/hardware/wifi/IWifiRttController.h>
 #endif
 #include <android-base/macros.h>
@@ -39,13 +39,13 @@
 #include "wifi_feature_flags.h"
 #include "wifi_legacy_hal.h"
 #include "wifi_mode_controller.h"
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
 #include "wifi_nan_iface.h"
 #endif
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
 #include "wifi_p2p_iface.h"
 #endif
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
 #include "wifi_rtt_controller.h"
 #endif
 #include "wifi_sta_iface.h"
@@ -96,7 +96,6 @@ class WifiChip : public BnWifiChip {
     void invalidate();
     bool isValid();
     std::set<std::shared_ptr<IWifiChipEventCallback>> getEventCallbacks();
-    int32_t getChipId();
 
     // AIDL methods exposed.
     ndk::ScopedAStatus getId(int32_t* _aidl_return) override;
@@ -117,14 +116,14 @@ class WifiChip : public BnWifiChip {
     ndk::ScopedAStatus removeApIface(const std::string& in_ifname) override;
     ndk::ScopedAStatus removeIfaceInstanceFromBridgedApIface(
             const std::string& in_brIfaceName, const std::string& in_ifaceInstanceName) override;
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
     ndk::ScopedAStatus createNanIface(std::shared_ptr<IWifiNanIface>* _aidl_return) override;
     ndk::ScopedAStatus getNanIfaceNames(std::vector<std::string>* _aidl_return) override;
     ndk::ScopedAStatus getNanIface(const std::string& in_ifname,
                                    std::shared_ptr<IWifiNanIface>* _aidl_return) override;
     ndk::ScopedAStatus removeNanIface(const std::string& in_ifname) override;
 #endif
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
     ndk::ScopedAStatus createP2pIface(std::shared_ptr<IWifiP2pIface>* _aidl_return) override;
     ndk::ScopedAStatus getP2pIfaceNames(std::vector<std::string>* _aidl_return) override;
     ndk::ScopedAStatus getP2pIface(const std::string& in_ifname,
@@ -136,7 +135,7 @@ class WifiChip : public BnWifiChip {
     ndk::ScopedAStatus getStaIface(const std::string& in_ifname,
                                    std::shared_ptr<IWifiStaIface>* _aidl_return) override;
     ndk::ScopedAStatus removeStaIface(const std::string& in_ifname) override;
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
     ndk::ScopedAStatus createRttController(
             const std::shared_ptr<IWifiStaIface>& in_boundIface,
             std::shared_ptr<IWifiRttController>* _aidl_return) override;
@@ -172,7 +171,6 @@ class WifiChip : public BnWifiChip {
     ndk::ScopedAStatus getWifiChipCapabilities(WifiChipCapabilities* _aidl_return) override;
     ndk::ScopedAStatus enableStaChannelForPeerNetwork(
             int32_t in_channelCategoryEnableFlag) override;
-    binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
     ndk::ScopedAStatus setMloMode(const ChipMloMode in_mode) override;
 
   private:
@@ -203,14 +201,14 @@ class WifiChip : public BnWifiChip {
     ndk::ScopedAStatus removeApIfaceInternal(const std::string& ifname);
     ndk::ScopedAStatus removeIfaceInstanceFromBridgedApIfaceInternal(
             const std::string& brIfaceName, const std::string& ifInstanceName);
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
     std::pair<std::shared_ptr<IWifiNanIface>, ndk::ScopedAStatus> createNanIfaceInternal();
     std::pair<std::vector<std::string>, ndk::ScopedAStatus> getNanIfaceNamesInternal();
     std::pair<std::shared_ptr<IWifiNanIface>, ndk::ScopedAStatus> getNanIfaceInternal(
             const std::string& ifname);
     ndk::ScopedAStatus removeNanIfaceInternal(const std::string& ifname);
 #endif
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
     std::pair<std::shared_ptr<IWifiP2pIface>, ndk::ScopedAStatus> createP2pIfaceInternal();
     std::pair<std::vector<std::string>, ndk::ScopedAStatus> getP2pIfaceNamesInternal();
     std::pair<std::shared_ptr<IWifiP2pIface>, ndk::ScopedAStatus> getP2pIfaceInternal(
@@ -222,7 +220,7 @@ class WifiChip : public BnWifiChip {
     std::pair<std::shared_ptr<IWifiStaIface>, ndk::ScopedAStatus> getStaIfaceInternal(
             const std::string& ifname);
     ndk::ScopedAStatus removeStaIfaceInternal(const std::string& ifname);
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
     std::pair<std::shared_ptr<IWifiRttController>, ndk::ScopedAStatus> createRttControllerInternal(
             const std::shared_ptr<IWifiStaIface>& bound_iface);
 #endif
@@ -297,14 +295,14 @@ class WifiChip : public BnWifiChip {
     std::weak_ptr<mode_controller::WifiModeController> mode_controller_;
     std::shared_ptr<iface_util::WifiIfaceUtil> iface_util_;
     std::vector<std::shared_ptr<WifiApIface>> ap_ifaces_;
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
     std::vector<std::shared_ptr<WifiNanIface>> nan_ifaces_;
 #endif
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
     std::vector<std::shared_ptr<WifiP2pIface>> p2p_ifaces_;
 #endif
     std::vector<std::shared_ptr<WifiStaIface>> sta_ifaces_;
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
     std::vector<std::shared_ptr<WifiRttController>> rtt_controllers_;
 #endif
     std::map<std::string, Ringbuffer> ringbuffer_map_;
