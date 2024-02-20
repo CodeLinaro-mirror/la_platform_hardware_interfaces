@@ -1147,7 +1147,7 @@ legacy_hal::fw_roaming_state_t convertAidlRoamingStateToLegacy(StaRoamingState s
     CHECK(false);
 }
 
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
 legacy_hal::NanMatchAlg convertAidlNanMatchAlgToLegacy(NanMatchAlg type) {
     switch (type) {
         case NanMatchAlg::MATCH_ONCE:
@@ -2388,7 +2388,7 @@ bool convertLegacyNanDataPathScheduleUpdateIndToAidl(
 }
 #endif
 
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
 legacy_hal::wifi_rtt_type convertAidlRttTypeToLegacy(RttType type) {
     switch (type) {
         case RttType::ONE_SIDED:
@@ -2473,7 +2473,7 @@ WifiChannelWidthInMhz convertLegacyWifiChannelWidthToAidl(legacy_hal::wifi_chann
     };
 }
 
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
 legacy_hal::wifi_rtt_preamble convertAidlRttPreambleToLegacy(RttPreamble type) {
     switch (type) {
         case RttPreamble::LEGACY:
@@ -2598,7 +2598,7 @@ WifiRateNss convertLegacyWifiRateNssToAidl(uint8_t nss) {
     return {};
 }
 
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
 RttStatus convertLegacyRttStatusToAidl(legacy_hal::wifi_rtt_status status) {
     switch (status) {
         case legacy_hal::RTT_STATUS_SUCCESS:
@@ -2668,7 +2668,7 @@ bool convertLegacyWifiChannelInfoToAidl(const legacy_hal::wifi_channel_info& leg
     return true;
 }
 
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
 bool convertAidlRttConfigToLegacy(const RttConfig& aidl_config,
                                   legacy_hal::wifi_rtt_config* legacy_config) {
     if (!legacy_config) {
@@ -2826,7 +2826,7 @@ bool convertLegacyWifiRateInfoToAidl(const legacy_hal::wifi_rate& legacy_rate,
     return true;
 }
 
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
 bool convertLegacyRttResultToAidl(const legacy_hal::wifi_rtt_result& legacy_result,
                                   RttResult* aidl_result) {
     if (!aidl_result) {
@@ -3051,7 +3051,7 @@ bool convertLegacyRadioCombinationsMatrixToAidl(
     return true;
 }
 
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
 bool convertAidlNanPairingInitiatorRequestToLegacy(const NanPairingRequest& aidl_request,
                                                    legacy_hal::NanPairingRequest* legacy_request) {
     if (!legacy_request) {

@@ -54,7 +54,6 @@ class WifiStaIface : public BnWifiStaIface {
     bool isValid();
     std::set<std::shared_ptr<IWifiStaIfaceEventCallback>> getEventCallbacks();
     std::string getName();
-    int32_t getInstanceId();
 
     // AIDL methods exposed.
     ndk::ScopedAStatus getName(std::string* _aidl_return) override;
@@ -139,7 +138,6 @@ class WifiStaIface : public BnWifiStaIface {
 
     void setWeakPtr(std::weak_ptr<WifiStaIface> ptr);
 
-    int32_t instanceId_;
     std::string ifname_;
     std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal_;
     std::weak_ptr<iface_util::WifiIfaceUtil> iface_util_;

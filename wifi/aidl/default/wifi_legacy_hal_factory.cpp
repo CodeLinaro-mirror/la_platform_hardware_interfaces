@@ -24,7 +24,7 @@
 #include <android-base/logging.h>
 //#include <dirent.h>
 #include <dlfcn.h>
-#ifdef SUPPORT_XML
+#ifdef CONFIG_XML
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include <libxml/xmlmemory.h>

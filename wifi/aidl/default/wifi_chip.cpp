@@ -19,20 +19,20 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include "wifi_chip.h"
-#include "wifi_config.h"
-
 #include <android-base/logging.h>
 #include <android-base/unique_fd.h>
+#include <cutils/memory.h>
 #include <fcntl.h>
 #include <net/if.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
-#include <cutils/memory.h>
+#include <wifi_instance_util.h>
+#include <wifi_rpc_event.h>
 
-#include "wifi_hal_instance.h"
 #include "aidl_return_util.h"
 #include "aidl_struct_util.h"
+#include "wifi_chip.h"
+#include "wifi_config.h"
 #include "wifi_legacy_hal.h"
 #include "wifi_status_util.h"
 
@@ -129,7 +129,7 @@ std::vector<std::string> getPredefinedApIfaceNames(bool is_bridged) {
     return ifnames;
 }
 
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
 std::string getPredefinedP2pIfaceName() {
     std::array<char, PROPERTY_VALUE_MAX> primaryIfaceName;
     char p2pParentIfname[100];
@@ -162,7 +162,7 @@ std::string getPredefinedP2pIfaceName() {
 }
 #endif
 
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
 // Returns the dedicated iface name if one is defined.
 std::string getPredefinedNanIfaceName() {
     std::array<char, PROPERTY_VALUE_MAX> buffer;
@@ -369,8 +369,11 @@ namespace aidl {
 namespace android {
 namespace hardware {
 namespace wifi {
+using aidl::android::hardware::wifi::IWifiStaIfaceEventCallback;
+using aidl::android::hardware::wifi::WifiStaIfaceRpcEvent;
 using aidl_return_util::validateAndCall;
 using aidl_return_util::validateAndCallWithLock;
+using namespace aidl::android::hardware::wifi::instance_util;
 
 WifiChip::WifiChip(int32_t chip_id, bool is_primary,
                    const std::weak_ptr<legacy_hal::WifiLegacyHal> legacy_hal,
@@ -458,10 +461,6 @@ std::set<std::shared_ptr<IWifiChipEventCallback>> WifiChip::getEventCallbacks() 
     return event_cb_handler_.getCallbacks();
 }
 
-int32_t WifiChip::getChipId() {
-    return chip_id_;
-}
-
 ndk::ScopedAStatus WifiChip::getId(int32_t* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_CHIP_INVALID, &WifiChip::getIdInternal,
                            _aidl_return);
@@ -541,7 +540,7 @@ ndk::ScopedAStatus WifiChip::removeIfaceInstanceFromBridgedApIface(
                            in_ifaceInstanceName);
 }
 
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
 ndk::ScopedAStatus WifiChip::createNanIface(std::shared_ptr<IWifiNanIface>* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_CHIP_INVALID,
                            &WifiChip::createNanIfaceInternal, _aidl_return);
@@ -564,7 +563,7 @@ ndk::ScopedAStatus WifiChip::removeNanIface(const std::string& in_ifname) {
 }
 #endif
 
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
 ndk::ScopedAStatus WifiChip::createP2pIface(std::shared_ptr<IWifiP2pIface>* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_CHIP_INVALID,
                            &WifiChip::createP2pIfaceInternal, _aidl_return);
@@ -608,7 +607,7 @@ ndk::ScopedAStatus WifiChip::removeStaIface(const std::string& in_ifname) {
                            &WifiChip::removeStaIfaceInternal, in_ifname);
 }
 
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
 ndk::ScopedAStatus WifiChip::createRttController(
         const std::shared_ptr<IWifiStaIface>& in_boundIface,
         std::shared_ptr<IWifiRttController>* _aidl_return) {
@@ -670,27 +669,6 @@ ndk::ScopedAStatus WifiChip::resetTxPowerScenario() {
 ndk::ScopedAStatus WifiChip::setLatencyMode(IWifiChip::LatencyMode in_mode) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_CHIP_INVALID,
                            &WifiChip::setLatencyModeInternal, in_mode);
-}
-
-binder_status_t WifiChip::dump(int fd, const char**, uint32_t) {
-    {
-        std::unique_lock<std::mutex> lk(lock_t);
-        for (const auto& item : ringbuffer_map_) {
-            forceDumpToDebugRingBufferInternal(item.first);
-        }
-        // unique_lock unlocked here
-    }
-    usleep(100 * 1000);  // sleep for 100 milliseconds to wait for
-                         // ringbuffer updates.
-    if (!writeRingbufferFilesInternal()) {
-        LOG(ERROR) << "Error writing files to flash";
-    }
-    uint32_t n_error = cpioArchiveFilesInDir(fd, kTombstoneFolderPath);
-    if (n_error != 0) {
-        LOG(ERROR) << n_error << " errors occurred in cpio function";
-    }
-    fsync(fd);
-    return STATUS_OK;
 }
 
 ndk::ScopedAStatus WifiChip::setMultiStaPrimaryConnection(const std::string& in_ifName) {
@@ -760,16 +738,16 @@ ndk::ScopedAStatus WifiChip::setMloMode(const ChipMloMode in_mode) {
 void WifiChip::invalidateAndRemoveAllIfaces() {
     invalidateAndClearBridgedApAll();
     invalidateAndClearAll(ap_ifaces_);
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
     invalidateAndClearAll(nan_ifaces_);
 #endif
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
     invalidateAndClearAll(p2p_ifaces_);
 #endif
     invalidateAndClearAll(sta_ifaces_);
     // Since all the ifaces are invalid now, all RTT controller objects
     // using those ifaces also need to be invalidated.
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
     for (const auto& rtt : rtt_controllers_) {
         rtt->invalidate();
     }
@@ -778,7 +756,7 @@ void WifiChip::invalidateAndRemoveAllIfaces() {
 }
 
 void WifiChip::invalidateAndRemoveDependencies(const std::string& removed_iface_name) {
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
     for (auto it = nan_ifaces_.begin(); it != nan_ifaces_.end();) {
         auto nan_iface = *it;
         if (nan_iface->getName() == removed_iface_name) {
@@ -795,7 +773,7 @@ void WifiChip::invalidateAndRemoveDependencies(const std::string& removed_iface_
     }
 #endif
 
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
     for (auto it = rtt_controllers_.begin(); it != rtt_controllers_.end();) {
         auto rtt = *it;
         if (rtt->getIfaceName() == removed_iface_name) {
@@ -960,8 +938,11 @@ std::shared_ptr<WifiApIface> WifiChip::newWifiApIface(const std::string& ifname)
     }
     std::shared_ptr<WifiApIface> iface =
             std::make_shared<WifiApIface>(ifname, ap_instances, legacy_hal_, iface_util_);
-    WifiHalOnApIfaceCreated(iface);
     ap_ifaces_.push_back(iface);
+
+    /*TODO: Register ap iface to instance manager */
+    /*TODO: Register ap iface event callback */
+
     for (const auto& callback : event_cb_handler_.getCallbacks()) {
         if (!callback->onIfaceAdded(IfaceType::AP, ifname).isOk()) {
             LOG(ERROR) << "Failed to invoke onIfaceAdded callback";
@@ -1102,7 +1083,7 @@ ndk::ScopedAStatus WifiChip::removeIfaceInstanceFromBridgedApIfaceInternal(
     return ndk::ScopedAStatus::ok();
 }
 
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
 std::pair<std::shared_ptr<IWifiNanIface>, ndk::ScopedAStatus> WifiChip::createNanIfaceInternal() {
     if (!canCurrentModeSupportConcurrencyTypeWithCurrentTypes(IfaceConcurrencyType::NAN_IFACE)) {
         return {nullptr, createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE)};
@@ -1157,7 +1138,7 @@ ndk::ScopedAStatus WifiChip::removeNanIfaceInternal(const std::string& ifname) {
 }
 #endif
 
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
 std::pair<std::shared_ptr<IWifiP2pIface>, ndk::ScopedAStatus> WifiChip::createP2pIfaceInternal() {
     if (!canCurrentModeSupportConcurrencyTypeWithCurrentTypes(IfaceConcurrencyType::P2P)) {
         return {nullptr, createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE)};
@@ -1219,7 +1200,17 @@ std::pair<std::shared_ptr<IWifiStaIface>, ndk::ScopedAStatus> WifiChip::createSt
     }
     std::shared_ptr<WifiStaIface> iface = WifiStaIface::create(ifname, legacy_hal_, iface_util_);
     sta_ifaces_.push_back(iface);
-    WifiHalOnStaIfaceCreated(iface);
+
+    /* Register Sta Iface to instance manager and generate instance ID */
+    int32_t instance_id = WifiRegisterStaIfaceAndGetInstanceId(
+        static_cast<std::shared_ptr<IWifiStaIface>>(iface), ifname, chip_id_);
+
+    /* Register WifiStaIface Event Callback */
+    std::shared_ptr<IWifiStaIfaceEventCallback> sta_iface_event_callback =
+        std::make_shared<WifiStaIfaceRpcEvent>(instance_id);
+    if (!iface->registerEventCallback(sta_iface_event_callback).isOk())
+        LOG(ERROR) << "Failed to register sta iface rpc event callback";
+
     for (const auto& callback : event_cb_handler_.getCallbacks()) {
         if (!callback->onIfaceAdded(IfaceType::STA, ifname).isOk()) {
             LOG(ERROR) << "Failed to invoke onIfaceAdded callback";
@@ -1257,6 +1248,10 @@ ndk::ScopedAStatus WifiChip::removeStaIfaceInternal(const std::string& ifname) {
         LOG(ERROR) << "Failed to remove interface: " << ifname << " "
                    << legacyErrorToString(legacy_status);
     }
+
+    /* Unregister Sta Iface from instance manager */
+    WifiRemoveStaIface(static_cast<std::shared_ptr<IWifiStaIface>>(iface));
+
     invalidateAndClear(sta_ifaces_, iface);
     for (const auto& callback : event_cb_handler_.getCallbacks()) {
         if (!callback->onIfaceRemoved(IfaceType::STA, ifname).isOk()) {
@@ -1267,7 +1262,7 @@ ndk::ScopedAStatus WifiChip::removeStaIfaceInternal(const std::string& ifname) {
     return ndk::ScopedAStatus::ok();
 }
 
-#ifdef SUPPORT_RTT
+#ifdef CONFIG_RTT
 std::pair<std::shared_ptr<IWifiRttController>, ndk::ScopedAStatus>
 WifiChip::createRttControllerInternal(const std::shared_ptr<IWifiStaIface>& bound_iface) {
     if (sta_ifaces_.size() == 0 &&
@@ -1693,10 +1688,10 @@ std::map<IfaceConcurrencyType, size_t> WifiChip::getCurrentConcurrencyCombinatio
     }
     iface_counts[IfaceConcurrencyType::AP] = num_ap;
     iface_counts[IfaceConcurrencyType::AP_BRIDGED] = num_ap_bridged;
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
     iface_counts[IfaceConcurrencyType::NAN_IFACE] = nan_ifaces_.size();
 #endif
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
     iface_counts[IfaceConcurrencyType::P2P] = p2p_ifaces_.size();
 #endif
     iface_counts[IfaceConcurrencyType::STA] = sta_ifaces_.size();
@@ -1722,10 +1717,10 @@ std::vector<std::map<IfaceConcurrencyType, size_t>> WifiChip::expandConcurrencyC
     expanded_combos.resize(num_expanded_combos);
     for (auto& expanded_combo : expanded_combos) {
         for (const auto type : {IfaceConcurrencyType::AP, IfaceConcurrencyType::AP_BRIDGED,
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
                                 IfaceConcurrencyType::NAN_IFACE,
 #endif
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
                                 IfaceConcurrencyType::P2P,
 #endif
                                 IfaceConcurrencyType::STA}) {
@@ -1753,10 +1748,10 @@ bool WifiChip::canExpandedConcurrencyComboSupportConcurrencyTypeWithCurrentTypes
     // Check if we have space for 1 more iface of |type| in this combo
     for (const auto type :
          {IfaceConcurrencyType::AP, IfaceConcurrencyType::AP_BRIDGED,
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
           IfaceConcurrencyType::NAN_IFACE,
 #endif
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
           IfaceConcurrencyType::P2P,
 #endif
           IfaceConcurrencyType::STA}) {
@@ -1805,10 +1800,10 @@ bool WifiChip::canExpandedConcurrencyComboSupportConcurrencyCombo(
     // Check if we have space for 1 more |type| in this combo
     for (const auto type :
          {IfaceConcurrencyType::AP, IfaceConcurrencyType::AP_BRIDGED,
-#ifdef SUPPORT_NAN
+#ifdef CONFIG_NAN
           IfaceConcurrencyType::NAN_IFACE,
 #endif
-#ifdef SUPPORT_P2P
+#ifdef CONFIG_P2P
           IfaceConcurrencyType::P2P,
 #endif
           IfaceConcurrencyType::STA}) {

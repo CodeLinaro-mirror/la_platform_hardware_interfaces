@@ -27,10 +27,6 @@
 #include "aidl_struct_util.h"
 #include "wifi_status_util.h"
 
-namespace {
-constexpr int32_t wifiStaIfaceInstanceId = 0x11110000;
-}
-
 namespace aidl {
 namespace android {
 namespace hardware {
@@ -46,8 +42,6 @@ WifiStaIface::WifiStaIface(const std::string& ifname,
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
         LOG(ERROR) << "Failed to set DFS flag; DFS channels may be unavailable.";
     }
-
-    instanceId_ = wifiStaIfaceInstanceId + iface_util_.lock()->ifNameToIndex(ifname);
 }
 
 std::shared_ptr<WifiStaIface> WifiStaIface::create(
@@ -76,10 +70,6 @@ bool WifiStaIface::isValid() {
 
 std::string WifiStaIface::getName() {
     return ifname_;
-}
-
-int32_t WifiStaIface::getInstanceId() {
-    return instanceId_;
 }
 
 std::set<std::shared_ptr<IWifiStaIfaceEventCallback>> WifiStaIface::getEventCallbacks() {
