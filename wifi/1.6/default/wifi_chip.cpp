@@ -48,6 +48,15 @@ constexpr char kActiveWlanIfaceNameProperty[] = "wifi.active.interface";
 constexpr char kNoActiveWlanIfaceNamePropertyValue[] = "";
 constexpr unsigned kMaxWlanIfaces = 5;
 constexpr char kApBridgeIfacePrefix[] = "ap_br_";
+constexpr char kApIfaceOnDualWlanProperty[] = "wifi.softap.iface.on.dual.wlan";
+constexpr unsigned kMaxSapOnDualWlan = 4;
+constexpr char kSapIfaceOnDualProperty[kMaxSapOnDualWlan][PROPERTY_VALUE_MAX] =
+                                     {"ro.vendor.wlan.primary.sap.1stiface",
+                                      "ro.vendor.wlan.primary.sap.2ndiface",
+                                      "ro.vendor.wlan.secondary.sap.1stiface",
+                                      "ro.vendor.wlan.secondary.sap.2ndiface"};
+char kSapIfaceNameOnDual[kMaxSapOnDualWlan][PROPERTY_VALUE_MAX];
+constexpr char kDualWlanProperty[] = "ro.vendor.wlan.dual_wlan_enabled";
 
 template <typename Iface>
 void invalidateAndClear(std::vector<sp<Iface>>& ifaces, sp<Iface> iface) {
@@ -122,12 +131,30 @@ std::vector<std::string> getPredefinedApIfaceNames(bool is_bridged) {
     return ifnames;
 }
 
+// get the pre-defined AP interface name for dual wlan chip case
+void getPredefinedApIfaceNamesForDualWlan() {
+    for(unsigned idx = 0; idx < kMaxSapOnDualWlan; idx++) {
+        if (property_get(kSapIfaceOnDualProperty[idx], kSapIfaceNameOnDual[idx], nullptr)
+             == 0) {
+         LOG(WARNING)  << kSapIfaceOnDualProperty[idx] << "not initialize";
+        }
+    }
+
+}
+
 std::string getPredefinedP2pIfaceName() {
     std::array<char, PROPERTY_VALUE_MAX> primaryIfaceName;
     char p2pParentIfname[100];
     std::string p2pDevIfName = "";
     std::array<char, PROPERTY_VALUE_MAX> buffer;
-    property_get("wifi.direct.interface", buffer.data(), "p2p0");
+    char kHasDualWlan[PROPERTY_VALUE_MAX];
+    //single wlan chip case
+    if (property_get(kDualWlanProperty, kHasDualWlan, nullptr) == 0) {
+        property_get("wifi.direct.interface", buffer.data(), "p2p0");
+    } else {
+        // dual wlan chip case
+        property_get("ro.vendor.wlan.secondary.p2p.iface", buffer.data(), "p2p1");
+    }
     if (strncmp(buffer.data(), P2P_MGMT_DEVICE_PREFIX, strlen(P2P_MGMT_DEVICE_PREFIX)) == 0) {
         /* Get the p2p parent interface name from p2p device interface name set
          * in property */
@@ -1925,8 +1952,28 @@ uint32_t WifiChip::startIdxOfApIface() {
 // AP iface names start with idx 1 for modes supporting
 // concurrent STA and not dual AP, else start with idx 0.
 std::string WifiChip::allocateApIfaceName() {
-    // Check if we have a dedicated iface for AP.
-    std::vector<std::string> ifnames = getPredefinedApIfaceNames(false);
+
+    std::vector<std::string> ifnames;
+    char buffer[PROPERTY_VALUE_MAX];
+    char ApIfaceMappingOnDualWlan[PROPERTY_VALUE_MAX];
+
+    //single wlan chip case
+    if (property_get(kDualWlanProperty, buffer, nullptr) == 0)
+        // Check if we have a dedicated iface for AP.
+        ifnames = getPredefinedApIfaceNames(false);
+    else {
+        //dual wlan chip case
+        getPredefinedApIfaceNamesForDualWlan();
+        property_get(kApIfaceOnDualWlanProperty, ApIfaceMappingOnDualWlan, "ApOnPrimary");
+        LOG(INFO) << "ApIfaceMappingOnDualWlan: " << ApIfaceMappingOnDualWlan;
+        if (strncmp(ApIfaceMappingOnDualWlan, "1stIfaceOnSecondary", 19) == 0)
+             ifnames.push_back(kSapIfaceNameOnDual[2]);
+        else if (strncmp(ApIfaceMappingOnDualWlan, "2ndIfaceOnSecondary", 19) == 0)
+             ifnames.push_back(kSapIfaceNameOnDual[3]);
+        else
+             ifnames.push_back(kSapIfaceNameOnDual[0]);
+    }
+
     if (!ifnames.empty()) {
         return ifnames[0];
     }
@@ -1935,7 +1982,17 @@ std::string WifiChip::allocateApIfaceName() {
 
 std::vector<std::string> WifiChip::allocateBridgedApInstanceNames() {
     // Check if we have a dedicated iface for AP.
-    std::vector<std::string> instances = getPredefinedApIfaceNames(true);
+    char buffer[PROPERTY_VALUE_MAX];
+    std::vector<std::string> instances;
+    if (property_get(kDualWlanProperty, buffer, nullptr) == 0)
+        instances = getPredefinedApIfaceNames(true);
+    else {
+        getPredefinedApIfaceNamesForDualWlan();
+        //bridged AP is mapping on the primary wlan in dual wlan case
+        instances.push_back(kSapIfaceNameOnDual[0]);
+        instances.push_back(kSapIfaceNameOnDual[1]);
+    }
+
     if (instances.size() == 2) {
         return instances;
     } else {
