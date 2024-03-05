@@ -62,11 +62,20 @@ int main(int /*argc*/, char** argv) {
 
     WifiManagerRegisterService(wifi_service);
 
-    if (WifiRpcInitSomeipServer())
-        WifiRpcStartSomeipServer();
+    if (!WifiRpcInitSomeipService()) {
+        LOG(ERROR) << "Wifi rpc init someip service fail";
+	return -1;
+    }
 
-    WifiRpcStopSomeipServer();
-    WifiRpcDeinitSomeipServer();
+    LOG(INFO) << "Wifi rpc someip service is starting...";
+
+    WifiRpcStartSomeipService();
+
+    LOG(INFO) << "Wifi rpc someip service is stopping...";
+
+    WifiRpcStopSomeipService();
+
+    WifiRpcDeinitSomeipService();
 
     LOG(INFO) << "Wifi Hal is terminating...";
 

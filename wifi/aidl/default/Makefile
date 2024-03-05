@@ -62,7 +62,7 @@ LDFLAGS += -lbase -lutils -llog -lcutils
 LDFLAGS += -lwifi-ndk-header
 LDFLAGS += -lwifi-system -lwifi-system-iface -lwifi-hal-qcom -lwifi-hal
 LDFLAGS += -lqti_someip_util -lqti_rpc_common_util
-LDFLAGS += -lwifi-rpc-server
+LDFLAGS += -lqti-wifi-server
 
 $(BINARY): $(CXXOBJECTS)
 	$(CC) $^ -o $@ $(LDFLAGS)

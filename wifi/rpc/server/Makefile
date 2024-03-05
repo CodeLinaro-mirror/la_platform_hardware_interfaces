@@ -1,4 +1,4 @@
-LIBRARY=libwifi-rpc-server.so.0
+LIBRARY=libqti-wifi-server.so.0
 
 CUR_DIR = $(shell pwd)
 SRC_DIR = $(CUR_DIR)/src
@@ -8,9 +8,15 @@ CXXFLAGS += -c -std=c++17 -fPIC
 CPPFLAGS += -Wall -Werror -Wno-unused-function -Wno-ignored-attributes
 CPPFLAGS += -I$(INC_DIR)
 LDFLAGS += -lstdc++ -lutils
-#-lbase
-LDFLAGS += -lwifi-ndk-header -lwifi-rpc-message -lqti_someip_util
+LDFLAGS += -lwifi-ndk-header -lqti-wifi-message -lqti_someip_util
 LDFLAGS += -shared -Wl,-soname,$(LIBRARY)
+
+ifeq ($(CONFIG_AP), y)
+CPPFLAGS += -DCONFIG_AP
+endif
+ifeq ($(CONFIG_DEBUG), y)
+CPPFLAGS += -DCONFIG_DEBUG
+endif
 
 SRCS := \
     $(SRC_DIR)/wifi_rpc_event.cpp \
@@ -26,4 +32,4 @@ clean:
 	rm -rf *.o *.so*
 
 $(CXXOBJECTS): %.o: %.cpp
-	$(CXX) $< -o $@  $(CXXFLAGS) $(CPPFLAGS)
+	$(CXX) $< -o $@ $(CXXFLAGS) $(CPPFLAGS)

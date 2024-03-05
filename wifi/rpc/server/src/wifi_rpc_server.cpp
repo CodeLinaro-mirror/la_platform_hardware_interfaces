@@ -9,7 +9,7 @@
 #include <someip_api.h>
 #include <someip_common_def.h>
 #include <utils/Log.h>
-#include <wifi_someip_def.h>
+#include <wifi_message_def.h>
 
 #include "wifi_rpc_event.h"
 #include "wifi_rpc_message.h"

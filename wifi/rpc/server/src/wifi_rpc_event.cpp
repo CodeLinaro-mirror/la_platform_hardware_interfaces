@@ -7,8 +7,8 @@
 #include <someip_api.h>
 #include <utils/Log.h>
 #include <wifi_chip_msg.h>
+#include <wifi_message_def.h>
 #include <wifi_msg.h>
-#include <wifi_someip_def.h>
 #include <wifi_sta_iface_msg.h>
 
 #include "wifi_rpc_event.h"

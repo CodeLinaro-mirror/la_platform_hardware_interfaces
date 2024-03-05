@@ -11,8 +11,8 @@
 #endif
 #include <wifi_chip_msg.h>
 #include <wifi_instance_util.h>
+#include <wifi_message_def.h>
 #include <wifi_msg.h>
-#include <wifi_someip_def.h>
 #include <wifi_sta_iface_msg.h>
 
 #include "wifi_rpc_message.h"
@@ -63,7 +63,7 @@ static bool WifiRpcParseDataPayload(uint8_t* data, size_t length,
 static bool WifiRpcSerializeStatusResponse(const ndk::ScopedAStatus& status,
     std::vector<uint8_t>& data)
 {
-    return WifiSerializeWifiCfmStatus((int32_t)status.code,
+    return WifiSerializeHalStatus((int32_t)status.code,
         status.description, data);
 }
 
@@ -74,7 +74,7 @@ static bool WifiRpcSerializeResultResponse(const ndk::ScopedAStatus& status,
     if (!func)
         return false;
 
-    WifiCfmStatus replyStatus;
+    HalStatusParam replyStatus;
     replyStatus.status = (int32_t)status.code;
     replyStatus.info = status.description;
 
