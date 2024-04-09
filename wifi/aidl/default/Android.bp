@@ -111,8 +111,33 @@ cc_library_static {
     export_include_dirs: ["."],
 }
 
+
+soong_config_module_type {
+   name: "wifi_someip_cc_defaults",
+   module_type: "cc_defaults",
+   config_namespace: "wifi",
+   bool_variables: [
+       "wifi_enable_someip", //TARGET_FWK_SUPPORTS_FULL_VALUEADDS is true, TARGET_BOARD_TYPE=auto
+   ],
+   properties: [
+        "cppflags",
+        "shared_libs",
+   ],
+}
+
+wifi_someip_cc_defaults {
+   name: "wifi-service-someip-cpp-defaults",
+   soong_config_variables: {
+        wifi_enable_someip: {
+            cppflags:    ["-DWIFI_RPC"],
+            shared_libs: ["libqti_wifihal_rpc_impl"],
+        },
+   },
+}
+
 cc_binary {
     name: "android.hardware.wifi-service",
+    defaults: ["wifi-service-someip-cpp-defaults"],
     vintf_fragments: ["android.hardware.wifi-service.xml"],
     relative_install_path: "hw",
     proprietary: true,
@@ -133,7 +158,6 @@ cc_binary {
         "libwifi-system-iface",
         "libxml2",
         "android.hardware.wifi-V1-ndk",
-        "libqti_wifihal_rpc_impl",
     ],
     static_libs: ["android.hardware.wifi-service-lib"],
     init_rc: ["android.hardware.wifi-service.rc"],
@@ -141,6 +165,7 @@ cc_binary {
 
 cc_binary {
     name: "android.hardware.wifi-service-lazy",
+    defaults: ["wifi-service-someip-cpp-defaults"],
     vintf_fragments: ["android.hardware.wifi-service.xml"],
     overrides: ["android.hardware.wifi-service"],
     cflags: ["-DLAZY_SERVICE"],
@@ -163,7 +188,6 @@ cc_binary {
         "libwifi-system-iface",
         "libxml2",
         "android.hardware.wifi-V1-ndk",
-        "libqti_wifihal_rpc_impl",
     ],
     static_libs: ["android.hardware.wifi-service-lib"],
     init_rc: ["android.hardware.wifi-service-lazy.rc"],
@@ -206,7 +230,6 @@ cc_test {
         "libutils",
         "libwifi-hal",
         "libwifi-system-iface",
-        "libqti_wifihal_rpc_impl",
     ],
 }
 
