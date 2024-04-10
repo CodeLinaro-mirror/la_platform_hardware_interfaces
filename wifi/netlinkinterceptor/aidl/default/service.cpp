@@ -12,24 +12,38 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the
+ * following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <android-base/logging.h>
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
+#include <cutils/properties.h>
 
 #include "NetlinkInterceptor.h"
+#include "NetlinkInterceptorRpc.h"
 
 namespace android::nlinterceptor {
 using namespace std::string_literals;
+using ::aidl::android::hardware::net::nlinterceptor::BnInterceptor;
 
 static void service() {
     base::SetDefaultTag("nlinterceptor");
     base::SetMinimumLogSeverity(base::VERBOSE);
     LOG(DEBUG) << "Netlink Interceptor service starting...";
+    std::shared_ptr<BnInterceptor> interceptor;
 
-    // TODO(202549296): Sometimes this causes an Address Sanitizer error.
-    auto interceptor = ndk::SharedRefBase::make<NetlinkInterceptor>();
+    if (property_get_bool("persist.vendor.wlan.hal.rpc", false)) {
+        interceptor = ndk::SharedRefBase::make<NetlinkInterceptorRpc>();
+    } else {
+        // TODO(202549296): Sometimes this causes an Address Sanitizer error.
+        interceptor = ndk::SharedRefBase::make<NetlinkInterceptor>();
+    }
     const auto instance = NetlinkInterceptor::descriptor + "/default"s;
     const auto status = AServiceManager_addService(
         interceptor->asBinder().get(), instance.c_str());
