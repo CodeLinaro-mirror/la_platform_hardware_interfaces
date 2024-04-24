@@ -21,7 +21,6 @@
 
 #include <android-base/logging.h>
 #include <android-base/unique_fd.h>
-#include <cutils/memory.h>
 #include <fcntl.h>
 #include <net/if.h>
 #include <sys/stat.h>

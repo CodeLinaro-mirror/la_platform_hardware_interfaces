@@ -21,7 +21,6 @@
 
 #include <android-base/logging.h>
 #include <utils/SystemClock.h>
-#include <cutils/memory.h>
 
 #include "aidl_struct_util.h"
 
