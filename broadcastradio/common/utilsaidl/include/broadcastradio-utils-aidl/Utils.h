@@ -121,7 +121,7 @@ int64_t getId(const ProgramSelector& sel, const IdentifierType& type, int64_t de
 /**
  * Returns all IDs of a given type.
  */
-std::vector<int> getAllIds(const ProgramSelector& sel, const IdentifierType& type);
+std::vector<int64_t> getAllIds(const ProgramSelector& sel, const IdentifierType& type);
 
 /**
  * Checks, if a given selector is supported by the radio module.
@@ -142,6 +142,8 @@ ProgramSelector makeSelectorDab(uint64_t sidExt, uint32_t ensemble, uint64_t fre
 ProgramSelector makeSelectorHd(uint64_t stationId, uint64_t subChannel, uint64_t frequency);
 
 bool satisfies(const ProgramFilter& filter, const ProgramSelector& sel);
+
+bool isValidMetadata(const Metadata& metadata);
 
 struct ProgramSelectorComparator {
     bool operator()(const ProgramSelector& lhs, const ProgramSelector& rhs) const;

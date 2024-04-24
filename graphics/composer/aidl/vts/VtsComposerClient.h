@@ -25,6 +25,7 @@
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
 #include <android/hardware/graphics/composer3/ComposerClientReader.h>
+#include <android/hardware/graphics/composer3/ComposerClientWriter.h>
 #include <binder/ProcessState.h>
 #include <gtest/gtest.h>
 #include <ui/Fence.h>
@@ -59,7 +60,7 @@ class VtsComposerClient {
 
     ScopedAStatus createClient();
 
-    bool tearDown();
+    bool tearDown(ComposerClientWriter*);
 
     std::pair<ScopedAStatus, int32_t> getInterfaceVersion() const;
 
@@ -69,9 +70,10 @@ class VtsComposerClient {
 
     ScopedAStatus destroyVirtualDisplay(int64_t display);
 
-    std::pair<ScopedAStatus, int64_t> createLayer(int64_t display, int32_t bufferSlotCount);
+    std::pair<ScopedAStatus, int64_t> createLayer(int64_t display, int32_t bufferSlotCount,
+                                                  ComposerClientWriter*);
 
-    ScopedAStatus destroyLayer(int64_t display, int64_t layer);
+    ScopedAStatus destroyLayer(int64_t display, int64_t layer, ComposerClientWriter*);
 
     std::pair<ScopedAStatus, int32_t> getActiveConfig(int64_t display);
 
@@ -211,7 +213,7 @@ class VtsComposerClient {
 
     void removeLayerFromDisplayResources(int64_t display, int64_t layer);
 
-    bool destroyAllLayers();
+    bool destroyAllLayers(ComposerClientWriter*);
 
     bool verifyComposerCallbackParams();
 
@@ -229,6 +231,8 @@ class VtsComposerClient {
     std::shared_ptr<IComposerClient> mComposerClient;
     std::shared_ptr<GraphicsComposerCallback> mComposerCallback;
     std::unordered_map<int64_t, DisplayResource> mDisplayResources;
+    bool mSupportsBatchedCreateLayer = false;
+    std::atomic<int64_t> mNextLayerHandle = 1;
 };
 
 class VtsDisplay {
@@ -254,13 +258,13 @@ class VtsDisplay {
 
     struct DisplayConfig {
         DisplayConfig(int32_t vsyncPeriod_, int32_t configGroup_,
-                      std::optional<VrrConfig> vrrConfig_ = {})
+                      std::optional<VrrConfig> vrrConfigOpt_ = {})
             : vsyncPeriod(vsyncPeriod_),
               configGroup(configGroup_),
-              vrrConfig(std::move(vrrConfig_)) {}
+              vrrConfigOpt(std::move(vrrConfigOpt_)) {}
         int32_t vsyncPeriod;
         int32_t configGroup;
-        std::optional<VrrConfig> vrrConfig;
+        std::optional<VrrConfig> vrrConfigOpt;
     };
 
     void addDisplayConfig(int32_t config, DisplayConfig displayConfig) {
@@ -268,6 +272,21 @@ class VtsDisplay {
     }
 
     DisplayConfig getDisplayConfig(int32_t config) { return mDisplayConfigs.find(config)->second; }
+
+    bool isRateSameBetweenConfigs(int config1, int config2) {
+        const auto displayConfig1 = getDisplayConfig(config1);
+        const auto displayConfig2 = getDisplayConfig(config2);
+        const auto vrrConfigOpt1 = displayConfig1.vrrConfigOpt;
+        const auto vrrConfigOpt2 = displayConfig2.vrrConfigOpt;
+
+        if (vrrConfigOpt1 && vrrConfigOpt2 &&
+            vrrConfigOpt1->minFrameIntervalNs == vrrConfigOpt2->minFrameIntervalNs) {
+            return true;
+        } else if (displayConfig1.vsyncPeriod == displayConfig2.vsyncPeriod) {
+            return true;
+        }
+        return false;
+    }
 
     std::unordered_map<int32_t, DisplayConfig> getDisplayConfigs() { return mDisplayConfigs; }
 

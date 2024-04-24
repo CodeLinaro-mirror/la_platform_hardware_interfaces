@@ -56,6 +56,7 @@
 using namespace android;
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
 using aidl::android::hardware::audio::common::getChannelCount;
+using aidl::android::hardware::audio::common::isAnyBitPositionFlagSet;
 using aidl::android::hardware::audio::common::isBitPositionFlagSet;
 using aidl::android::hardware::audio::common::isTelephonyDeviceType;
 using aidl::android::hardware::audio::common::isValidAudioMode;
@@ -85,6 +86,7 @@ using aidl::android::media::audio::common::AudioDeviceDescription;
 using aidl::android::media::audio::common::AudioDeviceType;
 using aidl::android::media::audio::common::AudioDualMonoMode;
 using aidl::android::media::audio::common::AudioFormatType;
+using aidl::android::media::audio::common::AudioInputFlags;
 using aidl::android::media::audio::common::AudioIoFlags;
 using aidl::android::media::audio::common::AudioLatencyMode;
 using aidl::android::media::audio::common::AudioMMapPolicy;
@@ -1738,6 +1740,11 @@ TEST_P(AudioCoreModule, SetAudioPortConfigInvalidPortConfigId) {
 }
 
 TEST_P(AudioCoreModule, TryConnectMissingDevice) {
+    // Limit checks to connection types that are known to be detectable by HAL implementations.
+    static const std::set<std::string> kCheckedConnectionTypes{
+            AudioDeviceDescription::CONNECTION_HDMI, AudioDeviceDescription::CONNECTION_HDMI_ARC,
+            AudioDeviceDescription::CONNECTION_HDMI_EARC, AudioDeviceDescription::CONNECTION_IP_V4,
+            AudioDeviceDescription::CONNECTION_USB};
     ASSERT_NO_FATAL_FAILURE(SetUpModuleConfig());
     std::vector<AudioPort> ports = moduleConfig->getExternalDevicePorts();
     if (ports.empty()) {
@@ -1746,11 +1753,12 @@ TEST_P(AudioCoreModule, TryConnectMissingDevice) {
     WithDebugFlags doNotSimulateConnections = WithDebugFlags::createNested(*debug);
     doNotSimulateConnections.flags().simulateDeviceConnections = false;
     ASSERT_NO_FATAL_FAILURE(doNotSimulateConnections.SetUp(module.get()));
+    bool hasAtLeastOneCheckedConnection = false;
     for (const auto& port : ports) {
-        // Virtual devices may not require external hardware and thus can always be connected.
-        if (port.ext.get<AudioPortExt::device>().device.type.connection ==
-            AudioDeviceDescription::CONNECTION_VIRTUAL)
+        if (kCheckedConnectionTypes.count(
+                    port.ext.get<AudioPortExt::device>().device.type.connection) == 0) {
             continue;
+        }
         AudioPort portWithData = GenerateUniqueDeviceAddress(port), connectedPort;
         ScopedAStatus status = module->connectExternalDevice(portWithData, &connectedPort);
         EXPECT_STATUS(EX_ILLEGAL_STATE, status) << "static port " << portWithData.toString();
@@ -1761,6 +1769,10 @@ TEST_P(AudioCoreModule, TryConnectMissingDevice) {
             EXPECT_IS_OK(module->disconnectExternalDevice(connectedPort.id))
                     << "when disconnecting device port ID " << connectedPort.id;
         }
+        hasAtLeastOneCheckedConnection = true;
+    }
+    if (!hasAtLeastOneCheckedConnection) {
+        GTEST_SKIP() << "No external devices with connection types that can be checked.";
     }
 }
 
@@ -3780,6 +3792,19 @@ class AudioStreamIo : public AudioCoreModuleBase,
         }
         for (const auto& portConfig : allPortConfigs) {
             SCOPED_TRACE(portConfig.toString());
+            // Certain types of ports can not be used without special preconditions.
+            if ((IOTraits<Stream>::is_input &&
+                 isAnyBitPositionFlagSet(
+                         portConfig.flags.value().template get<AudioIoFlags::Tag::input>(),
+                         {AudioInputFlags::MMAP_NOIRQ, AudioInputFlags::VOIP_TX,
+                          AudioInputFlags::HW_HOTWORD})) ||
+                (!IOTraits<Stream>::is_input &&
+                 isAnyBitPositionFlagSet(
+                         portConfig.flags.value().template get<AudioIoFlags::Tag::output>(),
+                         {AudioOutputFlags::MMAP_NOIRQ, AudioOutputFlags::VOIP_RX,
+                          AudioOutputFlags::COMPRESS_OFFLOAD, AudioOutputFlags::INCALL_MUSIC}))) {
+                continue;
+            }
             const bool isNonBlocking =
                     IOTraits<Stream>::is_input
                             ? false
@@ -4583,8 +4608,7 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AudioModulePatch);
 static std::vector<std::string> getRemoteSubmixModuleInstance() {
     auto instances = android::getAidlHalInstanceNames(IModule::descriptor);
     for (auto instance : instances) {
-        if (instance.find("r_submix") != std::string::npos)
-            return (std::vector<std::string>{instance});
+        if (instance.ends_with("/r_submix")) return (std::vector<std::string>{instance});
     }
     return {};
 }
@@ -4672,6 +4696,9 @@ class AudioModuleRemoteSubmix : public AudioCoreModule {
         // Turn off "debug" which enables connections simulation. Since devices of the remote
         // submix module are virtual, there is no need for simulation.
         ASSERT_NO_FATAL_FAILURE(SetUpImpl(GetParam(), false /*setUpDebug*/));
+        if (int32_t version; module->getInterfaceVersion(&version).isOk() && version < 2) {
+            GTEST_SKIP() << "V1 uses a deprecated remote submix device type encoding";
+        }
         ASSERT_NO_FATAL_FAILURE(SetUpModuleConfig());
     }
 };

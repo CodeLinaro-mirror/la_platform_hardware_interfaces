@@ -22,7 +22,6 @@
 #include <android-base/logging.h>
 
 #include "A2dpOffloadAudioProvider.h"
-#include "A2dpOffloadCodecFactory.h"
 #include "A2dpSoftwareAudioProvider.h"
 #include "BluetoothAudioProvider.h"
 #include "HearingAidAudioProvider.h"
@@ -40,6 +39,9 @@ namespace audio {
 static const std::string kLeAudioOffloadProviderName =
     "LE_AUDIO_OFFLOAD_HARDWARE_OFFLOAD_PROVIDER";
 
+static const std::string kHfpOffloadProviderName =
+    "HFP_OFFLOAD_HARDWARE_OFFLOAD_PROVIDER";
+
 BluetoothAudioProviderFactory::BluetoothAudioProviderFactory() {}
 
 ndk::ScopedAStatus BluetoothAudioProviderFactory::openProvider(
@@ -53,7 +55,8 @@ ndk::ScopedAStatus BluetoothAudioProviderFactory::openProvider(
       provider = ndk::SharedRefBase::make<A2dpSoftwareEncodingAudioProvider>();
       break;
     case SessionType::A2DP_HARDWARE_OFFLOAD_ENCODING_DATAPATH:
-      provider = ndk::SharedRefBase::make<A2dpOffloadEncodingAudioProvider>();
+      provider = ndk::SharedRefBase::make<A2dpOffloadEncodingAudioProvider>(
+          a2dp_offload_codec_factory_);
       break;
     case SessionType::HEARING_AID_SOFTWARE_ENCODING_DATAPATH:
       provider = ndk::SharedRefBase::make<HearingAidAudioProvider>();
@@ -82,7 +85,8 @@ ndk::ScopedAStatus BluetoothAudioProviderFactory::openProvider(
       provider = ndk::SharedRefBase::make<A2dpSoftwareDecodingAudioProvider>();
       break;
     case SessionType::A2DP_HARDWARE_OFFLOAD_DECODING_DATAPATH:
-      provider = ndk::SharedRefBase::make<A2dpOffloadDecodingAudioProvider>();
+      provider = ndk::SharedRefBase::make<A2dpOffloadDecodingAudioProvider>(
+          a2dp_offload_codec_factory_);
       break;
     case SessionType::HFP_SOFTWARE_ENCODING_DATAPATH:
       provider = ndk::SharedRefBase::make<HfpSoftwareOutputAudioProvider>();
@@ -158,11 +162,18 @@ ndk::ScopedAStatus BluetoothAudioProviderFactory::getProviderInfo(
 
   if (session_type == SessionType::A2DP_HARDWARE_OFFLOAD_ENCODING_DATAPATH ||
       session_type == SessionType::A2DP_HARDWARE_OFFLOAD_DECODING_DATAPATH) {
+    if (!kEnableA2dpCodecExtensibility) {
+      // Implementing getProviderInfo equates supporting
+      // A2dp codec extensibility.
+      return ndk::ScopedAStatus::fromStatus(STATUS_UNKNOWN_TRANSACTION);
+    }
+
     auto& provider_info = _aidl_return->emplace();
 
-    provider_info.name = A2dpOffloadCodecFactory::GetInstance()->name;
-    for (auto codec : A2dpOffloadCodecFactory::GetInstance()->codecs)
+    provider_info.name = a2dp_offload_codec_factory_.name;
+    for (auto codec : a2dp_offload_codec_factory_.codecs)
       provider_info.codecInfos.push_back(codec->info);
+    return ndk::ScopedAStatus::ok();
   }
 
   if (session_type ==
@@ -177,12 +188,23 @@ ndk::ScopedAStatus BluetoothAudioProviderFactory::getProviderInfo(
       auto& provider_info = _aidl_return->emplace();
       provider_info.name = kLeAudioOffloadProviderName;
       provider_info.codecInfos = db_codec_info;
-      *_aidl_return = provider_info;
       return ndk::ScopedAStatus::ok();
     }
   }
 
-  return ndk::ScopedAStatus::ok();
+  if (session_type == SessionType::HFP_HARDWARE_OFFLOAD_DATAPATH) {
+    std::vector<CodecInfo> db_codec_info =
+        BluetoothAudioCodecs::GetHfpOffloadCodecInfo();
+    if (!db_codec_info.empty()) {
+      auto& provider_info = _aidl_return->emplace();
+      provider_info.name = kHfpOffloadProviderName;
+      provider_info.codecInfos = db_codec_info;
+      return ndk::ScopedAStatus::ok();
+    }
+  }
+
+  // Unsupported for other sessions
+  return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
 
 }  // namespace audio

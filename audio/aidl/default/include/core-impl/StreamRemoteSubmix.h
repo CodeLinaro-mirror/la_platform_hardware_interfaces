@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <mutex>
 #include <vector>
 
 #include "core-impl/Stream.h"
@@ -56,15 +55,8 @@ class StreamRemoteSubmix : public StreamCommonImpl {
     r_submix::AudioConfig mStreamConfig;
     std::shared_ptr<r_submix::SubmixRoute> mCurrentRoute = nullptr;
 
-    // Mutex lock to protect vector of submix routes, each of these submix routes have their mutex
-    // locks and none of the mutex locks should be taken together.
-    static std::mutex sSubmixRoutesLock;
-    static std::map<::aidl::android::media::audio::common::AudioDeviceAddress,
-                    std::shared_ptr<r_submix::SubmixRoute>>
-            sSubmixRoutes GUARDED_BY(sSubmixRoutesLock);
-
-    // limit for number of read error log entries to avoid spamming the logs
-    static constexpr int kMaxReadErrorLogs = 5;
+    // Limit for the number of error log entries to avoid spamming the logs.
+    static constexpr int kMaxErrorLogs = 5;
     // The duration of kMaxReadFailureAttempts * READ_ATTEMPT_SLEEP_MS must be strictly inferior
     // to the duration of a record buffer at the current record sample rate (of the device, not of
     // the recording itself). Here we have: 3 * 5ms = 15ms < 1024 frames * 1000 / 48000 = 21.333ms
@@ -72,9 +64,11 @@ class StreamRemoteSubmix : public StreamCommonImpl {
     // 5ms between two read attempts when pipe is empty
     static constexpr int kReadAttemptSleepUs = 5000;
 
-    long mStartTimeNs = 0;
+    int64_t mStartTimeNs = 0;
     long mFramesSinceStart = 0;
     int mReadErrorCount = 0;
+    int mReadFailureCount = 0;
+    int mWriteShutdownCount = 0;
 };
 
 class StreamInRemoteSubmix final : public StreamIn, public StreamSwitcher {

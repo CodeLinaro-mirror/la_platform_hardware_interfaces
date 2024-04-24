@@ -20,6 +20,10 @@
 #include <fstream>
 #include <unordered_set>
 #include <vector>
+#include "aidl/android/hardware/security/keymint/AttestationKey.h"
+#include "aidl/android/hardware/security/keymint/ErrorCode.h"
+#include "keymint_support/authorization_set.h"
+#include "keymint_support/keymint_tags.h"
 
 #include <android-base/logging.h>
 #include <android/binder_manager.h>
@@ -63,6 +67,13 @@ using ::testing::Not;
 namespace test {
 
 namespace {
+
+// Possible values for the feature version.  Assumes that future KeyMint versions
+// will continue with the 100 * AIDL_version numbering scheme.
+//
+// Must be kept in numerically increasing order.
+const int32_t kFeatureVersions[] = {10,  11,  20,  30,  40,  41,  100, 200,
+                                    300, 400, 500, 600, 700, 800, 900};
 
 // Invalid value for a patchlevel (which is of form YYYYMMDD).
 const uint32_t kInvalidPatchlevel = 99998877;
@@ -238,6 +249,13 @@ bool KeyMintAidlTestBase::isSecondImeiIdAttestationRequired() {
     return AidlVersion() >= 3 && property_get_int32("ro.vendor.api_level", 0) > __ANDROID_API_T__;
 }
 
+bool KeyMintAidlTestBase::isRkpOnly() {
+    if (SecLevel() == SecurityLevel::STRONGBOX) {
+        return property_get_bool("remote_provisioning.strongbox.rkp_only", false);
+    }
+    return property_get_bool("remote_provisioning.tee.rkp_only", false);
+}
+
 bool KeyMintAidlTestBase::Curve25519Supported() {
     // Strongbox never supports curve 25519.
     if (SecLevel() == SecurityLevel::STRONGBOX) {
@@ -288,6 +306,40 @@ void KeyMintAidlTestBase::SetUp() {
     }
 }
 
+ErrorCode KeyMintAidlTestBase::GenerateKey(const AuthorizationSet& key_desc) {
+    return GenerateKey(key_desc, &key_blob_, &key_characteristics_);
+}
+
+ErrorCode KeyMintAidlTestBase::GenerateKey(const AuthorizationSet& key_desc,
+                                           vector<uint8_t>* key_blob,
+                                           vector<KeyCharacteristics>* key_characteristics) {
+    std::optional<AttestationKey> attest_key = std::nullopt;
+    vector<Certificate> attest_cert_chain;
+    // If an attestation is requested, but the system is RKP-only, we need to supply an explicit
+    // attestation key. Else the result is a key without an attestation.
+    if (isRkpOnly() && key_desc.Contains(TAG_ATTESTATION_CHALLENGE)) {
+        skipAttestKeyTestIfNeeded();
+        AuthorizationSet attest_key_desc =
+                AuthorizationSetBuilder().EcdsaKey(EcCurve::P_256).AttestKey().SetDefaultValidity();
+        attest_key.emplace();
+        vector<KeyCharacteristics> attest_key_characteristics;
+        auto error = GenerateAttestKey(attest_key_desc, std::nullopt, &attest_key.value().keyBlob,
+                                       &attest_key_characteristics, &attest_cert_chain);
+        EXPECT_EQ(error, ErrorCode::OK);
+        EXPECT_EQ(attest_cert_chain.size(), 1);
+        attest_key.value().issuerSubjectName = make_name_from_str("Android Keystore Key");
+    }
+
+    ErrorCode error =
+            GenerateKey(key_desc, attest_key, key_blob, key_characteristics, &cert_chain_);
+
+    if (error == ErrorCode::OK && attest_cert_chain.size() > 0) {
+        cert_chain_.push_back(attest_cert_chain[0]);
+    }
+
+    return error;
+}
+
 ErrorCode KeyMintAidlTestBase::GenerateKey(const AuthorizationSet& key_desc,
                                            const optional<AttestationKey>& attest_key,
                                            vector<uint8_t>* key_blob,
@@ -326,36 +378,6 @@ ErrorCode KeyMintAidlTestBase::GenerateKey(const AuthorizationSet& key_desc,
     }
 
     return GetReturnErrorCode(result);
-}
-
-ErrorCode KeyMintAidlTestBase::GenerateKey(const AuthorizationSet& key_desc,
-                                           const optional<AttestationKey>& attest_key) {
-    return GenerateKey(key_desc, attest_key, &key_blob_, &key_characteristics_, &cert_chain_);
-}
-
-ErrorCode KeyMintAidlTestBase::GenerateKeyWithSelfSignedAttestKey(
-        const AuthorizationSet& attest_key_desc, const AuthorizationSet& key_desc,
-        vector<uint8_t>* key_blob, vector<KeyCharacteristics>* key_characteristics,
-        vector<Certificate>* cert_chain) {
-    skipAttestKeyTest();
-    AttestationKey attest_key;
-    vector<Certificate> attest_cert_chain;
-    vector<KeyCharacteristics> attest_key_characteristics;
-    // Generate a key with self signed attestation.
-    auto error = GenerateAttestKey(attest_key_desc, std::nullopt, &attest_key.keyBlob,
-                                   &attest_key_characteristics, &attest_cert_chain);
-    if (error != ErrorCode::OK) {
-        return error;
-    }
-
-    attest_key.issuerSubjectName = make_name_from_str("Android Keystore Key");
-    // Generate a key, by passing the above self signed attestation key as attest key.
-    error = GenerateKey(key_desc, attest_key, key_blob, key_characteristics, cert_chain);
-    if (error == ErrorCode::OK) {
-        // Append the attest_cert_chain to the attested cert_chain to yield a valid cert chain.
-        cert_chain->push_back(attest_cert_chain[0]);
-    }
-    return error;
 }
 
 ErrorCode KeyMintAidlTestBase::ImportKey(const AuthorizationSet& key_desc, KeyFormat format,
@@ -1656,7 +1678,7 @@ bool KeyMintAidlTestBase::shouldSkipAttestKeyTest(void) const {
 
 // Skip a test that involves use of the ATTEST_KEY feature in specific configurations
 // where ATTEST_KEY is not supported (for either StrongBox or TEE).
-void KeyMintAidlTestBase::skipAttestKeyTest(void) const {
+void KeyMintAidlTestBase::skipAttestKeyTestIfNeeded() const {
     if (shouldSkipAttestKeyTest()) {
         GTEST_SKIP() << "Test using ATTEST_KEY is not applicable on waivered device";
     }
@@ -2017,7 +2039,7 @@ AssertionResult ChainSignaturesAreValid(const vector<Certificate>& chain,
         }
     }
 
-    if (KeyMintAidlTestBase::dump_Attestations) std::cout << cert_data.str();
+    if (KeyMintAidlTestBase::dump_Attestations) std::cout << "cert chain:\n" << cert_data.str();
     return AssertionSuccess();
 }
 
@@ -2276,6 +2298,43 @@ bool check_feature(const std::string& name) {
         return false;
     }
     return hasFeature;
+}
+
+// Return the numeric value associated with a feature.
+std::optional<int32_t> keymint_feature_value(bool strongbox) {
+    std::string name = strongbox ? FEATURE_STRONGBOX_KEYSTORE : FEATURE_HARDWARE_KEYSTORE;
+    ::android::String16 name16(name.c_str());
+    ::android::sp<::android::IServiceManager> sm(::android::defaultServiceManager());
+    ::android::sp<::android::IBinder> binder(
+            sm->waitForService(::android::String16("package_native")));
+    if (binder == nullptr) {
+        GTEST_LOG_(ERROR) << "waitForService package_native failed";
+        return std::nullopt;
+    }
+    ::android::sp<::android::content::pm::IPackageManagerNative> packageMgr =
+            ::android::interface_cast<::android::content::pm::IPackageManagerNative>(binder);
+    if (packageMgr == nullptr) {
+        GTEST_LOG_(ERROR) << "Cannot find package manager";
+        return std::nullopt;
+    }
+
+    // Package manager has no mechanism to retrieve the version of a feature,
+    // only to indicate whether a certain version or above is present.
+    std::optional<int32_t> result = std::nullopt;
+    for (auto version : kFeatureVersions) {
+        bool hasFeature = false;
+        auto status = packageMgr->hasSystemFeature(name16, version, &hasFeature);
+        if (!status.isOk()) {
+            GTEST_LOG_(ERROR) << "hasSystemFeature('" << name << "', " << version
+                              << ") failed: " << status;
+            return result;
+        } else if (hasFeature) {
+            result = version;
+        } else {
+            break;
+        }
+    }
+    return result;
 }
 
 }  // namespace test
