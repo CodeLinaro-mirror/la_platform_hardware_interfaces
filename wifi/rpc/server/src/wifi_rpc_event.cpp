@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <common_util.h>
-#include <someip_api.h>
-#include <utils/Log.h>
+#include <rpc/util/common_util.h>
+#include <rpc/util/someip_api.h>
+#include <rpc/util/log_common.h>
 #include <wifi_chip_msg.h>
 #include <wifi_message_def.h>
 #include <wifi_msg.h>

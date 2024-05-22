@@ -6,9 +6,9 @@
 #include <iostream>
 #include <thread>
 
-#include <someip_api.h>
-#include <someip_common_def.h>
-#include <utils/Log.h>
+#include <rpc/util/someip_api.h>
+#include <rpc/util/someip_common_def.h>
+#include <rpc/util/log_common.h>
 #include <wifi_message_def.h>
 
 #include "wifi_rpc_event.h"

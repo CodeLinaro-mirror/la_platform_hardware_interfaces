@@ -7,8 +7,9 @@ INC_DIR = $(CUR_DIR)/include
 CXXFLAGS += -c -std=c++17 -fPIC
 CPPFLAGS += -Wall -Werror -Wno-unused-function -Wno-ignored-attributes
 CPPFLAGS += -I$(INC_DIR)
-LDFLAGS += -lstdc++ -lutils
-LDFLAGS += -lwifi-ndk-header -lqti-wifi-message -lqti_someip_util
+CPPFLAGS += -DENABLE_LOG
+LDFLAGS += -lstdc++
+LDFLAGS += -lwifi-ndk-header -lqti-wifi-message -lqti_someip_util -lqti_log_util
 LDFLAGS += -shared -Wl,-soname,$(LIBRARY)
 
 ifeq ($(CONFIG_AP), y)
