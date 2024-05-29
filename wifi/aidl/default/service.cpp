@@ -12,6 +12,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under
+ * the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <android-base/logging.h>
@@ -27,7 +33,9 @@
 #include "wifi_legacy_hal_factory.h"
 #include "wifi_mode_controller.h"
 
+#ifdef WIFI_RPC
 #include "wifi_api.h"
+#endif
 
 using aidl::android::hardware::wifi::feature_flags::WifiFeatureFlags;
 using aidl::android::hardware::wifi::legacy_hal::WifiLegacyHal;
@@ -44,10 +52,11 @@ const bool kLazyService = false;
 static std::shared_ptr<BnWifi> create_wifi_service()
 {
 
-    if (property_get_bool("persist.vendor.wlan.hal.rpc", false)){
+#ifdef WIFI_RPC
+    if (property_get_bool("persist.vendor.wlan.hal.rpc", false)) {
         return createWifiRpc();
     }
-
+#endif
     const auto iface_tool = std::make_shared<::android::wifi_system::InterfaceTool>();
     const auto legacy_hal_factory = std::make_shared<WifiLegacyHalFactory>(iface_tool);
     const auto mode_controller = std::make_shared<WifiModeController>();
@@ -60,11 +69,13 @@ static std::shared_ptr<BnWifi> create_wifi_service()
 
 static void  waitConnectionAvailableBeforeRegisterService()
 {
+#ifdef WIFI_RPC
    if (property_get_bool("persist.vendor.wlan.hal.rpc", false)) {
        while (!isWifiSomeIPConnectionAvailable()) {
             //do nothing, just wait if SOME/IP connection is unavailable
        }
    }
+#endif
 }
 
 int main(int /*argc*/, char** argv) {
