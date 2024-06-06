@@ -23,17 +23,44 @@ package {
     default_applicable_licenses: ["hardware_interfaces_license"],
 }
 
+
+soong_config_module_type {
+   name: "nlinterceptor_service_cc_defaults",
+   module_type: "cc_defaults",
+   config_namespace: "wifi",
+   bool_variables: [
+       "wifi_enable_someip", //TARGET_FWK_SUPPORTS_FULL_VALUEADDS is true, TARGET_BOARD_TYPE=auto
+   ],
+   properties: [
+        "cppflags",
+        "shared_libs",
+   ],
+}
+
+nlinterceptor_service_cc_defaults {
+   name: "nlinterceptor-service-cpp-defaults",
+   soong_config_variables: {
+        wifi_enable_someip: {
+            cppflags:    ["-DWIFI_RPC"],
+            shared_libs: ["libqti_nlinterceptor_rpc_impl"],
+        },
+   },
+}
+
 cc_binary {
     name: "android.hardware.net.nlinterceptor-service.default",
     init_rc: ["nlinterceptor-default.rc"],
     vintf_fragments: ["nlinterceptor-default.xml"],
     vendor: true,
     relative_install_path: "hw",
-    defaults: ["nlinterceptor@defaults"],
+    defaults: ["nlinterceptor@defaults",
+               "nlinterceptor-service-cpp-defaults",
+    ],
     shared_libs: [
         "android.hardware.net.nlinterceptor-V1-ndk",
         "libbase",
         "libbinder_ndk",
+        "libcutils",
     ],
     static_libs: [
         "libnlinterceptor",
