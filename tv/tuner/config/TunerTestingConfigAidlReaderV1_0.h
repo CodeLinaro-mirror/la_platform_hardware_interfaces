@@ -114,6 +114,7 @@ struct FrontendConfig {
     FrontendSettings settings;
     vector<FrontendStatusType> tuneStatusTypes;
     vector<FrontendStatus> expectTuneStatuses;
+    bool supportBlindScan;
 };
 
 struct FilterConfig {
@@ -272,16 +273,10 @@ struct TunerTestingConfigAidlReader1_0 {
             vector<FrontendStatusType> types;
             vector<FrontendStatus> statuses;
 
-            types.push_back(FrontendStatusType::DEMOD_LOCK);
             types.push_back(FrontendStatusType::UEC);
-            types.push_back(FrontendStatusType::IS_MISO);
 
             FrontendStatus status;
-            status.set<FrontendStatus::Tag::isDemodLocked>(true);
-            statuses.push_back(status);
-            status.set<FrontendStatus::Tag::uec>(4);
-            statuses.push_back(status);
-            status.set<FrontendStatus::Tag::isMiso>(true);
+            status.set<FrontendStatus::Tag::uec>(0);
             statuses.push_back(status);
 
             auto frontends = *hardwareConfig.getFirstFrontends();
@@ -353,6 +348,11 @@ struct TunerTestingConfigAidlReader1_0 {
                     hasSwFe = true;
                 } else {
                     hasHwFe = true;
+                }
+                if (feConfig.hasSupportBlindScan()) {
+                    frontendMap[id].supportBlindScan = feConfig.getSupportBlindScan();
+                } else {
+                    frontendMap[id].supportBlindScan = true;
                 }
                 // TODO: b/182519645 complete the tune status config
                 frontendMap[id].tuneStatusTypes = types;

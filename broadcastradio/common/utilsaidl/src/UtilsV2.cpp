@@ -17,6 +17,7 @@
 #define LOG_TAG "BcRadioAidlDef.utilsV2"
 
 #include "broadcastradio-utils-aidl/UtilsV2.h"
+#include "broadcastradio-utils-aidl/Utils.h"
 
 #include <android-base/logging.h>
 #include <android-base/strings.h>
@@ -101,15 +102,16 @@ bool isValidV2(const ProgramIdentifier& id) {
             expect(val < 1000u, "SXM channel < 1000");
             break;
         case IdentifierType::HD_STATION_LOCATION: {
+            val >>= 26;
             uint64_t latitudeBit = val & 0x1;
-            expect(latitudeBit == 1u, "Latitude comes first");
-            val >>= 27;
+            expect(latitudeBit == 0u, "Longitude comes first");
+            val >>= 1;
             uint64_t latitudePad = val & 0x1Fu;
-            expect(latitudePad == 0u, "Latitude padding");
-            val >>= 5;
+            expect(latitudePad == 0u, "Longitude padding");
+            val >>= 31;
             uint64_t longitudeBit = val & 0x1;
-            expect(longitudeBit == 1u, "Longitude comes next");
-            val >>= 27;
+            expect(longitudeBit == 1u, "Latitude comes next");
+            val >>= 1;
             uint64_t longitudePad = val & 0x1Fu;
             expect(longitudePad == 0u, "Latitude padding");
             break;
@@ -134,13 +136,41 @@ bool isValidV2(const ProgramSelector& sel) {
          sel.primaryId.type > IdentifierType::VENDOR_END)) {
         return false;
     }
-    return isValidV2(sel.primaryId);
+    for (auto it = begin(sel); it != end(sel); it++) {
+        if (!isValidV2(*it)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool isValidMetadataV2(const Metadata& metadata) {
+    if (!isValidMetadata(metadata)) {
+        return false;
+    }
+
+    if (metadata.getTag() == Metadata::hdStationNameShort) {
+        if (metadata.get<Metadata::hdStationNameShort>().size() > 12) {
+            LOG(ERROR) << "metadata not valid, expected HD short name length <= 12";
+            return false;
+        }
+    } else if (metadata.getTag() == Metadata::hdSubChannelsAvailable) {
+        if (metadata.get<Metadata::hdSubChannelsAvailable>() < 0) {
+            LOG(ERROR) << "metadata not valid, expected HD subchannels available >= 0";
+            return false;
+        } else if (metadata.get<Metadata::hdSubChannelsAvailable>() >
+                   std::numeric_limits<uint8_t>::max()) {
+            LOG(ERROR) << "metadata not valid, expected 8bit HD subchannels available";
+            return false;
+        }
+    }
+    return true;
 }
 
 std::optional<std::string> getMetadataStringV2(const ProgramInfo& info, const Metadata::Tag& tag) {
-    auto isRdsPs = [tag](const Metadata& item) { return item.getTag() == tag; };
+    auto hasMetadataType = [tag](const Metadata& item) { return item.getTag() == tag; };
 
-    auto it = std::find_if(info.metadata.begin(), info.metadata.end(), isRdsPs);
+    auto it = std::find_if(info.metadata.begin(), info.metadata.end(), hasMetadataType);
     if (it == info.metadata.end()) {
         return std::nullopt;
     }

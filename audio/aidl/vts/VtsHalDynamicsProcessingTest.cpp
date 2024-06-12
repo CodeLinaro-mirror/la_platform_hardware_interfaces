@@ -18,7 +18,6 @@
 #include <string>
 #include <unordered_set>
 
-#include <aidl/Vintf.h>
 #define LOG_TAG "VtsHalDynamicsProcessingTest"
 #include <android-base/logging.h>
 
@@ -196,48 +195,42 @@ const std::set<std::vector<DynamicsProcessing::InputGain>>
 
 template <typename T>
 bool DynamicsProcessingTestHelper::isBandConfigValid(const std::vector<T>& cfgs, int bandCount) {
-    std::vector<float> freqs(cfgs.size(), -1);
+    std::unordered_set<int> freqs;
     for (auto cfg : cfgs) {
         if (cfg.channel < 0 || cfg.channel >= mChannelCount) return false;
         if (cfg.band < 0 || cfg.band >= bandCount) return false;
-        freqs[cfg.band] = cfg.cutoffFrequencyHz;
+        // duplicated band index
+        if (freqs.find(cfg.band) != freqs.end()) return false;
+        freqs.insert(cfg.band);
     }
-    if (std::count(freqs.begin(), freqs.end(), -1)) return false;
-    return std::is_sorted(freqs.begin(), freqs.end());
+    return true;
 }
 
 bool DynamicsProcessingTestHelper::isParamValid(const DynamicsProcessing::Tag& tag,
                                                 const DynamicsProcessing& dp) {
     switch (tag) {
         case DynamicsProcessing::preEq: {
-            if (!mEngineConfigApplied.preEqStage.inUse) return false;
             return isChannelConfigValid(dp.get<DynamicsProcessing::preEq>());
         }
         case DynamicsProcessing::postEq: {
-            if (!mEngineConfigApplied.postEqStage.inUse) return false;
             return isChannelConfigValid(dp.get<DynamicsProcessing::postEq>());
         }
         case DynamicsProcessing::mbc: {
-            if (!mEngineConfigApplied.mbcStage.inUse) return false;
             return isChannelConfigValid(dp.get<DynamicsProcessing::mbc>());
         }
         case DynamicsProcessing::preEqBand: {
-            if (!mEngineConfigApplied.preEqStage.inUse) return false;
             return isBandConfigValid(dp.get<DynamicsProcessing::preEqBand>(),
                                      mEngineConfigApplied.preEqStage.bandCount);
         }
         case DynamicsProcessing::postEqBand: {
-            if (!mEngineConfigApplied.postEqStage.inUse) return false;
             return isBandConfigValid(dp.get<DynamicsProcessing::postEqBand>(),
                                      mEngineConfigApplied.postEqStage.bandCount);
         }
         case DynamicsProcessing::mbcBand: {
-            if (!mEngineConfigApplied.mbcStage.inUse) return false;
             return isBandConfigValid(dp.get<DynamicsProcessing::mbcBand>(),
                                      mEngineConfigApplied.mbcStage.bandCount);
         }
         case DynamicsProcessing::limiter: {
-            if (!mEngineConfigApplied.limiterInUse) return false;
             return isChannelConfigValid(dp.get<DynamicsProcessing::limiter>());
         }
         case DynamicsProcessing::inputGain: {
@@ -560,7 +553,7 @@ INSTANTIATE_TEST_SUITE_P(
                     ::android::internal::ToString(std::get<INPUT_GAIN_PARAM>(info.param));
             std::string name = "Implementor_" + descriptor.common.implementor + "_name_" +
                                descriptor.common.name + "_UUID_" +
-                               descriptor.common.id.uuid.toString() + "_inputGains_" + gains;
+                               toString(descriptor.common.id.uuid) + "_inputGains_" + gains;
             std::replace_if(
                     name.begin(), name.end(), [](const char c) { return !std::isalnum(c); }, '_');
             return name;
@@ -653,7 +646,7 @@ INSTANTIATE_TEST_SUITE_P(
                     std::to_string(std::get<LIMITER_ENGINE_IN_USE>(info.param));
             std::string name = "Implementor_" + descriptor.common.implementor + "_name_" +
                                descriptor.common.name + "_UUID_" +
-                               descriptor.common.id.uuid.toString() + "_limiterConfig_" +
+                               toString(descriptor.common.id.uuid) + "_limiterConfig_" +
                                cfg.toString() + "_engineSetting_" + engineLimiterInUse;
             std::replace_if(
                     name.begin(), name.end(), [](const char c) { return !std::isalnum(c); }, '_');
@@ -727,7 +720,7 @@ INSTANTIATE_TEST_SUITE_P(
 
             std::string name = "Implementor_" + descriptor.common.implementor + "_name_" +
                                descriptor.common.name + "_UUID_" +
-                               descriptor.common.id.uuid.toString() + "_" + channelConfig +
+                               toString(descriptor.common.id.uuid) + "_" + channelConfig +
                                "_engineInUse_" + engineInUse;
             std::replace_if(
                     name.begin(), name.end(), [](const char c) { return !std::isalnum(c); }, '_');
@@ -869,7 +862,7 @@ INSTANTIATE_TEST_SUITE_P(
             std::string stageInUse = std::to_string(std::get<EQ_BAND_STAGE_IN_USE>(info.param));
             std::string name = "Implementor_" + descriptor.common.implementor + "_name_" +
                                descriptor.common.name + "_UUID_" +
-                               descriptor.common.id.uuid.toString() + "_bands_" + bands +
+                               toString(descriptor.common.id.uuid) + "_bands_" + bands +
                                "_stageInUse_" + stageInUse;
             std::replace_if(
                     name.begin(), name.end(), [](const char c) { return !std::isalnum(c); }, '_');
@@ -987,7 +980,7 @@ INSTANTIATE_TEST_SUITE_P(
             std::string stageInUse = std::to_string(std::get<MBC_BAND_STAGE_IN_USE>(info.param));
             std::string name = "Implementor_" + descriptor.common.implementor + "_name_" +
                                descriptor.common.name + "_UUID_" +
-                               descriptor.common.id.uuid.toString() + "_bands_" + mbcBands +
+                               toString(descriptor.common.id.uuid) + "_bands_" + mbcBands +
                                "_stageInUse_" + stageInUse;
             std::replace_if(
                     name.begin(), name.end(), [](const char c) { return !std::isalnum(c); }, '_');

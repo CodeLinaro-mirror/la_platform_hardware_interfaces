@@ -18,7 +18,6 @@
 #include <utility>
 #include <vector>
 
-#include <aidl/Vintf.h>
 #define LOG_TAG "VtsHalHapticGeneratorTargetTest"
 #include <android-base/logging.h>
 #include <android/binder_enums.h>
@@ -226,7 +225,7 @@ INSTANTIATE_TEST_SUITE_P(
                     std::to_string(std::get<PARAM_VIBRATION_INFORMATION_MAX_AMPLITUDE>(info.param));
             std::string name = "Implementor_" + descriptor.common.implementor + "_name_" +
                                descriptor.common.name + "_UUID_" +
-                               descriptor.common.id.uuid.toString() + "_hapticScaleId" +
+                               toString(descriptor.common.id.uuid) + "_hapticScaleId" +
                                hapticScaleID + "_hapticScaleVibScale" + hapticScaleVibScale +
                                "_resonantFrequency" + resonantFrequency + "_qFactor" + qFactor +
                                "_maxAmplitude" + maxAmplitude;
@@ -423,7 +422,7 @@ INSTANTIATE_TEST_SUITE_P(
             auto descriptor = std::get<PARAM_INSTANCE_NAME>(info.param).second;
             std::string name = "Implementor_" + descriptor.common.implementor + "_name_" +
                                descriptor.common.name + "_UUID_" +
-                               descriptor.common.id.uuid.toString();
+                               toString(descriptor.common.id.uuid);
             std::replace_if(
                     name.begin(), name.end(), [](const char c) { return !std::isalnum(c); }, '_');
             return name;

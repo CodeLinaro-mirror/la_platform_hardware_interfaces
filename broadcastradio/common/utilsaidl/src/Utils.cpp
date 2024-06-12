@@ -178,8 +178,8 @@ int64_t getId(const ProgramSelector& sel, const IdentifierType& type, int64_t de
     return getId(sel, type);
 }
 
-vector<int> getAllIds(const ProgramSelector& sel, const IdentifierType& type) {
-    vector<int> ret;
+vector<int64_t> getAllIds(const ProgramSelector& sel, const IdentifierType& type) {
+    vector<int64_t> ret;
 
     // iterate through primaryId and secondaryIds
     for (auto it = begin(sel); it != end(sel); it++) {
@@ -296,7 +296,12 @@ bool isValid(const ProgramSelector& sel) {
          sel.primaryId.type > IdentifierType::VENDOR_END)) {
         return false;
     }
-    return isValid(sel.primaryId);
+    for (auto it = begin(sel); it != end(sel); it++) {
+        if (!isValid(*it)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 ProgramIdentifier makeIdentifier(IdentifierType type, int64_t value) {
@@ -442,9 +447,9 @@ void updateProgramList(const ProgramListChunk& chunk, ProgramInfoSet* list) {
 }
 
 std::optional<std::string> getMetadataString(const ProgramInfo& info, const Metadata::Tag& tag) {
-    auto isRdsPs = [tag](const Metadata& item) { return item.getTag() == tag; };
+    auto hasMetadataType = [tag](const Metadata& item) { return item.getTag() == tag; };
 
-    auto it = std::find_if(info.metadata.begin(), info.metadata.end(), isRdsPs);
+    auto it = std::find_if(info.metadata.begin(), info.metadata.end(), hasMetadataType);
     if (it == info.metadata.end()) {
         return std::nullopt;
     }
@@ -577,6 +582,45 @@ uint32_t getAmFmFrequency(const ProgramSelector& sel) {
         return static_cast<uint32_t>(getId(sel, IdentifierType::AMFM_FREQUENCY_KHZ));
     }
     return getHdFrequency(sel);
+}
+
+bool isValidMetadata(const Metadata& metadata) {
+    bool valid = true;
+
+    auto expect = [&valid](bool condition, const std::string& message) {
+        if (!condition) {
+            valid = false;
+            LOG(ERROR) << "metadata not valid, expected " << message;
+        }
+    };
+
+    switch (metadata.getTag()) {
+        case Metadata::rdsPty:
+            expect(metadata.get<Metadata::rdsPty>() >= 0, "RDS PTY >= 0");
+            expect(metadata.get<Metadata::rdsPty>() <= std::numeric_limits<uint8_t>::max(),
+                   "8bit RDS PTY");
+            break;
+        case Metadata::rbdsPty:
+            expect(metadata.get<Metadata::rbdsPty>() >= 0, "RBDS PTY >= 0");
+            expect(metadata.get<Metadata::rbdsPty>() <= std::numeric_limits<uint8_t>::max(),
+                   "8bit RBDS PTY");
+            break;
+        case Metadata::dabEnsembleNameShort:
+            expect(metadata.get<Metadata::dabEnsembleNameShort>().size() <= 8,
+                   "Dab ensemble name abbreviated length <= 8");
+            break;
+        case Metadata::dabServiceNameShort:
+            expect(metadata.get<Metadata::dabServiceNameShort>().size() <= 8,
+                   "Dab component name abbreviated length <= 8");
+            break;
+        case Metadata::dabComponentNameShort:
+            expect(metadata.get<Metadata::dabComponentNameShort>().size() <= 8,
+                   "Dab component name abbreviated length <= 8");
+            break;
+        default:
+            break;
+    }
+    return valid;
 }
 
 bool parseArgInt(const std::string& s, int* out) {
