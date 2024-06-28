@@ -1,6 +1,6 @@
 # WiFi Hal SomeIP Service Configuration
 CONFIG_DEBUG := y
-CONFIG_AP := n
+CONFIG_AP := y
 CONFIG_P2P := n
 CONFIG_NAN := n
 CONFIG_RTT := n

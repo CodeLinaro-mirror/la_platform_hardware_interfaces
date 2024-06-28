@@ -14,7 +14,9 @@
 
 #define __unused __attribute__ ((__unused__))
 
-#define WIFI_HAL_INTERFACE_COMBINATIONS {{{STA}, 2}}
+/* (2 STA + 2 AP) or (2 STA + 1 Bridged AP) */
+#define WIFI_HAL_INTERFACE_COMBINATIONS {{{STA}, 2}, {{AP}, 2}}, \
+                                        {{{STA}, 2}, {{AP_BRIDGED}, 1}}
 
 
 /* TODO: Local property set/get config functions */

@@ -267,8 +267,8 @@ static bool WifiChipMsgHandlerCreateApIface(uint8_t* data, size_t length,
 
     WIFI_RPC_PRINT_STATUS(status);
 
-    int32_t instanceId = -1;
-    ALOGI("Wifi Chip create ap iface instance Id %d", instanceId);
+    int32_t instanceId = WifiGetApIfaceInstanceId(wifiApIface);
+    ALOGI("Wifi Chip create ap iface instance Id %d.", instanceId);
 
     return WifiRpcSerializeResultResponse(status, instanceId,
          &WifiChipSerializeCreateApIfaceCfm, outData);
@@ -283,7 +283,7 @@ static bool WifiChipMsgHandlercreateBridgedApIface(uint8_t* data,
 
     WIFI_RPC_PRINT_STATUS(status);
 
-    int32_t instanceId = -1;
+    int32_t instanceId = WifiGetApIfaceInstanceId(wifiApIface);
     ALOGI("Wifi Chip create bridged ap iface instance Id %d.", instanceId);
 
     return WifiRpcSerializeResultResponse(status, instanceId,
@@ -316,7 +316,7 @@ static bool WifiChipMsgHandlerGetApIface(uint8_t* data, size_t length,
 
     WIFI_RPC_PRINT_STATUS(status);
 
-    int32_t instanceId = -1;
+    int32_t instanceId = WifiGetApIfaceInstanceId(apIface);
     ALOGI("Wifi Chip get ap iface instance Id %d.", instanceId);
 
     return WifiRpcSerializeResultResponse(status, instanceId,
@@ -357,7 +357,7 @@ static bool WifiChipMsgHandlerRemoveIfaceInstanceFromBridgedApIface(
 
     ALOGD("Wifi Chip remove bridgged AP: brIfaceName: %s "
         "ifaceInstanceName: %s.", param.brIfaceName.c_str(),
-        param.ifaceInstanceName.c_str();
+        param.ifaceInstanceName.c_str());
 
     auto status = WifiChipCallMethod(
         &IWifiChip::removeIfaceInstanceFromBridgedApIface,
@@ -1284,11 +1284,14 @@ static bool WifiApIfaceMsgHandlerGetName(uint8_t* data, size_t length,
 {
     int32_t instanceId;
     std::string apIfaceName;
+    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
+        ALOGE("Wifi Ap InstanceId parse fail.");
+        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
     auto status = WifiApIfaceCallMethod(instanceId,
         &IWifiApIface::getName, &apIfaceName);
-
     WIFI_RPC_PRINT_STATUS(status);
-
     return WifiRpcSerializeResultResponse(status, apIfaceName,
         &WifiApIfaceSerializeGetNameCfm, outData);
 }
@@ -1298,7 +1301,14 @@ static bool WifiApIfaceMsgHandlerSetCountryCode(uint8_t* data, size_t length,
 {
     int32_t instanceId;
     std::array<uint8_t, 2> code;
-    if (!WifiApIfaceParseSetCountryCodeReq(data, length, code)) {
+
+    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
+        ALOGE("Wifi Ap InstanceId parse fail.");
+        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
+    if (!WifiApIfaceParseSetCountryCodeReq(data, length -  4, code)) {
         ALOGE("Wifi Ap Iface parse set country code request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
@@ -1317,7 +1327,14 @@ static bool WifiApIfaceMsgHandlerSetMacAddress(uint8_t* data, size_t length,
 {
     int32_t instanceId;
     std::array<uint8_t, 6> mac;
-    if (!WifiApIfaceParseSetMacAddressReq(data, length, mac)) {
+
+    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
+        ALOGE("Wifi Ap InstanceId parse fail.");
+        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
+    if (!WifiApIfaceParseSetMacAddressReq(data, length - 4, mac)) {
         ALOGE("Wifi Ap Iface parse set mac address request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
@@ -1336,6 +1353,13 @@ static bool WifiApIfaceMsgHandlerGetFactoryMacAddress(uint8_t* data,
 {
     int32_t instanceId;
     std::array<uint8_t, 6> mac;
+
+    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
+        ALOGE("Wifi Ap InstanceId parse fail.");
+        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     auto status = WifiApIfaceCallMethod(instanceId,
         &IWifiApIface::getFactoryMacAddress, &mac);
 
@@ -1349,6 +1373,13 @@ static bool WifiApIfaceMsgHandlerResetToFactoryMacAddress(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
     int32_t instanceId;
+
+    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
+        ALOGE("Wifi Ap InstanceId parse fail.");
+        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     auto status = WifiApIfaceCallMethod(instanceId,
         &IWifiApIface::resetToFactoryMacAddress);
 
@@ -1362,6 +1393,13 @@ static bool WifiApIfaceMsgHandlerGetBridgedInstances(uint8_t* data,
 {
     int32_t instanceId;
     std::vector<std::string> bridgedInstances;
+
+    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
+        ALOGE("Wifi Ap InstanceId parse fail.");
+        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     auto status = WifiApIfaceCallMethod(instanceId,
         &IWifiApIface::getBridgedInstances, &bridgedInstances);
 
@@ -1465,7 +1503,7 @@ static std::map<uint16_t, MsgHandler> msgHandlerMap = {
     {WIFI_AP_IFACE_SET_MAC_ADDRESS_REQ, &WifiApIfaceMsgHandlerSetMacAddress},
     {WIFI_AP_IFACE_GET_FACTORY_MAC_ADDRESS_REQ, &WifiApIfaceMsgHandlerGetFactoryMacAddress},
     {WIFI_AP_IFACE_RESET_TO_FACTORY_MAC_ADDRESS_REQ, &WifiApIfaceMsgHandlerResetToFactoryMacAddress},
-    {WIFI_AP_IFACE_GET_BRIDGED_INSTANCE_REQ, &WifiApIfaceMsgHandlerGetBridgedInstances},
+    {WIFI_AP_IFACE_GET_BRIDGED_INSTANCES_REQ, &WifiApIfaceMsgHandlerGetBridgedInstances},
 #endif
 
     {}

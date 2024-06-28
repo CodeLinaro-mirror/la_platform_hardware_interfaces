@@ -1,5 +1,7 @@
 LIBRARY=libqti-wifi-server.so.0
 
+CONFIG_AP := y
+
 CUR_DIR = $(shell pwd)
 SRC_DIR = $(CUR_DIR)/src
 INC_DIR = $(CUR_DIR)/include
