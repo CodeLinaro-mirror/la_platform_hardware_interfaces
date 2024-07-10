@@ -39,7 +39,7 @@ class PresetReverbHelper : public EffectHelper {
         ASSERT_NE(nullptr, mFactory);
         ASSERT_NO_FATAL_FAILURE(create(mFactory, mEffect, mDescriptor));
         Parameter::Specific specific = getDefaultParamSpecific();
-        Parameter::Common common = EffectHelper::createParamCommon(
+        Parameter::Common common = createParamCommon(
                 0 /* session */, 1 /* ioHandle */, kSamplingFrequency /* iSampleRate */,
                 kSamplingFrequency /* oSampleRate */, mFrameCount /* iFrameCount */,
                 mFrameCount /* oFrameCount */);
@@ -82,7 +82,7 @@ class PresetReverbHelper : public EffectHelper {
     }
 
     static constexpr int kSamplingFrequency = 44100;
-    static constexpr int kDurationMilliSec = 2000;
+    static constexpr int kDurationMilliSec = 500;
     static constexpr int kBufferSize = kSamplingFrequency * kDurationMilliSec / 1000;
     int mStereoChannelCount =
             getChannelCount(AudioChannelLayout::make<AudioChannelLayout::layoutMask>(
