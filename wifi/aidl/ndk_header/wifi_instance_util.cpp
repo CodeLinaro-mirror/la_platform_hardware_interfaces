@@ -61,6 +61,31 @@ void WifiRemoveStaIface(std::shared_ptr<IWifiStaIface> impl)
         return wifiInstanceManager->removeStaIface(impl);
 }
 
+#ifdef CONFIG_AP
+int32_t WifiRegisterApIfaceAndGetInstanceId(
+    std::shared_ptr<IWifiApIface> impl, const std::string& ifname,
+    int32_t chip_id)
+{
+    if (wifiInstanceManager.get())
+        return wifiInstanceManager->registerApIfaceAndGetInstanceId(
+            impl, ifname, chip_id);
+    return -1;
+}
+
+int32_t WifiGetApIfaceInstanceId(std::shared_ptr<IWifiApIface> impl)
+{
+    if (wifiInstanceManager.get())
+        return wifiInstanceManager->getApIfaceInstanceId(impl);
+    return -1;
+}
+
+void WifiRemoveApIface(std::shared_ptr<IWifiApIface> impl)
+{
+    if (wifiInstanceManager.get())
+        return wifiInstanceManager->removeApIface(impl);
+}
+#endif
+
 } // namespace instance_util
 
 WifiInstanceManager::WifiInstanceManager(std::shared_ptr<IWifi> impl)
@@ -190,10 +215,10 @@ std::shared_ptr<IWifiApIface> WifiInstanceManager::getApIfaceByInstanceId(
 
 void WifiInstanceManager::removeApIface(std::shared_ptr<IWifiApIface> impl)
 {
-    for (auto iter = _wifi_ap_iface_map.begin(),
-        iter != _wifi_ap_iface_map.end(), ++iter) {
-        if (iter->second == impl) {
-            _wifi_sta_iface_map.erase(iter);
+    for (auto iter = _wifi_ap_iface_map.begin();
+        iter != _wifi_ap_iface_map.end(); ++iter) {
+        if (iter->second == impl){
+            _wifi_ap_iface_map.erase(iter);
             break;
         }
     }

@@ -135,7 +135,12 @@ ndk::ScopedAStatus WifiStaIfaceCallMethod(int32_t instance_id,
     return manager->callWifiStaIfaceMethod(method, instance_id);
 }
 
-#ifdef CONDIF_AP
+#ifdef CONFIG_AP
+int32_t WifiRegisterApIfaceAndGetInstanceId(
+    std::shared_ptr<IWifiApIface> impl,  const std::string& ifname,
+    int32_t chip_id = 0);
+int32_t WifiGetApIfaceInstanceId(std::shared_ptr<IWifiApIface> impl);
+void WifiRemoveApIface(std::shared_ptr<IWifiApIface> impl);
 template <typename FuncType, typename... Args>
 ndk::ScopedAStatus WifiApIfaceCallMethod(int32_t instance_id,
     FuncType&& func, Args&&... args)

@@ -962,6 +962,10 @@ std::pair<std::shared_ptr<IWifiApIface>, ndk::ScopedAStatus> WifiChip::createApI
         return {std::shared_ptr<WifiApIface>(), std::move(status)};
     }
     std::shared_ptr<WifiApIface> iface = newWifiApIface(ifname);
+    /* Register Ap Iface to instance manager and generate instance ID */
+    int32_t instance_id = WifiRegisterApIfaceAndGetInstanceId(
+        static_cast<std::shared_ptr<IWifiApIface>>(iface), ifname, chip_id_);
+    ap_ifaces_.push_back(iface);
     return {iface, ndk::ScopedAStatus::ok()};
 }
 
@@ -1002,6 +1006,10 @@ WifiChip::createBridgedApIfaceInternal() {
         }
     }
     std::shared_ptr<WifiApIface> iface = newWifiApIface(br_ifname);
+    /* Register AP Iface to instance manager and generate instance ID */
+    int32_t instance_id = WifiRegisterApIfaceAndGetInstanceId(
+        static_cast<std::shared_ptr<IWifiApIface>>(iface), br_ifname, chip_id_);
+    ap_ifaces_.push_back(iface);
     return {iface, ndk::ScopedAStatus::ok()};
 }
 
@@ -1038,6 +1046,7 @@ ndk::ScopedAStatus WifiChip::removeApIfaceInternal(const std::string& ifname) {
             LOG(ERROR) << "Failed to invoke onIfaceRemoved callback";
         }
     }
+    WifiRemoveApIface(static_cast<std::shared_ptr<IWifiApIface>>(iface));
     setActiveWlanIfaceNameProperty(getFirstActiveWlanIfaceName());
     return ndk::ScopedAStatus::ok();
 }

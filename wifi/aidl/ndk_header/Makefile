@@ -1,5 +1,5 @@
 #Wifi Hal NDK headers configuration
-CONFIG_AP :=n
+CONFIG_AP :=y
 CONFIG_P2P := n
 
 # WiFi Hal NDK Headers library
@@ -7,6 +7,10 @@ LIBRARY=libwifi-ndk-header.so.0
 
 CUR_DIR = $(shell pwd)
 INC_DIR = $(CUR_DIR)/include
+
+ifeq ($(CONFIG_AP), y)
+CPPFLAGS += -DCONFIG_AP
+endif
 
 CXXFLAGS += -c -std=c++17 -fPIC
 CPPFLAGS += -Wall -Werror -Wno-unused-function -Wno-ignored-attributes
