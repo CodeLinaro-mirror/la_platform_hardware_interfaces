@@ -1005,6 +1005,11 @@ WifiChip::createBridgedApIfaceInternal() {
             return {nullptr, createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE)};
         }
     }
+    if (!iface_util_->addIfaceToBridge(br_ifname, "vlan43")) {
+        LOG(ERROR) << "Failed add if to AP Bridge - if_name=" << "vlan43";
+        deleteApIface(br_ifname);
+        return {nullptr, createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE)};
+    }
     std::shared_ptr<WifiApIface> iface = newWifiApIface(br_ifname);
     /* Register AP Iface to instance manager and generate instance ID */
     int32_t instance_id = WifiRegisterApIfaceAndGetInstanceId(
