@@ -22,6 +22,7 @@
 #include "wifi_legacy_hal.h"
 
 #include <android-base/logging.h>
+#include <rpc/util/log_common.h>
 #include <net/if.h>
 
 #include <array>
@@ -225,7 +226,7 @@ void onAsyncNanNotifyResponse(transaction_id id, NanResponseMsg* msg) {
 
 std::function<void(const NanPublishRepliedInd&)> on_nan_event_publish_replied_user_callback;
 void onAsyncNanEventPublishReplied(NanPublishRepliedInd* /* event */) {
-    LOG(ERROR) << "onAsyncNanEventPublishReplied triggered";
+    ALOGE("onAsyncNanEventPublishReplied triggered");
 }
 
 std::function<void(const NanPublishTerminatedInd&)> on_nan_event_publish_terminated_user_callback;
@@ -461,7 +462,7 @@ WifiLegacyHal::WifiLegacyHal(const std::weak_ptr<::android::wifi_system::Interfa
       is_primary_(is_primary) {}
 
 wifi_error WifiLegacyHal::initialize() {
-    LOG(DEBUG) << "Initialize legacy HAL";
+    ALOGD("Initialize legacy HAL");
     // this now does nothing, since HAL function table is provided
     // to the constructor
     return WIFI_SUCCESS;
@@ -472,13 +473,13 @@ wifi_error WifiLegacyHal::start() {
     CHECK(global_func_table_.wifi_initialize && !global_handle_ && iface_name_to_handle_.empty() &&
           !awaiting_event_loop_termination_);
     if (is_started_) {
-        LOG(DEBUG) << "Legacy HAL already started";
+        ALOGD("Legacy HAL already started");
         return WIFI_SUCCESS;
     }
-    LOG(DEBUG) << "Waiting for the driver ready";
+    ALOGD("Waiting for the driver ready");
     wifi_error status = global_func_table_.wifi_wait_for_driver_ready();
     if (status == WIFI_ERROR_TIMED_OUT || status == WIFI_ERROR_UNKNOWN) {
-        LOG(ERROR) << "Failed or timed out awaiting driver ready";
+        ALOGE("Failed or timed out awaiting driver ready");
         return status;
     }
 
@@ -486,24 +487,24 @@ wifi_error WifiLegacyHal::start() {
         property_set(kDriverPropName, "ok");
 
         if (!iface_tool_.lock()->SetWifiUpState(true)) {
-            LOG(ERROR) << "Failed to set WiFi interface up";
+            ALOGE("Failed to set WiFi interface up");
             return WIFI_ERROR_UNKNOWN;
         }
     }
 
-    LOG(DEBUG) << "Starting legacy HAL";
+    ALOGD("Starting legacy HAL");
     status = global_func_table_.wifi_initialize(&global_handle_);
     if (status != WIFI_SUCCESS || !global_handle_) {
-        LOG(ERROR) << "Failed to retrieve global handle";
+        ALOGE("Failed to retrieve global handle");
         return status;
     }
     std::thread(&WifiLegacyHal::runEventLoop, this).detach();
     status = retrieveIfaceHandles();
     if (status != WIFI_SUCCESS || iface_name_to_handle_.empty()) {
-        LOG(ERROR) << "Failed to retrieve wlan interface handle";
+        ALOGE("Failed to retrieve wlan interface handle");
         return status;
     }
-    LOG(DEBUG) << "Legacy HAL start complete";
+    ALOGD("Legacy HAL start complete");
     is_started_ = true;
     return WIFI_SUCCESS;
 }
@@ -512,15 +513,15 @@ wifi_error WifiLegacyHal::stop(
         /* NONNULL */ std::unique_lock<std::recursive_mutex>* lock,
         const std::function<void()>& on_stop_complete_user_callback) {
     if (!is_started_) {
-        LOG(DEBUG) << "Legacy HAL already stopped";
+        ALOGD("Legacy HAL already stopped");
         on_stop_complete_user_callback();
         return WIFI_SUCCESS;
     }
-    LOG(DEBUG) << "Stopping legacy HAL";
+    ALOGD("Stopping legacy HAL");
     on_stop_complete_internal_callback = [on_stop_complete_user_callback,
                                           this](wifi_handle handle) {
         CHECK_EQ(global_handle_, handle) << "Handle mismatch";
-        LOG(INFO) << "Legacy HAL stop complete callback received";
+        ALOGI("Legacy HAL stop complete callback received");
         // Invalidate all the internal pointers now that the HAL is
         // stopped.
         invalidate();
@@ -534,10 +535,10 @@ wifi_error WifiLegacyHal::stop(
             stop_wait_cv_.wait_for(*lock, std::chrono::milliseconds(kMaxStopCompleteWaitMs),
                                    [this] { return !awaiting_event_loop_termination_; });
     if (!status) {
-        LOG(ERROR) << "Legacy HAL stop failed or timed out";
+        ALOGE("Legacy HAL stop failed or timed out");
         return WIFI_ERROR_UNKNOWN;
     }
-    LOG(DEBUG) << "Legacy HAL stop complete";
+    ALOGD("Legacy HAL stop complete");
     return WIFI_SUCCESS;
 }
 
@@ -685,7 +686,7 @@ wifi_error WifiLegacyHal::startGscan(
                 on_gscan_full_result_internal_callback = nullptr;
                 return;
         }
-        LOG(FATAL) << "Unexpected gscan event received: " << event;
+        ALOGE("Unexpected gscan event received: %d", event);
     };
 
     on_gscan_full_result_internal_callback = [on_full_result_user_callback](
@@ -826,10 +827,10 @@ wifi_error WifiLegacyHal::getLinkLayerStats(const std::string& iface_name,
             }
             link_stats_ptr->iface.num_peers = 0;
         } else {
-            LOG(ERROR) << "Invalid iface stats in link layer stats";
+            ALOGE("Invalid iface stats in link layer stats");
         }
         if (num_radios <= 0 || radio_stats_ptr == nullptr) {
-            LOG(ERROR) << "Invalid radio stats in link layer stats";
+            ALOGE("Invalid radio stats in link layer stats");
             return;
         }
         l_radio_stats_ptr = radio_stats_ptr;
@@ -882,10 +883,10 @@ wifi_error WifiLegacyHal::getLinkLayerStats(const std::string& iface_name,
                         l_link_stat_ptr = copyLinkStat(l_link_stat_ptr, link_ml_stats_ptr->links);
                     }
                 } else {
-                    LOG(ERROR) << "Invalid iface stats in link layer stats";
+                    ALOGE("Invalid iface stats in link layer stats");
                 }
                 if (num_radios <= 0 || radio_stats_ptr == nullptr) {
-                    LOG(ERROR) << "Invalid radio stats in link layer stats";
+                    ALOGE("Invalid radio stats in link layer stats");
                     return;
                 }
                 l_radio_stats_ptr = radio_stats_ptr;
@@ -1269,7 +1270,7 @@ wifi_error WifiLegacyHal::startRttRangeRequest(
                                                                   unsigned num_results,
                                                                   wifi_rtt_result* rtt_results[]) {
         if (num_results > 0 && !rtt_results) {
-            LOG(ERROR) << "Unexpected nullptr in RTT results";
+            ALOGE("Unexpected nullptr in RTT results");
             return;
         }
         std::vector<const wifi_rtt_result*> rtt_results_vec;
@@ -1282,7 +1283,7 @@ wifi_error WifiLegacyHal::startRttRangeRequest(
                                                   wifi_request_id id, unsigned num_results,
                                                   wifi_rtt_result_v2* rtt_results_v2[]) {
         if (num_results > 0 && !rtt_results_v2) {
-            LOG(ERROR) << "Unexpected nullptr in RTT results";
+            ALOGE("Unexpected nullptr in RTT results");
             return;
         }
         std::vector<const wifi_rtt_result_v2*> rtt_results_vec_v2;
@@ -1613,7 +1614,7 @@ wifi_error WifiLegacyHal::retrieveIfaceHandles() {
     wifi_error status =
             global_func_table_.wifi_get_ifaces(global_handle_, &num_iface_handles, &iface_handles);
     if (status != WIFI_SUCCESS) {
-        LOG(ERROR) << "Failed to enumerate interface handles";
+        ALOGE("Failed to enumerate interface handles");
         return status;
     }
     iface_name_to_handle_.clear();
@@ -1622,13 +1623,13 @@ wifi_error WifiLegacyHal::retrieveIfaceHandles() {
         status = global_func_table_.wifi_get_iface_name(iface_handles[i], iface_name_arr.data(),
                                                         iface_name_arr.size());
         if (status != WIFI_SUCCESS) {
-            LOG(WARNING) << "Failed to get interface handle name";
+            ALOGW("Failed to get interface handle name");
             continue;
         }
         // Assuming the interface name is null terminated since the legacy HAL
         // API does not return a size.
         std::string iface_name(iface_name_arr.data());
-        LOG(INFO) << "Adding interface handle for " << iface_name;
+        ALOGI("Adding interface handle for %s", iface_name.c_str());
         iface_name_to_handle_[iface_name] = iface_handles[i];
     }
     return WIFI_SUCCESS;
@@ -1637,20 +1638,20 @@ wifi_error WifiLegacyHal::retrieveIfaceHandles() {
 wifi_interface_handle WifiLegacyHal::getIfaceHandle(const std::string& iface_name) {
     const auto iface_handle_iter = iface_name_to_handle_.find(iface_name);
     if (iface_handle_iter == iface_name_to_handle_.end()) {
-        LOG(ERROR) << "Unknown iface name: " << iface_name;
+        ALOGE("Unknown iface name: %s", iface_name.c_str());
         return nullptr;
     }
     return iface_handle_iter->second;
 }
 
 void WifiLegacyHal::runEventLoop() {
-    LOG(DEBUG) << "Starting legacy HAL event loop";
+    ALOGD("Starting legacy HAL event loop");
     global_func_table_.wifi_event_loop(global_handle_);
     const auto lock = aidl_sync_util::acquireGlobalLock();
     if (!awaiting_event_loop_termination_) {
-        LOG(FATAL) << "Legacy HAL event loop terminated, but HAL was not stopping";
+        ALOGE("Legacy HAL event loop terminated, but HAL was not stopping");
     }
-    LOG(DEBUG) << "Legacy HAL event loop terminated";
+    ALOGD("Legacy HAL event loop terminated");
     awaiting_event_loop_termination_ = false;
     stop_wait_cv_.notify_one();
 }
@@ -1671,7 +1672,7 @@ std::pair<wifi_error, std::vector<wifi_cached_scan_results>> WifiLegacyHal::getG
         for (int i = 0; i < num_scan_results; i++) {
             auto& scan_result = cached_scan_result.results[i];
             if (scan_result.ie_length > 0) {
-                LOG(DEBUG) << "Cached scan result has non-zero IE length " << scan_result.ie_length;
+                ALOGD("Cached scan result has non-zero IE length %d", scan_result.ie_length);
                 scan_result.ie_length = 0;
             }
         }

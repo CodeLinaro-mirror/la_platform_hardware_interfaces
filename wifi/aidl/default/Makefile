@@ -41,7 +41,7 @@ CXXOBJECTS := $(CXXSRCS:.cpp=.o)
 CXXFLAGS += -c -std=c++17 -fPIC
 CPPFLAGS += -Wno-unused-function -Wno-ignored-attributes
 ifeq ($(CONFIG_DEBUG), y)
-CPPFLAGS += -DCONFIG_DEBUG -DCONFIG_DEBUG_DUMP
+CPPFLAGS += -DCONFIG_DEBUG -DCONFIG_DEBUG_DUMP -DENABLE_LOG
 endif
 ifeq ($(CONFIG_AP), y)
 CPPFLAGS += -DCONFIG_AP
@@ -61,7 +61,7 @@ LDFLAGS += -lstdc++
 LDFLAGS += -lbase -lutils -llog -lcutils
 LDFLAGS += -lwifi-ndk-header
 LDFLAGS += -lwifi-system -lwifi-system-iface -lwifi-hal-qcom -lwifi-hal
-LDFLAGS += -lqti_someip_util -lqti_rpc_common_util
+LDFLAGS += -lqti_someip_util -lqti_rpc_common_util -lqti_log_util
 LDFLAGS += -lqti-wifi-server
 
 $(BINARY): $(CXXOBJECTS)
