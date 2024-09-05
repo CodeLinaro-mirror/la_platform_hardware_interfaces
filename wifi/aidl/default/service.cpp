@@ -26,11 +26,16 @@
 #include <wifi_rpc_event.h>
 #include <wifi_rpc_server.h>
 
+#include <rpc/util/properties.h>
+#include <rpc/util/log_common.h>
+
 #include "wifi.h"
 #include "wifi_feature_flags.h"
 #include "wifi_legacy_hal.h"
 #include "wifi_legacy_hal_factory.h"
 #include "wifi_mode_controller.h"
+
+#define APP_NAME "wifihal"
 
 using aidl::android::hardware::wifi::feature_flags::WifiFeatureFlags;
 using aidl::android::hardware::wifi::legacy_hal::WifiLegacyHal;
@@ -47,6 +52,9 @@ int main(int /*argc*/, char** argv) {
     signal(SIGPIPE, SIG_IGN);
     android::base::InitLogging(argv, &android::base::StdioLogger);
     LOG(INFO) << "Wifi Hal is booting up...";
+
+    property_init();
+    InitLogExt(APP_NAME, 10);
 
     const auto iface_tool = std::make_shared<InterfaceTool>();
     const auto legacy_hal_factory =
@@ -80,6 +88,9 @@ int main(int /*argc*/, char** argv) {
     LOG(INFO) << "Wifi Hal is terminating...";
 
     wifi_service->stop();
+
+	DeinitLog();
+	property_exit();
 
     return 0;
 }

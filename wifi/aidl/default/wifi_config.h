@@ -17,8 +17,9 @@
 /* (2 STA + 2 AP) or (2 STA + 1 Bridged AP) */
 #define WIFI_HAL_INTERFACE_COMBINATIONS {{{STA}, 2}, {{AP}, 2}}, \
                                         {{{STA}, 2}, {{AP_BRIDGED}, 1}}
+#include <rpc/util/properties.h>
 
-
+#if 0
 /* TODO: Local property set/get config functions */
 static int property_set(const char *key, const char *value) {
     return 0;
@@ -36,5 +37,5 @@ static int property_get(const char* key, char* value, const char* default_value)
 
     return len;
 }
-
+#endif
 #endif /* WIFI_CONFIG_H */
