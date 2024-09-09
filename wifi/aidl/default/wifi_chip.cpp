@@ -507,6 +507,7 @@ ndk::ScopedAStatus WifiChip::requestFirmwareDebugDump(std::vector<uint8_t>* _aid
                            &WifiChip::requestFirmwareDebugDumpInternal, _aidl_return);
 }
 
+#ifdef CONFIG_AP
 ndk::ScopedAStatus WifiChip::createApIface(std::shared_ptr<IWifiApIface>* _aidl_return) {
     return validateAndCall(this, WifiStatusCode::ERROR_WIFI_CHIP_INVALID,
                            &WifiChip::createApIfaceInternal, _aidl_return);
@@ -539,6 +540,7 @@ ndk::ScopedAStatus WifiChip::removeIfaceInstanceFromBridgedApIface(
                            &WifiChip::removeIfaceInstanceFromBridgedApIfaceInternal, in_brIfaceName,
                            in_ifaceInstanceName);
 }
+#endif
 
 #ifdef CONFIG_NAN
 ndk::ScopedAStatus WifiChip::createNanIface(std::shared_ptr<IWifiNanIface>* _aidl_return) {
@@ -736,8 +738,10 @@ ndk::ScopedAStatus WifiChip::setMloMode(const ChipMloMode in_mode) {
 }
 
 void WifiChip::invalidateAndRemoveAllIfaces() {
+#ifdef CONFIG_AP
     invalidateAndClearBridgedApAll();
     invalidateAndClearAll(ap_ifaces_);
+#endif
 #ifdef CONFIG_NAN
     invalidateAndClearAll(nan_ifaces_);
 #endif
@@ -917,6 +921,7 @@ std::pair<std::vector<uint8_t>, ndk::ScopedAStatus> WifiChip::requestFirmwareDeb
     return {firmware_dump, ndk::ScopedAStatus::ok()};
 }
 
+#ifdef CONFIG_AP
 ndk::ScopedAStatus WifiChip::createVirtualApInterface(const std::string& apVirtIf) {
     legacy_hal::wifi_error legacy_status;
     legacy_status = legacy_hal_.lock()->createVirtualInterface(
@@ -1040,6 +1045,7 @@ ndk::ScopedAStatus WifiChip::removeApIfaceInternal(const std::string& ifname) {
     // here and not make that assumption all over the place.
     invalidateAndRemoveDependencies(ifname);
     deleteApIface(ifname);
+    WifiRemoveApIface(static_cast<std::shared_ptr<IWifiApIface>>(iface));
     invalidateAndClear(ap_ifaces_, iface);
     for (const auto& callback : event_cb_handler_.getCallbacks()) {
         if (!callback->onIfaceRemoved(IfaceType::AP, ifname).isOk()) {
@@ -1090,6 +1096,7 @@ ndk::ScopedAStatus WifiChip::removeIfaceInstanceFromBridgedApIfaceInternal(
 
     return ndk::ScopedAStatus::ok();
 }
+#endif
 
 #ifdef CONFIG_NAN
 std::pair<std::shared_ptr<IWifiNanIface>, ndk::ScopedAStatus> WifiChip::createNanIfaceInternal() {
