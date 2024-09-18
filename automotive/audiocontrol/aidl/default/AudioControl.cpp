@@ -100,7 +100,7 @@ void fillProfile(const std::vector<int32_t>& channelLayouts,
     profile->sampleRates.insert(profile->sampleRates.end(), sampleRates.begin(), sampleRates.end());
 }
 
-__attribute__((unused)) AudioProfile createProfile(PcmType pcmType, const std::vector<int32_t>& channelLayouts,
+AudioProfile createProfile(PcmType pcmType, const std::vector<int32_t>& channelLayouts,
                            const std::vector<int32_t>& sampleRates) {
     AudioProfile profile;
     profile.format.type = AudioFormatType::PCM;
@@ -109,7 +109,7 @@ __attribute__((unused)) AudioProfile createProfile(PcmType pcmType, const std::v
     return profile;
 }
 
-__attribute__((unused)) AudioProfile createProfile(const std::string& encodingType,
+AudioProfile createProfile(const std::string& encodingType,
                            const std::vector<int32_t>& channelLayouts,
                            const std::vector<int32_t>& sampleRates) {
     AudioProfile profile;
