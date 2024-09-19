@@ -21,8 +21,8 @@
 
 #include "wifi_mode_controller.h"
 
-#include <android-base/logging.h>
-#include <android-base/macros.h>
+#include <rpc/util/log_common.h>
+//#include <android-base/macros.h>
 
 namespace {
 using aidl::android::hardware::wifi::IfaceType;
@@ -63,7 +63,7 @@ bool WifiModeController::isFirmwareModeChangeNeeded(IfaceType type) {
 
 bool WifiModeController::initialize() {
     if (!driver_tool_->LoadDriver()) {
-        LOG(ERROR) << "Failed to load WiFi driver";
+        ALOGE("Failed to load WiFi driver");
         return false;
     }
     return true;
@@ -71,7 +71,7 @@ bool WifiModeController::initialize() {
 
 bool WifiModeController::changeFirmwareMode(IfaceType type) {
     if (!driver_tool_->ChangeFirmwareMode(convertIfaceTypeToFirmwareMode(type))) {
-        LOG(ERROR) << "Failed to change firmware mode";
+        ALOGE("Failed to change firmware mode");
         return false;
     }
     return true;
@@ -79,7 +79,7 @@ bool WifiModeController::changeFirmwareMode(IfaceType type) {
 
 bool WifiModeController::deinitialize() {
     if (!driver_tool_->UnloadDriver()) {
-        LOG(ERROR) << "Failed to unload WiFi driver";
+        ALOGE("Failed to unload WiFi driver");
         return false;
     }
     return true;

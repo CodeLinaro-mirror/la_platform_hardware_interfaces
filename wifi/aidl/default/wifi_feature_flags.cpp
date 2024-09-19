@@ -21,7 +21,7 @@
 
 #include <string>
 
-#include <android-base/logging.h>
+#include <rpc/util/log_common.h>
 
 #include "wifi_feature_flags.h"
 
@@ -211,15 +211,13 @@ std::vector<IWifiChip::ChipMode> WifiFeatureFlags::getChipModesForPrimary() {
     // Debug property set, use one of the debug preset concurrency combination.
     unsigned long idx = std::stoul(buffer.data());
     if (idx >= kDebugChipModes.size()) {
-        LOG(ERROR) << "Invalid index set in property: "
-                   << kDebugPresetInterfaceCombinationIdxProperty;
+        ALOGE("Invalid index set in property: %s", kDebugPresetInterfaceCombinationIdxProperty);
         return kChipModesPrimary;
     }
     std::string name;
     std::vector<IWifiChip::ChipMode> chip_modes;
     std::tie(name, chip_modes) = kDebugChipModes[idx];
-    LOG(INFO) << "Using debug chip mode: <" << name
-              << "> set via property: " << kDebugPresetInterfaceCombinationIdxProperty;
+    ALOGI("Using debug chip mode: <%s> set via property: %s", name.c_str(), kDebugPresetInterfaceCombinationIdxProperty);
     return chip_modes;
 }
 

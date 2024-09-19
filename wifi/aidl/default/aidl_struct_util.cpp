@@ -19,7 +19,8 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <android-base/logging.h>
+#include <rpc/util/log_common.h>
+#include <cstdlib>
 #include <utils/SystemClock.h>
 
 #include "aidl_struct_util.h"
@@ -65,7 +66,9 @@ IWifiChip::FeatureSetMask convertLegacyChipFeatureToAidl(uint64_t feature) {
         case WIFI_FEATURE_AFC_CHANNEL:
             return IWifiChip::FeatureSetMask::SET_AFC_CHANNEL_ALLOWANCE;
     };
-    CHECK(false) << "Unknown legacy feature: " << feature;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy feature: 0x%X", feature);
+    }
     return {};
 }
 
@@ -98,7 +101,9 @@ IWifiStaIface::FeatureSetMask convertLegacyStaIfaceFeatureToAidl(uint64_t featur
         case WIFI_FEATURE_MKEEP_ALIVE:
             return IWifiStaIface::FeatureSetMask::KEEP_ALIVE;
     };
-    CHECK(false) << "Unknown legacy feature: " << feature;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy feature: 0x%X", feature);
+    }
     return {};
 }
 
@@ -131,7 +136,9 @@ WifiDebugRingBufferFlags convertLegacyDebugRingBufferFlagsToAidl(uint32_t flag) 
         case WIFI_RING_BUFFER_FLAG_HAS_ASCII_ENTRIES:
             return WifiDebugRingBufferFlags::HAS_ASCII_ENTRIES;
     };
-    CHECK(false) << "Unknown legacy flag: " << flag;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy flag: 0x%X", flag);
+    }
     return {};
 }
 
@@ -233,7 +240,9 @@ legacy_hal::wifi_power_scenario convertAidlTxPowerScenarioToLegacy(
         case IWifiChip::TxPowerScenario::ON_BODY_CELL_ON:
             return legacy_hal::WIFI_POWER_SCENARIO_ON_BODY_CELL_ON;
     };
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 legacy_hal::wifi_latency_mode convertAidlLatencyModeToLegacy(
@@ -244,7 +253,9 @@ legacy_hal::wifi_latency_mode convertAidlLatencyModeToLegacy(
         case IWifiChip::LatencyMode::LOW:
             return legacy_hal::WIFI_LATENCY_MODE_LOW;
     }
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 bool convertLegacyWifiMacInfoToAidl(const legacy_hal::WifiMacInfo& legacy_mac_info,
@@ -495,7 +506,9 @@ uint8_t convertAidlGscanReportEventFlagToLegacy(
         case AidlFlag::NO_BATCH:
             return REPORT_EVENTS_NO_BATCH;
     };
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 StaScanDataFlagMask convertLegacyGscanDataFlagToAidl(uint8_t legacy_flag) {
@@ -503,7 +516,9 @@ StaScanDataFlagMask convertLegacyGscanDataFlagToAidl(uint8_t legacy_flag) {
         case legacy_hal::WIFI_SCAN_FLAG_INTERRUPTED:
             return StaScanDataFlagMask::INTERRUPTED;
     };
-    CHECK(false) << "Unknown legacy flag: " << legacy_flag;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy flag: 0x%X", legacy_flag);
+    }
     // To silence the compiler warning about reaching the end of non-void
     // function.
     return {};
@@ -539,7 +554,9 @@ legacy_hal::wifi_band convertAidlWifiBandToLegacy(WifiBand band) {
         case WifiBand::BAND_24GHZ_5GHZ_WITH_DFS:
             return legacy_hal::WIFI_BAND_ABG_WITH_DFS;
         default:
-            CHECK(false);
+            if(!(false)){
+        ALOGE("Check failed: false");
+    }
             return {};
     };
 }
@@ -618,13 +635,13 @@ bool convertLegacyIeBlobToAidl(const uint8_t* ie_blob, uint32_t ie_blob_len,
         const wifi_ie& legacy_ie = (*reinterpret_cast<const wifi_ie*>(next_ie));
         uint32_t curr_ie_len = kIeHeaderLen + legacy_ie.len;
         if (next_ie + curr_ie_len > ies_end) {
-            LOG(ERROR) << "Error parsing IE blob. Next IE: " << (void*)next_ie
-                       << ", Curr IE len: " << curr_ie_len << ", IEs End: " << (void*)ies_end;
+            ALOGE("Error parsing IE blob. Next IE: 0x%X, Curr IE len: %D, IEs End: 0x%X", 
+                    (void*)next_ie, curr_ie_len, (void*)ies_end);
             break;
         }
         WifiInformationElement aidl_ie;
         if (!convertLegacyIeToAidl(legacy_ie, &aidl_ie)) {
-            LOG(ERROR) << "Error converting IE. Id: " << legacy_ie.id << ", len: " << legacy_ie.len;
+            ALOGE("Error converting IE. Id: %d, len: %d",legacy_ie.id, legacy_ie.len);
             break;
         }
         aidl_ies->push_back(std::move(aidl_ie));
@@ -632,8 +649,8 @@ bool convertLegacyIeBlobToAidl(const uint8_t* ie_blob, uint32_t ie_blob_len,
     }
     // Check if the blob has been fully consumed.
     if (next_ie != ies_end) {
-        LOG(ERROR) << "Failed to fully parse IE blob. Next IE: " << (void*)next_ie
-                   << ", IEs End: " << (void*)ies_end;
+        ALOGE("Failed to fully parse IE blob. Next IE: 0x%X, IEs End: 0x%X",
+                (void*)next_ie, (void*)ies_end);
     }
     return true;
 }
@@ -684,8 +701,12 @@ bool convertLegacyCachedGscanResultsToAidl(
     aidl_scan_data->flags = flags;
     aidl_scan_data->bucketsScanned = legacy_cached_scan_result.buckets_scanned;
 
-    CHECK(legacy_cached_scan_result.num_results >= 0 &&
-          legacy_cached_scan_result.num_results <= MAX_AP_CACHE_PER_SCAN);
+    if(!(legacy_cached_scan_result.num_results >= 0 &&
+          legacy_cached_scan_result.num_results <= MAX_AP_CACHE_PER_SCAN)){
+        ALOGE("Check failed: legacy_cached_scan_result.num_results >= 0 && "
+                "legacy_cached_scan_result.num_results <= MAX_AP_CACHE_PER_SCAN");
+    }
+
     std::vector<StaScanResult> aidl_scan_results;
     for (int32_t result_idx = 0; result_idx < legacy_cached_scan_result.num_results; result_idx++) {
         StaScanResult aidl_scan_result;
@@ -739,7 +760,9 @@ WifiDebugTxPacketFate convertLegacyDebugTxPacketFateToAidl(legacy_hal::wifi_tx_p
         case legacy_hal::TX_PKT_FATE_DRV_DROP_OTHER:
             return WifiDebugTxPacketFate::DRV_DROP_OTHER;
     };
-    CHECK(false) << "Unknown legacy fate type: " << fate;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy fate type: %d", fate);
+    }
 }
 
 WifiDebugRxPacketFate convertLegacyDebugRxPacketFateToAidl(legacy_hal::wifi_rx_packet_fate fate) {
@@ -767,7 +790,9 @@ WifiDebugRxPacketFate convertLegacyDebugRxPacketFateToAidl(legacy_hal::wifi_rx_p
         case legacy_hal::RX_PKT_FATE_DRV_DROP_OTHER:
             return WifiDebugRxPacketFate::DRV_DROP_OTHER;
     };
-    CHECK(false) << "Unknown legacy fate type: " << fate;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy fate type: %d", fate);
+    }
 }
 
 WifiDebugPacketFateFrameType convertLegacyDebugPacketFateFrameTypeToAidl(
@@ -780,7 +805,9 @@ WifiDebugPacketFateFrameType convertLegacyDebugPacketFateFrameTypeToAidl(
         case legacy_hal::FRAME_TYPE_80211_MGMT:
             return WifiDebugPacketFateFrameType::MGMT_80211;
     };
-    CHECK(false) << "Unknown legacy frame type: " << type;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy frame type: %d", type);
+    }
 }
 
 bool convertLegacyDebugPacketFateFrameToAidl(const legacy_hal::frame_info& legacy_frame,
@@ -1122,13 +1149,17 @@ bool convertAidlRoamingConfigToLegacy(const StaRoamingConfig& aidl_config,
     legacy_config->num_blacklist_bssid = aidl_config.bssidBlocklist.size();
     uint32_t i = 0;
     for (const auto& bssid : aidl_config.bssidBlocklist) {
-        CHECK(bssid.data.size() == sizeof(legacy_hal::mac_addr));
+        if(!(bssid.data.size() == sizeof(legacy_hal::mac_addr))){
+            ALOGE("Check failed: bssid.data.size() == sizeof(legacy_hal::mac_addr)");
+        }
         memcpy(legacy_config->blacklist_bssid[i++], bssid.data.data(), bssid.data.size());
     }
     legacy_config->num_whitelist_ssid = aidl_config.ssidAllowlist.size();
     i = 0;
     for (const auto& ssid : aidl_config.ssidAllowlist) {
-        CHECK(ssid.data.size() <= sizeof(legacy_hal::ssid_t::ssid_str));
+        if(!(ssid.data.size() <= sizeof(legacy_hal::ssid_t::ssid_str))){
+            ALOGE("Check failed: ssid.data.size() <= sizeof(legacy_hal::ssid_t::ssid_str)");
+        }
         legacy_config->whitelist_ssid[i].length = ssid.data.size();
         memcpy(legacy_config->whitelist_ssid[i].ssid_str, ssid.data.data(), ssid.data.size());
         i++;
@@ -1143,7 +1174,9 @@ legacy_hal::fw_roaming_state_t convertAidlRoamingStateToLegacy(StaRoamingState s
         case StaRoamingState::DISABLED:
             return legacy_hal::ROAMING_DISABLE;
     };
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 #ifdef CONFIG_NAN
@@ -1156,7 +1189,9 @@ legacy_hal::NanMatchAlg convertAidlNanMatchAlgToLegacy(NanMatchAlg type) {
         case NanMatchAlg::MATCH_NEVER:
             return legacy_hal::NAN_MATCH_ALG_MATCH_NEVER;
     }
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 legacy_hal::NanPublishType convertAidlNanPublishTypeToLegacy(NanPublishType type) {
@@ -1168,7 +1203,9 @@ legacy_hal::NanPublishType convertAidlNanPublishTypeToLegacy(NanPublishType type
         case NanPublishType::UNSOLICITED_SOLICITED:
             return legacy_hal::NAN_PUBLISH_TYPE_UNSOLICITED_SOLICITED;
     }
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 legacy_hal::NanTxType convertAidlNanTxTypeToLegacy(NanTxType type) {
@@ -1178,7 +1215,9 @@ legacy_hal::NanTxType convertAidlNanTxTypeToLegacy(NanTxType type) {
         case NanTxType::UNICAST:
             return legacy_hal::NAN_TX_TYPE_UNICAST;
     }
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 legacy_hal::NanSubscribeType convertAidlNanSubscribeTypeToLegacy(NanSubscribeType type) {
@@ -1188,7 +1227,9 @@ legacy_hal::NanSubscribeType convertAidlNanSubscribeTypeToLegacy(NanSubscribeTyp
         case NanSubscribeType::ACTIVE:
             return legacy_hal::NAN_SUBSCRIBE_TYPE_ACTIVE;
     }
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 legacy_hal::NanSRFType convertAidlNanSrfTypeToLegacy(NanSrfType type) {
@@ -1198,7 +1239,9 @@ legacy_hal::NanSRFType convertAidlNanSrfTypeToLegacy(NanSrfType type) {
         case NanSrfType::PARTIAL_MAC_ADDR:
             return legacy_hal::NAN_SRF_ATTR_PARTIAL_MAC_ADDR;
     }
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 legacy_hal::NanDataPathChannelCfg convertAidlNanDataPathChannelCfgToLegacy(
@@ -1211,7 +1254,9 @@ legacy_hal::NanDataPathChannelCfg convertAidlNanDataPathChannelCfgToLegacy(
         case NanDataPathChannelCfg::FORCE_CHANNEL_SETUP:
             return legacy_hal::NAN_DP_FORCE_CHANNEL_SETUP;
     }
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 legacy_hal::NanPairingRequestType convertAidlNanPairingRequestTypeToLegacy(
@@ -1222,7 +1267,8 @@ legacy_hal::NanPairingRequestType convertAidlNanPairingRequestTypeToLegacy(
         case NanPairingRequestType::NAN_PAIRING_VERIFICATION:
             return legacy_hal::NAN_PAIRING_VERIFICATION;
     }
-    LOG(FATAL);
+    ALOGE("FATAL: %s:%d - This is a fatal error message", __FILE__, __LINE__);
+    std::abort();
 }
 
 NanPairingRequestType convertLegacyNanPairingRequestTypeToAidl(
@@ -1233,7 +1279,8 @@ NanPairingRequestType convertLegacyNanPairingRequestTypeToAidl(
         case legacy_hal::NAN_PAIRING_VERIFICATION:
             return NanPairingRequestType::NAN_PAIRING_VERIFICATION;
     }
-    LOG(FATAL);
+    ALOGE("FATAL: %s:%d - This is a fatal error message", __FILE__, __LINE__);
+    std::abort();
 }
 
 legacy_hal::NanAkm convertAidlAkmTypeToLegacy(NanPairingAkm type) {
@@ -1243,7 +1290,8 @@ legacy_hal::NanAkm convertAidlAkmTypeToLegacy(NanPairingAkm type) {
         case NanPairingAkm::PASN:
             return legacy_hal::PASN;
     }
-    LOG(FATAL);
+    ALOGE("FATAL: %s:%d - This is a fatal error message", __FILE__, __LINE__);
+    std::abort();
 }
 
 NanPairingAkm convertLegacyAkmTypeToAidl(legacy_hal::NanAkm type) {
@@ -1253,7 +1301,8 @@ NanPairingAkm convertLegacyAkmTypeToAidl(legacy_hal::NanAkm type) {
         case legacy_hal::PASN:
             return NanPairingAkm::PASN;
     }
-    LOG(FATAL);
+    ALOGE("FATAL: %s:%d - This is a fatal error message", __FILE__, __LINE__);
+    std::abort();
 }
 
 uint16_t convertAidlBootstrappingMethodToLegacy(NanBootstrappingMethod type) {
@@ -1281,7 +1330,8 @@ uint16_t convertAidlBootstrappingMethodToLegacy(NanBootstrappingMethod type) {
         case NanBootstrappingMethod::BOOTSTRAPPING_HANDSHAKE_SHIP_MASK:
             return NAN_PAIRING_BOOTSTRAPPING_HANDSHAKE_SHIP_MASK;
     }
-    LOG(FATAL);
+    ALOGE("FATAL: %s:%d - This is a fatal error message", __FILE__, __LINE__);
+    std::abort();
 }
 
 NanBootstrappingMethod convertLegacyBootstrappingMethodToAidl(uint16_t type) {
@@ -1309,14 +1359,15 @@ NanBootstrappingMethod convertLegacyBootstrappingMethodToAidl(uint16_t type) {
         case NAN_PAIRING_BOOTSTRAPPING_HANDSHAKE_SHIP_MASK:
             return NanBootstrappingMethod::BOOTSTRAPPING_HANDSHAKE_SHIP_MASK;
     }
-    LOG(FATAL);
+    ALOGE("FATAL: %s:%d - This is a fatal error message", __FILE__, __LINE__);
+    std::abort();
     return {};
 }
 
 bool covertAidlPairingConfigToLegacy(const NanPairingConfig& aidl_config,
                                      legacy_hal::NanPairingConfig* legacy_config) {
     if (!legacy_config) {
-        LOG(ERROR) << "covertAidlPairingConfigToLegacy: legacy_config is null";
+        ALOGE("covertAidlPairingConfigToLegacy: legacy_config is null");
         return false;
     }
     legacy_config->enable_pairing_setup = aidl_config.enablePairingSetup ? 0x1 : 0x0;
@@ -1329,7 +1380,7 @@ bool covertAidlPairingConfigToLegacy(const NanPairingConfig& aidl_config,
 bool convertLegacyPairingConfigToAidl(const legacy_hal::NanPairingConfig& legacy_config,
                                       NanPairingConfig* aidl_config) {
     if (!aidl_config) {
-        LOG(ERROR) << "convertLegacyPairingConfigToAidl: aidl_nira is null";
+        ALOGE("convertLegacyPairingConfigToAidl: aidl_nira is null");
         return false;
     }
     *aidl_config = {};
@@ -1343,7 +1394,7 @@ bool convertLegacyPairingConfigToAidl(const legacy_hal::NanPairingConfig& legacy
 bool convertLegacyNiraToAidl(const legacy_hal::NanIdentityResolutionAttribute& legacy_nira,
                              NanIdentityResolutionAttribute* aidl_nira) {
     if (!aidl_nira) {
-        LOG(ERROR) << "convertLegacyNiraToAidl: aidl_nira is null";
+        ALOGE("convertLegacyNiraToAidl: aidl_nira is null");
         return false;
     }
     *aidl_nira = {};
@@ -1357,7 +1408,7 @@ bool convertLegacyNiraToAidl(const legacy_hal::NanIdentityResolutionAttribute& l
 bool convertLegacyNpsaToAidl(const legacy_hal::NpkSecurityAssociation& legacy_npsa,
                              NpkSecurityAssociation* aidl_npsa) {
     if (!aidl_npsa) {
-        LOG(ERROR) << "convertLegacyNiraToAidl: aidl_nira is null";
+        ALOGE("convertLegacyNiraToAidl: aidl_nira is null");
         return false;
     }
     *aidl_npsa = {};
@@ -1413,7 +1464,9 @@ NanStatusCode convertLegacyNanStatusTypeToAidl(legacy_hal::NanStatusType type) {
         case legacy_hal::NAN_STATUS_NO_CONNECTION:
             return NanStatusCode::NO_CONNECTION;
     }
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 void convertToNanStatus(legacy_hal::NanStatusType type, const char* str, size_t max_len,
@@ -1426,7 +1479,7 @@ bool convertAidlNanEnableRequestToLegacy(const NanEnableRequest& aidl_request1,
                                          const NanConfigRequestSupplemental& aidl_request2,
                                          legacy_hal::NanEnableRequest* legacy_request) {
     if (!legacy_request) {
-        LOG(ERROR) << "convertAidlNanEnableRequestToLegacy: null legacy_request";
+        ALOGE("convertAidlNanEnableRequestToLegacy: null legacy_request");
         return false;
     }
     *legacy_request = {};
@@ -1449,8 +1502,7 @@ bool convertAidlNanEnableRequestToLegacy(const NanEnableRequest& aidl_request1,
             aidl_request1.configParams.disableJoinedClusterIndication ? 0x4 : 0x0;
     legacy_request->config_sid_beacon = 1;
     if (aidl_request1.configParams.numberOfPublishServiceIdsInBeacon < 0) {
-        LOG(ERROR) << "convertAidlNanEnableRequestToLegacy: "
-                      "numberOfPublishServiceIdsInBeacon < 0";
+        ALOGE("convertAidlNanEnableRequestToLegacy: numberOfPublishServiceIdsInBeacon < 0");
         return false;
     }
     legacy_request->sid_beacon_val =
@@ -1458,8 +1510,7 @@ bool convertAidlNanEnableRequestToLegacy(const NanEnableRequest& aidl_request1,
             (aidl_request1.configParams.numberOfPublishServiceIdsInBeacon << 1);
     legacy_request->config_subscribe_sid_beacon = 1;
     if (aidl_request1.configParams.numberOfSubscribeServiceIdsInBeacon < 0) {
-        LOG(ERROR) << "convertAidlNanEnableRequestToLegacy: "
-                      "numberOfSubscribeServiceIdsInBeacon < 0";
+        ALOGE("convertAidlNanEnableRequestToLegacy: numberOfSubscribeServiceIdsInBeacon < 0");
         return false;
     }
     legacy_request->subscribe_sid_beacon_val =
@@ -1472,8 +1523,7 @@ bool convertAidlNanEnableRequestToLegacy(const NanEnableRequest& aidl_request1,
             aidl_request1.configParams.macAddressRandomizationIntervalSec;
     legacy_request->config_2dot4g_rssi_close = 1;
     if (aidl_request1.configParams.bandSpecificConfig.size() != 3) {
-        LOG(ERROR) << "convertAidlNanEnableRequestToLegacy: "
-                      "bandSpecificConfig.size() != 3";
+        ALOGE("convertAidlNanEnableRequestToLegacy: bandSpecificConfig.size() != 3");
         return false;
     }
     legacy_request->rssi_close_2dot4g_val =
@@ -1586,7 +1636,7 @@ bool convertAidlNanConfigRequestToLegacy(const NanConfigRequest& aidl_request1,
                                          const NanConfigRequestSupplemental& aidl_request2,
                                          legacy_hal::NanConfigRequest* legacy_request) {
     if (!legacy_request) {
-        LOG(ERROR) << "convertAidlNanConfigRequestToLegacy: null legacy_request";
+        ALOGE("convertAidlNanConfigRequestToLegacy: null legacy_request");
         return false;
     }
     *legacy_request = {};
@@ -1601,16 +1651,14 @@ bool convertAidlNanConfigRequestToLegacy(const NanConfigRequest& aidl_request1,
             aidl_request1.disableJoinedClusterIndication ? 0x4 : 0x0;
     legacy_request->config_sid_beacon = 1;
     if (aidl_request1.numberOfPublishServiceIdsInBeacon < 0) {
-        LOG(ERROR) << "convertAidlNanConfigRequestToLegacy: "
-                      "numberOfPublishServiceIdsInBeacon < 0";
+        ALOGE("convertAidlNanConfigRequestToLegacy: numberOfPublishServiceIdsInBeacon < 0");
         return false;
     }
     legacy_request->sid_beacon = (aidl_request1.includePublishServiceIdsInBeacon ? 0x1 : 0x0) |
                                  (aidl_request1.numberOfPublishServiceIdsInBeacon << 1);
     legacy_request->config_subscribe_sid_beacon = 1;
     if (aidl_request1.numberOfSubscribeServiceIdsInBeacon < 0) {
-        LOG(ERROR) << "convertAidlNanConfigRequestToLegacy: "
-                      "numberOfSubscribeServiceIdsInBeacon < 0";
+        ALOGE("convertAidlNanConfigRequestToLegacy: numberOfSubscribeServiceIdsInBeacon < 0");
         return false;
     }
     legacy_request->subscribe_sid_beacon_val =
@@ -1675,7 +1723,7 @@ bool convertAidlNanConfigRequestToLegacy(const NanConfigRequest& aidl_request1,
 bool convertAidlNanPublishRequestToLegacy(const NanPublishRequest& aidl_request,
                                           legacy_hal::NanPublishRequest* legacy_request) {
     if (!legacy_request) {
-        LOG(ERROR) << "convertAidlNanPublishRequestToLegacy: null legacy_request";
+        ALOGE("convertAidlNanPublishRequestToLegacy: null legacy_request");
         return false;
     }
     *legacy_request = {};
@@ -1686,8 +1734,7 @@ bool convertAidlNanPublishRequestToLegacy(const NanPublishRequest& aidl_request,
     legacy_request->publish_count = aidl_request.baseConfigs.discoveryCount;
     legacy_request->service_name_len = aidl_request.baseConfigs.serviceName.size();
     if (legacy_request->service_name_len > NAN_MAX_SERVICE_NAME_LEN) {
-        LOG(ERROR) << "convertAidlNanPublishRequestToLegacy: service_name_len "
-                      "too large";
+        ALOGE("convertAidlNanPublishRequestToLegacy: service_name_len too large");
         return false;
     }
     memcpy(legacy_request->service_name, aidl_request.baseConfigs.serviceName.data(),
@@ -1696,8 +1743,7 @@ bool convertAidlNanPublishRequestToLegacy(const NanPublishRequest& aidl_request,
             convertAidlNanMatchAlgToLegacy(aidl_request.baseConfigs.discoveryMatchIndicator);
     legacy_request->service_specific_info_len = aidl_request.baseConfigs.serviceSpecificInfo.size();
     if (legacy_request->service_specific_info_len > NAN_MAX_SERVICE_SPECIFIC_INFO_LEN) {
-        LOG(ERROR) << "convertAidlNanPublishRequestToLegacy: "
-                      "service_specific_info_len too large";
+        ALOGE("convertAidlNanPublishRequestToLegacy: service_specific_info_len too large");
         return false;
     }
     memcpy(legacy_request->service_specific_info,
@@ -1706,8 +1752,7 @@ bool convertAidlNanPublishRequestToLegacy(const NanPublishRequest& aidl_request,
     legacy_request->sdea_service_specific_info_len =
             aidl_request.baseConfigs.extendedServiceSpecificInfo.size();
     if (legacy_request->sdea_service_specific_info_len > NAN_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN) {
-        LOG(ERROR) << "convertAidlNanPublishRequestToLegacy: "
-                      "sdea_service_specific_info_len too large";
+        ALOGE("convertAidlNanPublishRequestToLegacy: sdea_service_specific_info_len too large");
         return false;
     }
     memcpy(legacy_request->sdea_service_specific_info,
@@ -1715,16 +1760,14 @@ bool convertAidlNanPublishRequestToLegacy(const NanPublishRequest& aidl_request,
            legacy_request->sdea_service_specific_info_len);
     legacy_request->rx_match_filter_len = aidl_request.baseConfigs.rxMatchFilter.size();
     if (legacy_request->rx_match_filter_len > NAN_MAX_MATCH_FILTER_LEN) {
-        LOG(ERROR) << "convertAidlNanPublishRequestToLegacy: "
-                      "rx_match_filter_len too large";
+        ALOGE("convertAidlNanPublishRequestToLegacy: rx_match_filter_len too large");
         return false;
     }
     memcpy(legacy_request->rx_match_filter, aidl_request.baseConfigs.rxMatchFilter.data(),
            legacy_request->rx_match_filter_len);
     legacy_request->tx_match_filter_len = aidl_request.baseConfigs.txMatchFilter.size();
     if (legacy_request->tx_match_filter_len > NAN_MAX_MATCH_FILTER_LEN) {
-        LOG(ERROR) << "convertAidlNanPublishRequestToLegacy: "
-                      "tx_match_filter_len too large";
+        ALOGE("convertAidlNanPublishRequestToLegacy: tx_match_filter_len too large");
         return false;
     }
     memcpy(legacy_request->tx_match_filter, aidl_request.baseConfigs.txMatchFilter.data(),
@@ -1742,7 +1785,7 @@ bool convertAidlNanPublishRequestToLegacy(const NanPublishRequest& aidl_request,
 
     legacy_request->scid_len = aidl_request.baseConfigs.securityConfig.scid.size();
     if (legacy_request->scid_len > NAN_MAX_SCID_BUF_LEN) {
-        LOG(ERROR) << "convertAidlNanPublishRequestToLegacy: scid_len too large";
+        ALOGE("convertAidlNanPublishRequestToLegacy: scid_len too large");
         return false;
     }
     memcpy(legacy_request->scid, aidl_request.baseConfigs.securityConfig.scid.data(),
@@ -1753,7 +1796,7 @@ bool convertAidlNanPublishRequestToLegacy(const NanPublishRequest& aidl_request,
         legacy_request->key_info.body.pmk_info.pmk_len =
                 aidl_request.baseConfigs.securityConfig.pmk.size();
         if (legacy_request->key_info.body.pmk_info.pmk_len != NAN_PMK_INFO_LEN) {
-            LOG(ERROR) << "convertAidlNanPublishRequestToLegacy: invalid pmk_len";
+            ALOGE("convertAidlNanPublishRequestToLegacy: invalid pmk_len");
             return false;
         }
         memcpy(legacy_request->key_info.body.pmk_info.pmk,
@@ -1767,14 +1810,12 @@ bool convertAidlNanPublishRequestToLegacy(const NanPublishRequest& aidl_request,
                 aidl_request.baseConfigs.securityConfig.passphrase.size();
         if (legacy_request->key_info.body.passphrase_info.passphrase_len <
             NAN_SECURITY_MIN_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanPublishRequestToLegacy: "
-                          "passphrase_len too small";
+            ALOGE("convertAidlNanPublishRequestToLegacy: passphrase_len too small");
             return false;
         }
         if (legacy_request->key_info.body.passphrase_info.passphrase_len >
             NAN_SECURITY_MAX_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanPublishRequestToLegacy: "
-                          "passphrase_len too large";
+            ALOGE("convertAidlNanPublishRequestToLegacy: passphrase_len too large");
             return false;
         }
         memcpy(legacy_request->key_info.body.passphrase_info.passphrase,
@@ -1807,7 +1848,7 @@ bool convertAidlNanPublishRequestToLegacy(const NanPublishRequest& aidl_request,
     memcpy(legacy_request->nan_identity_key, aidl_request.identityKey.data(), NAN_IDENTITY_KEY_LEN);
     if (!covertAidlPairingConfigToLegacy(aidl_request.pairingConfig,
                                          &legacy_request->nan_pairing_config)) {
-        LOG(ERROR) << "convertAidlNanPublishRequestToLegacy: invalid pairing config";
+        ALOGE("convertAidlNanPublishRequestToLegacy: invalid pairing config");
         return false;
     }
     legacy_request->enable_suspendability = aidl_request.baseConfigs.enableSessionSuspendability;
@@ -1818,7 +1859,7 @@ bool convertAidlNanPublishRequestToLegacy(const NanPublishRequest& aidl_request,
 bool convertAidlNanSubscribeRequestToLegacy(const NanSubscribeRequest& aidl_request,
                                             legacy_hal::NanSubscribeRequest* legacy_request) {
     if (!legacy_request) {
-        LOG(ERROR) << "convertAidlNanSubscribeRequestToLegacy: legacy_request is null";
+        ALOGE("convertAidlNanSubscribeRequestToLegacy: legacy_request is null");
         return false;
     }
     *legacy_request = {};
@@ -1829,8 +1870,7 @@ bool convertAidlNanSubscribeRequestToLegacy(const NanSubscribeRequest& aidl_requ
     legacy_request->subscribe_count = aidl_request.baseConfigs.discoveryCount;
     legacy_request->service_name_len = aidl_request.baseConfigs.serviceName.size();
     if (legacy_request->service_name_len > NAN_MAX_SERVICE_NAME_LEN) {
-        LOG(ERROR) << "convertAidlNanSubscribeRequestToLegacy: "
-                      "service_name_len too large";
+        ALOGE("convertAidlNanSubscribeRequestToLegacy: service_name_len too large");
         return false;
     }
     memcpy(legacy_request->service_name, aidl_request.baseConfigs.serviceName.data(),
@@ -1839,8 +1879,7 @@ bool convertAidlNanSubscribeRequestToLegacy(const NanSubscribeRequest& aidl_requ
             convertAidlNanMatchAlgToLegacy(aidl_request.baseConfigs.discoveryMatchIndicator);
     legacy_request->service_specific_info_len = aidl_request.baseConfigs.serviceSpecificInfo.size();
     if (legacy_request->service_specific_info_len > NAN_MAX_SERVICE_SPECIFIC_INFO_LEN) {
-        LOG(ERROR) << "convertAidlNanSubscribeRequestToLegacy: "
-                      "service_specific_info_len too large";
+        ALOGE("convertAidlNanSubscribeRequestToLegacy: service_specific_info_len too large");
         return false;
     }
     memcpy(legacy_request->service_specific_info,
@@ -1849,8 +1888,7 @@ bool convertAidlNanSubscribeRequestToLegacy(const NanSubscribeRequest& aidl_requ
     legacy_request->sdea_service_specific_info_len =
             aidl_request.baseConfigs.extendedServiceSpecificInfo.size();
     if (legacy_request->sdea_service_specific_info_len > NAN_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN) {
-        LOG(ERROR) << "convertAidlNanSubscribeRequestToLegacy: "
-                      "sdea_service_specific_info_len too large";
+        ALOGE("convertAidlNanSubscribeRequestToLegacy: sdea_service_specific_info_len too large");
         return false;
     }
     memcpy(legacy_request->sdea_service_specific_info,
@@ -1858,16 +1896,14 @@ bool convertAidlNanSubscribeRequestToLegacy(const NanSubscribeRequest& aidl_requ
            legacy_request->sdea_service_specific_info_len);
     legacy_request->rx_match_filter_len = aidl_request.baseConfigs.rxMatchFilter.size();
     if (legacy_request->rx_match_filter_len > NAN_MAX_MATCH_FILTER_LEN) {
-        LOG(ERROR) << "convertAidlNanSubscribeRequestToLegacy: "
-                      "rx_match_filter_len too large";
+        ALOGE("convertAidlNanSubscribeRequestToLegacy: rx_match_filter_len too large");
         return false;
     }
     memcpy(legacy_request->rx_match_filter, aidl_request.baseConfigs.rxMatchFilter.data(),
            legacy_request->rx_match_filter_len);
     legacy_request->tx_match_filter_len = aidl_request.baseConfigs.txMatchFilter.size();
     if (legacy_request->tx_match_filter_len > NAN_MAX_MATCH_FILTER_LEN) {
-        LOG(ERROR) << "convertAidlNanSubscribeRequestToLegacy: "
-                      "tx_match_filter_len too large";
+        ALOGE("convertAidlNanSubscribeRequestToLegacy: tx_match_filter_len too large");
         return false;
     }
     memcpy(legacy_request->tx_match_filter, aidl_request.baseConfigs.txMatchFilter.data(),
@@ -1886,7 +1922,7 @@ bool convertAidlNanSubscribeRequestToLegacy(const NanSubscribeRequest& aidl_requ
         legacy_request->key_info.body.pmk_info.pmk_len =
                 aidl_request.baseConfigs.securityConfig.pmk.size();
         if (legacy_request->key_info.body.pmk_info.pmk_len != NAN_PMK_INFO_LEN) {
-            LOG(ERROR) << "convertAidlNanSubscribeRequestToLegacy: invalid pmk_len";
+            ALOGE("convertAidlNanSubscribeRequestToLegacy: invalid pmk_len");
             return false;
         }
         memcpy(legacy_request->key_info.body.pmk_info.pmk,
@@ -1900,14 +1936,12 @@ bool convertAidlNanSubscribeRequestToLegacy(const NanSubscribeRequest& aidl_requ
                 aidl_request.baseConfigs.securityConfig.passphrase.size();
         if (legacy_request->key_info.body.passphrase_info.passphrase_len <
             NAN_SECURITY_MIN_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanSubscribeRequestToLegacy: "
-                          "passphrase_len too small";
+            ALOGE("convertAidlNanSubscribeRequestToLegacy: passphrase_len too small");
             return false;
         }
         if (legacy_request->key_info.body.passphrase_info.passphrase_len >
             NAN_SECURITY_MAX_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanSubscribeRequestToLegacy: "
-                          "passphrase_len too large";
+            ALOGE("convertAidlNanSubscribeRequestToLegacy: passphrase_len too large");
             return false;
         }
         memcpy(legacy_request->key_info.body.passphrase_info.passphrase,
@@ -1944,8 +1978,7 @@ bool convertAidlNanSubscribeRequestToLegacy(const NanSubscribeRequest& aidl_requ
                                                : legacy_hal::NAN_SSI_NOT_REQUIRED_IN_MATCH_IND;
     legacy_request->num_intf_addr_present = aidl_request.intfAddr.size();
     if (legacy_request->num_intf_addr_present > NAN_MAX_SUBSCRIBE_MAX_ADDRESS) {
-        LOG(ERROR) << "convertAidlNanSubscribeRequestToLegacy: "
-                      "num_intf_addr_present - too many";
+        ALOGE("convertAidlNanSubscribeRequestToLegacy: num_intf_addr_present - too many");
         return false;
     }
     for (int i = 0; i < legacy_request->num_intf_addr_present; i++) {
@@ -1954,7 +1987,7 @@ bool convertAidlNanSubscribeRequestToLegacy(const NanSubscribeRequest& aidl_requ
     memcpy(legacy_request->nan_identity_key, aidl_request.identityKey.data(), NAN_IDENTITY_KEY_LEN);
     if (!covertAidlPairingConfigToLegacy(aidl_request.pairingConfig,
                                          &legacy_request->nan_pairing_config)) {
-        LOG(ERROR) << "convertAidlNanSubscribeRequestToLegacy: invalid pairing config";
+        ALOGE("convertAidlNanSubscribeRequestToLegacy: invalid pairing config");
         return false;
     }
     legacy_request->enable_suspendability = aidl_request.baseConfigs.enableSessionSuspendability;
@@ -1966,8 +1999,7 @@ bool convertAidlNanTransmitFollowupRequestToLegacy(
         const NanTransmitFollowupRequest& aidl_request,
         legacy_hal::NanTransmitFollowupRequest* legacy_request) {
     if (!legacy_request) {
-        LOG(ERROR) << "convertAidlNanTransmitFollowupRequestToLegacy: "
-                      "legacy_request is null";
+        ALOGE("convertAidlNanTransmitFollowupRequestToLegacy: legacy_request is null");
         return false;
     }
     *legacy_request = {};
@@ -1982,8 +2014,7 @@ bool convertAidlNanTransmitFollowupRequestToLegacy(
                                         : legacy_hal::NAN_TRANSMIT_IN_FAW;
     legacy_request->service_specific_info_len = aidl_request.serviceSpecificInfo.size();
     if (legacy_request->service_specific_info_len > NAN_MAX_SERVICE_SPECIFIC_INFO_LEN) {
-        LOG(ERROR) << "convertAidlNanTransmitFollowupRequestToLegacy: "
-                      "service_specific_info_len too large";
+        ALOGE("convertAidlNanTransmitFollowupRequestToLegacy: service_specific_info_len too large");
         return false;
     }
     memcpy(legacy_request->service_specific_info, aidl_request.serviceSpecificInfo.data(),
@@ -1991,8 +2022,7 @@ bool convertAidlNanTransmitFollowupRequestToLegacy(
     legacy_request->sdea_service_specific_info_len =
             aidl_request.extendedServiceSpecificInfo.size();
     if (legacy_request->sdea_service_specific_info_len > NAN_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN) {
-        LOG(ERROR) << "convertAidlNanTransmitFollowupRequestToLegacy: "
-                      "sdea_service_specific_info_len too large";
+        ALOGE("convertAidlNanTransmitFollowupRequestToLegacy: sdea_service_specific_info_len too large");
         return false;
     }
     memcpy(legacy_request->sdea_service_specific_info,
@@ -2007,8 +2037,7 @@ bool convertAidlNanDataPathInitiatorRequestToLegacy(
         const NanInitiateDataPathRequest& aidl_request,
         legacy_hal::NanDataPathInitiatorRequest* legacy_request) {
     if (!legacy_request) {
-        LOG(ERROR) << "convertAidlNanDataPathInitiatorRequestToLegacy: "
-                      "legacy_request is null";
+        ALOGE("convertAidlNanDataPathInitiatorRequestToLegacy: legacy_request is null");
         return false;
     }
     *legacy_request = {};
@@ -2019,8 +2048,7 @@ bool convertAidlNanDataPathInitiatorRequestToLegacy(
             convertAidlNanDataPathChannelCfgToLegacy(aidl_request.channelRequestType);
     legacy_request->channel = aidl_request.channel;
     if (strnlen(aidl_request.ifaceName.c_str(), IFNAMSIZ + 1) == IFNAMSIZ + 1) {
-        LOG(ERROR) << "convertAidlNanDataPathInitiatorRequestToLegacy: "
-                      "ifaceName too long";
+        ALOGE("convertAidlNanDataPathInitiatorRequestToLegacy: ifaceName too long");
         return false;
     }
     strlcpy(legacy_request->ndp_iface, aidl_request.ifaceName.c_str(), IFNAMSIZ + 1);
@@ -2030,8 +2058,7 @@ bool convertAidlNanDataPathInitiatorRequestToLegacy(
                     : legacy_hal::NAN_DP_CONFIG_NO_SECURITY;
     legacy_request->app_info.ndp_app_info_len = aidl_request.appInfo.size();
     if (legacy_request->app_info.ndp_app_info_len > NAN_DP_MAX_APP_INFO_LEN) {
-        LOG(ERROR) << "convertAidlNanDataPathInitiatorRequestToLegacy: "
-                      "ndp_app_info_len too large";
+        ALOGE("convertAidlNanDataPathInitiatorRequestToLegacy: ndp_app_info_len too large");
         return false;
     }
     memcpy(legacy_request->app_info.ndp_app_info, aidl_request.appInfo.data(),
@@ -2041,8 +2068,7 @@ bool convertAidlNanDataPathInitiatorRequestToLegacy(
         legacy_request->key_info.key_type = legacy_hal::NAN_SECURITY_KEY_INPUT_PMK;
         legacy_request->key_info.body.pmk_info.pmk_len = aidl_request.securityConfig.pmk.size();
         if (legacy_request->key_info.body.pmk_info.pmk_len != NAN_PMK_INFO_LEN) {
-            LOG(ERROR) << "convertAidlNanDataPathInitiatorRequestToLegacy: "
-                          "invalid pmk_len";
+            ALOGE("convertAidlNanDataPathInitiatorRequestToLegacy: invalid pmk_len");
             return false;
         }
         memcpy(legacy_request->key_info.body.pmk_info.pmk, aidl_request.securityConfig.pmk.data(),
@@ -2054,14 +2080,12 @@ bool convertAidlNanDataPathInitiatorRequestToLegacy(
                 aidl_request.securityConfig.passphrase.size();
         if (legacy_request->key_info.body.passphrase_info.passphrase_len <
             NAN_SECURITY_MIN_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanDataPathInitiatorRequestToLegacy: "
-                          "passphrase_len too small";
+            ALOGE("convertAidlNanDataPathInitiatorRequestToLegacy: passphrase_len too small");
             return false;
         }
         if (legacy_request->key_info.body.passphrase_info.passphrase_len >
             NAN_SECURITY_MAX_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanDataPathInitiatorRequestToLegacy: "
-                          "passphrase_len too large";
+            ALOGE("convertAidlNanDataPathInitiatorRequestToLegacy: passphrase_len too large");
             return false;
         }
         memcpy(legacy_request->key_info.body.passphrase_info.passphrase,
@@ -2070,15 +2094,14 @@ bool convertAidlNanDataPathInitiatorRequestToLegacy(
     }
     legacy_request->service_name_len = aidl_request.serviceNameOutOfBand.size();
     if (legacy_request->service_name_len > NAN_MAX_SERVICE_NAME_LEN) {
-        LOG(ERROR) << "convertAidlNanDataPathInitiatorRequestToLegacy: "
-                      "service_name_len too large";
+        ALOGE("convertAidlNanDataPathInitiatorRequestToLegacy: service_name_len too large");
         return false;
     }
     memcpy(legacy_request->service_name, aidl_request.serviceNameOutOfBand.data(),
            legacy_request->service_name_len);
     legacy_request->scid_len = aidl_request.securityConfig.scid.size();
     if (legacy_request->scid_len > NAN_MAX_SCID_BUF_LEN) {
-        LOG(ERROR) << "convertAidlNanDataPathInitiatorRequestToLegacy: scid_len too large";
+        ALOGE("convertAidlNanDataPathInitiatorRequestToLegacy: scid_len too large");
         return false;
     }
     memcpy(legacy_request->scid, aidl_request.securityConfig.scid.data(), legacy_request->scid_len);
@@ -2091,8 +2114,7 @@ bool convertAidlNanDataPathIndicationResponseToLegacy(
         const NanRespondToDataPathIndicationRequest& aidl_request,
         legacy_hal::NanDataPathIndicationResponse* legacy_request) {
     if (!legacy_request) {
-        LOG(ERROR) << "convertAidlNanDataPathIndicationResponseToLegacy: "
-                      "legacy_request is null";
+        ALOGE("convertAidlNanDataPathIndicationResponseToLegacy: legacy_request is null");
         return false;
     }
     *legacy_request = {};
@@ -2101,8 +2123,7 @@ bool convertAidlNanDataPathIndicationResponseToLegacy(
                                                           : legacy_hal::NAN_DP_REQUEST_REJECT;
     legacy_request->ndp_instance_id = aidl_request.ndpInstanceId;
     if (strnlen(aidl_request.ifaceName.c_str(), IFNAMSIZ + 1) == IFNAMSIZ + 1) {
-        LOG(ERROR) << "convertAidlNanDataPathIndicationResponseToLegacy: "
-                      "ifaceName too long";
+        ALOGE("convertAidlNanDataPathIndicationResponseToLegacy: ifaceName too long");
         return false;
     }
     strlcpy(legacy_request->ndp_iface, aidl_request.ifaceName.c_str(), IFNAMSIZ + 1);
@@ -2112,8 +2133,7 @@ bool convertAidlNanDataPathIndicationResponseToLegacy(
                     : legacy_hal::NAN_DP_CONFIG_NO_SECURITY;
     legacy_request->app_info.ndp_app_info_len = aidl_request.appInfo.size();
     if (legacy_request->app_info.ndp_app_info_len > NAN_DP_MAX_APP_INFO_LEN) {
-        LOG(ERROR) << "convertAidlNanDataPathIndicationResponseToLegacy: "
-                      "ndp_app_info_len too large";
+        ALOGE("convertAidlNanDataPathIndicationResponseToLegacy: ndp_app_info_len too large");
         return false;
     }
     memcpy(legacy_request->app_info.ndp_app_info, aidl_request.appInfo.data(),
@@ -2123,8 +2143,7 @@ bool convertAidlNanDataPathIndicationResponseToLegacy(
         legacy_request->key_info.key_type = legacy_hal::NAN_SECURITY_KEY_INPUT_PMK;
         legacy_request->key_info.body.pmk_info.pmk_len = aidl_request.securityConfig.pmk.size();
         if (legacy_request->key_info.body.pmk_info.pmk_len != NAN_PMK_INFO_LEN) {
-            LOG(ERROR) << "convertAidlNanDataPathIndicationResponseToLegacy: "
-                          "invalid pmk_len";
+            ALOGE("convertAidlNanDataPathIndicationResponseToLegacy: invalid pmk_len");
             return false;
         }
         memcpy(legacy_request->key_info.body.pmk_info.pmk, aidl_request.securityConfig.pmk.data(),
@@ -2136,14 +2155,12 @@ bool convertAidlNanDataPathIndicationResponseToLegacy(
                 aidl_request.securityConfig.passphrase.size();
         if (legacy_request->key_info.body.passphrase_info.passphrase_len <
             NAN_SECURITY_MIN_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanDataPathIndicationResponseToLegacy: "
-                          "passphrase_len too small";
+            ALOGE("convertAidlNanDataPathIndicationResponseToLegacy: passphrase_len too small");
             return false;
         }
         if (legacy_request->key_info.body.passphrase_info.passphrase_len >
             NAN_SECURITY_MAX_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanDataPathIndicationResponseToLegacy: "
-                          "passphrase_len too large";
+            ALOGE("convertAidlNanDataPathIndicationResponseToLegacy: passphrase_len too large");
             return false;
         }
         memcpy(legacy_request->key_info.body.passphrase_info.passphrase,
@@ -2152,15 +2169,14 @@ bool convertAidlNanDataPathIndicationResponseToLegacy(
     }
     legacy_request->service_name_len = aidl_request.serviceNameOutOfBand.size();
     if (legacy_request->service_name_len > NAN_MAX_SERVICE_NAME_LEN) {
-        LOG(ERROR) << "convertAidlNanDataPathIndicationResponseToLegacy: "
-                      "service_name_len too large";
+        ALOGE("convertAidlNanDataPathIndicationResponseToLegacy: service_name_len too large");
         return false;
     }
     memcpy(legacy_request->service_name, aidl_request.serviceNameOutOfBand.data(),
            legacy_request->service_name_len);
     legacy_request->scid_len = aidl_request.securityConfig.scid.size();
     if (legacy_request->scid_len > NAN_MAX_SCID_BUF_LEN) {
-        LOG(ERROR) << "convertAidlNanDataPathIndicationResponseToLegacy: scid_len too large";
+        ALOGE("convertAidlNanDataPathIndicationResponseToLegacy: scid_len too large");
         return false;
     }
     memcpy(legacy_request->scid, aidl_request.securityConfig.scid.data(), legacy_request->scid_len);
@@ -2172,7 +2188,7 @@ bool convertAidlNanDataPathIndicationResponseToLegacy(
 bool convertLegacyNanResponseHeaderToAidl(const legacy_hal::NanResponseMsg& legacy_response,
                                           NanStatus* nanStatus) {
     if (!nanStatus) {
-        LOG(ERROR) << "convertLegacyNanResponseHeaderToAidl: nanStatus is null";
+        ALOGE("convertLegacyNanResponseHeaderToAidl: nanStatus is null");
         return false;
     }
     *nanStatus = {};
@@ -2185,8 +2201,7 @@ bool convertLegacyNanResponseHeaderToAidl(const legacy_hal::NanResponseMsg& lega
 bool convertLegacyNanCapabilitiesResponseToAidl(const legacy_hal::NanCapabilities& legacy_response,
                                                 NanCapabilities* aidl_response) {
     if (!aidl_response) {
-        LOG(ERROR) << "convertLegacyNanCapabilitiesResponseToAidl: "
-                      "aidl_response is null";
+        ALOGE("convertLegacyNanCapabilitiesResponseToAidl: aidl_response is null");
         return false;
     }
     *aidl_response = {};
@@ -2220,7 +2235,7 @@ bool convertLegacyNanCapabilitiesResponseToAidl(const legacy_hal::NanCapabilitie
 bool convertLegacyNanMatchIndToAidl(const legacy_hal::NanMatchInd& legacy_ind,
                                     NanMatchInd* aidl_ind) {
     if (!aidl_ind) {
-        LOG(ERROR) << "convertLegacyNanMatchIndToAidl: aidl_ind is null";
+        ALOGE("convertLegacyNanMatchIndToAidl: aidl_ind is null");
         return false;
     }
     *aidl_ind = {};
@@ -2251,12 +2266,12 @@ bool convertLegacyNanMatchIndToAidl(const legacy_hal::NanMatchInd& legacy_ind,
     aidl_ind->scid = std::vector<uint8_t>(legacy_ind.scid, legacy_ind.scid + legacy_ind.scid_len);
 
     if (!convertLegacyNiraToAidl(legacy_ind.nira, &aidl_ind->peerNira)) {
-        LOG(ERROR) << "convertLegacyNanMatchIndToAidl: invalid NIRA";
+        ALOGE("convertLegacyNanMatchIndToAidl: invalid NIRA");
         return false;
     }
     if (!convertLegacyPairingConfigToAidl(legacy_ind.peer_pairing_config,
                                           &aidl_ind->peerPairingConfig)) {
-        LOG(ERROR) << "convertLegacyNanMatchIndToAidl: invalid pairing config";
+        ALOGE("convertLegacyNanMatchIndToAidl: invalid pairing config");
         return false;
     }
     return true;
@@ -2265,7 +2280,7 @@ bool convertLegacyNanMatchIndToAidl(const legacy_hal::NanMatchInd& legacy_ind,
 bool convertLegacyNanFollowupIndToAidl(const legacy_hal::NanFollowupInd& legacy_ind,
                                        NanFollowupReceivedInd* aidl_ind) {
     if (!aidl_ind) {
-        LOG(ERROR) << "convertLegacyNanFollowupIndToAidl: aidl_ind is null";
+        ALOGE("convertLegacyNanFollowupIndToAidl: aidl_ind is null");
         return false;
     }
     *aidl_ind = {};
@@ -2288,7 +2303,7 @@ bool convertLegacyNanFollowupIndToAidl(const legacy_hal::NanFollowupInd& legacy_
 bool convertLegacyNanDataPathRequestIndToAidl(const legacy_hal::NanDataPathRequestInd& legacy_ind,
                                               NanDataPathRequestInd* aidl_ind) {
     if (!aidl_ind) {
-        LOG(ERROR) << "convertLegacyNanDataPathRequestIndToAidl: aidl_ind is null";
+        ALOGE("convertLegacyNanDataPathRequestIndToAidl: aidl_ind is null");
         return false;
     }
     *aidl_ind = {};
@@ -2310,7 +2325,7 @@ bool convertLegacyNanDataPathRequestIndToAidl(const legacy_hal::NanDataPathReque
 bool convertLegacyNdpChannelInfoToAidl(const legacy_hal::NanChannelInfo& legacy_struct,
                                        NanDataPathChannelInfo* aidl_struct) {
     if (!aidl_struct) {
-        LOG(ERROR) << "convertLegacyNdpChannelInfoToAidl: aidl_struct is null";
+        ALOGE("convertLegacyNdpChannelInfoToAidl: aidl_struct is null");
         return false;
     }
     *aidl_struct = {};
@@ -2326,7 +2341,7 @@ bool convertLegacyNdpChannelInfoToAidl(const legacy_hal::NanChannelInfo& legacy_
 bool convertLegacyNanDataPathConfirmIndToAidl(const legacy_hal::NanDataPathConfirmInd& legacy_ind,
                                               NanDataPathConfirmInd* aidl_ind) {
     if (!aidl_ind) {
-        LOG(ERROR) << "convertLegacyNanDataPathConfirmIndToAidl: aidl_ind is null";
+        ALOGE("convertLegacyNanDataPathConfirmIndToAidl: aidl_ind is null");
         return false;
     }
     *aidl_ind = {};
@@ -2359,8 +2374,7 @@ bool convertLegacyNanDataPathScheduleUpdateIndToAidl(
         const legacy_hal::NanDataPathScheduleUpdateInd& legacy_ind,
         NanDataPathScheduleUpdateInd* aidl_ind) {
     if (!aidl_ind) {
-        LOG(ERROR) << "convertLegacyNanDataPathScheduleUpdateIndToAidl: "
-                      "aidl_ind is null";
+        ALOGE("convertLegacyNanDataPathScheduleUpdateIndToAidl: aidl_ind is null");
         return false;
     }
     *aidl_ind = {};
@@ -2395,7 +2409,9 @@ legacy_hal::wifi_rtt_type convertAidlRttTypeToLegacy(RttType type) {
         case RttType::TWO_SIDED:
             return legacy_hal::RTT_TYPE_2_SIDED;
     };
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 RttType convertLegacyRttTypeToAidl(legacy_hal::wifi_rtt_type type) {
@@ -2405,7 +2421,9 @@ RttType convertLegacyRttTypeToAidl(legacy_hal::wifi_rtt_type type) {
         case legacy_hal::RTT_TYPE_2_SIDED:
             return RttType::TWO_SIDED;
     };
-    CHECK(false) << "Unknown legacy type: " << type;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy type %d", type);
+    }
 }
 
 legacy_hal::rtt_peer_type convertAidlRttPeerTypeToLegacy(RttPeerType type) {
@@ -2421,7 +2439,9 @@ legacy_hal::rtt_peer_type convertAidlRttPeerTypeToLegacy(RttPeerType type) {
         case RttPeerType::NAN_TYPE:
             return legacy_hal::RTT_PEER_NAN;
     };
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 #endif
 
@@ -2446,7 +2466,9 @@ legacy_hal::wifi_channel_width convertAidlWifiChannelWidthToLegacy(WifiChannelWi
         case WifiChannelWidthInMhz::WIDTH_INVALID:
             return legacy_hal::WIFI_CHAN_WIDTH_INVALID;
     };
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 WifiChannelWidthInMhz convertLegacyWifiChannelWidthToAidl(legacy_hal::wifi_channel_width type) {
@@ -2486,7 +2508,9 @@ legacy_hal::wifi_rtt_preamble convertAidlRttPreambleToLegacy(RttPreamble type) {
         case RttPreamble::EHT:
             return legacy_hal::WIFI_RTT_PREAMBLE_EHT;
     };
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 RttPreamble convertLegacyRttPreambleToAidl(legacy_hal::wifi_rtt_preamble type) {
@@ -2502,7 +2526,9 @@ RttPreamble convertLegacyRttPreambleToAidl(legacy_hal::wifi_rtt_preamble type) {
         case legacy_hal::WIFI_RTT_PREAMBLE_EHT:
             return RttPreamble::EHT;
     };
-    CHECK(false) << "Unknown legacy type: " << type;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy type: %d", type);
+    }
 }
 
 legacy_hal::wifi_rtt_bw convertAidlRttBwToLegacy(RttBw type) {
@@ -2524,7 +2550,9 @@ legacy_hal::wifi_rtt_bw convertAidlRttBwToLegacy(RttBw type) {
         case RttBw::BW_UNSPECIFIED:
             return legacy_hal::WIFI_RTT_BW_UNSPECIFIED;
     };
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 RttBw convertLegacyRttBwToAidl(legacy_hal::wifi_rtt_bw type) {
@@ -2546,7 +2574,9 @@ RttBw convertLegacyRttBwToAidl(legacy_hal::wifi_rtt_bw type) {
         case legacy_hal::WIFI_RTT_BW_UNSPECIFIED:
             return RttBw::BW_UNSPECIFIED;
     };
-    CHECK(false) << "Unknown legacy type: " << type;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy type: %d", type);
+    }
 }
 
 legacy_hal::wifi_motion_pattern convertAidlRttMotionPatternToLegacy(RttMotionPattern type) {
@@ -2558,7 +2588,9 @@ legacy_hal::wifi_motion_pattern convertAidlRttMotionPatternToLegacy(RttMotionPat
         case RttMotionPattern::UNKNOWN:
             return legacy_hal::WIFI_MOTION_UNKNOWN;
     };
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 #endif
 
@@ -2579,7 +2611,9 @@ WifiRatePreamble convertLegacyWifiRatePreambleToAidl(uint8_t preamble) {
         default:
             return WifiRatePreamble::RESERVED;
     };
-    CHECK(false) << "Unknown legacy preamble: " << preamble;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy preamble: %d", preamble);
+    }
 }
 
 WifiRateNss convertLegacyWifiRateNssToAidl(uint8_t nss) {
@@ -2593,7 +2627,9 @@ WifiRateNss convertLegacyWifiRateNssToAidl(uint8_t nss) {
         case 3:
             return WifiRateNss::NSS_4x4;
     };
-    CHECK(false) << "Unknown legacy nss: " << nss;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy nss: %d", nss);
+    }
     return {};
 }
 
@@ -2637,7 +2673,9 @@ RttStatus convertLegacyRttStatusToAidl(legacy_hal::wifi_rtt_status status) {
         case legacy_hal::RTT_STATUS_NAN_RANGING_CONCURRENCY_NOT_SUPPORTED:
             return RttStatus::NAN_RANGING_CONCURRENCY_NOT_SUPPORTED;
     };
-    CHECK(false) << "Unknown legacy status: " << status;
+    if(!(false)){
+        ALOGE("Check failed: false - Unknown legacy status: %d", status);
+    }
 }
 #endif
 
@@ -2674,7 +2712,9 @@ bool convertAidlRttConfigToLegacy(const RttConfig& aidl_config,
         return false;
     }
     *legacy_config = {};
-    CHECK(aidl_config.addr.size() == sizeof(legacy_config->addr));
+    if(!(aidl_config.addr.size() == sizeof(legacy_config->addr))){
+        ALOGE("Check failed: aidl_config.addr.size() == sizeof(legacy_config->addr)");
+    }
     memcpy(legacy_config->addr, aidl_config.addr.data(), aidl_config.addr.size());
     legacy_config->type = convertAidlRttTypeToLegacy(aidl_config.type);
     legacy_config->peer = convertAidlRttPeerTypeToLegacy(aidl_config.peer);
@@ -2736,7 +2776,9 @@ bool convertAidlRttLcrInformationToLegacy(const RttLcrInformation& aidl_info,
         return false;
     }
     *legacy_info = {};
-    CHECK(aidl_info.countryCode.size() == sizeof(legacy_info->country_code));
+    if(!(aidl_info.countryCode.size() == sizeof(legacy_info->country_code))){
+        ALOGE("Check failed: aidl_info.countryCode.size() == sizeof(legacy_info->country_code)");
+    }
     memcpy(legacy_info->country_code, aidl_info.countryCode.data(), aidl_info.countryCode.size());
     if (aidl_info.civicInfo.size() > sizeof(legacy_info->civic_info)) {
         return false;
@@ -2833,7 +2875,9 @@ bool convertLegacyRttResultToAidl(const legacy_hal::wifi_rtt_result& legacy_resu
     }
     *aidl_result = {};
     aidl_result->addr = std::array<uint8_t, 6>();
-    CHECK(sizeof(legacy_result.addr) == aidl_result->addr.size());
+    if(!(sizeof(legacy_result.addr) == aidl_result->addr.size())){
+        ALOGE("Check failed: sizeof(legacy_result.addr) == aidl_result->addr.size()");
+    }
     std::copy(legacy_result.addr, legacy_result.addr + 6, std::begin(aidl_result->addr));
     aidl_result->burstNum = legacy_result.burst_num;
     aidl_result->measurementNumber = legacy_result.measurement_number;
@@ -2919,7 +2963,9 @@ legacy_hal::wifi_interface_type convertAidlIfaceTypeToLegacy(IfaceType aidl_inte
         case IfaceType::NAN_IFACE:
             return legacy_hal::WIFI_INTERFACE_TYPE_NAN;
     }
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 legacy_hal::wifi_multi_sta_use_case convertAidlMultiStaUseCaseToLegacy(
@@ -2930,7 +2976,9 @@ legacy_hal::wifi_multi_sta_use_case convertAidlMultiStaUseCaseToLegacy(
         case IWifiChip::MultiStaUseCase::DUAL_STA_NON_TRANSIENT_UNBIASED:
             return legacy_hal::WIFI_DUAL_STA_NON_TRANSIENT_UNBIASED;
     }
-    CHECK(false);
+    if(!(false)){
+        ALOGE("Check failed: false");
+    }
 }
 
 bool convertAidlCoexUnsafeChannelToLegacy(
@@ -2998,7 +3046,7 @@ bool convertLegacyWifiRadioConfigurationToAidl(
     aidl_radio_configuration->bandInfo =
             aidl_struct_util::convertLegacyMacBandToAidlWifiBand(radio_configuration->band);
     if (aidl_radio_configuration->bandInfo == WifiBand::BAND_UNSPECIFIED) {
-        LOG(ERROR) << "Unspecified band";
+        ALOGE("Unspecified band");
         return false;
     }
     aidl_radio_configuration->antennaMode =
@@ -3017,7 +3065,7 @@ bool convertLegacyRadioCombinationsMatrixToAidl(
 
     int num_combinations = legacy_matrix->num_radio_combinations;
     if (!num_combinations) {
-        LOG(ERROR) << "zero radio combinations";
+        ALOGE("zero radio combinations");
         return false;
     }
     wifi_radio_combination* l_radio_combinations_ptr = legacy_matrix->radio_combinations;
@@ -3026,7 +3074,7 @@ bool convertLegacyRadioCombinationsMatrixToAidl(
         WifiRadioCombination radioCombination;
         std::vector<WifiRadioConfiguration> radio_configurations_vec;
         if (!num_configurations) {
-            LOG(ERROR) << "zero radio configurations";
+            ALOGE("zero radio configurations");
             return false;
         }
         for (int j = 0; j < num_configurations; j++) {
@@ -3035,7 +3083,7 @@ bool convertLegacyRadioCombinationsMatrixToAidl(
                     &l_radio_combinations_ptr->radio_configurations[j];
             if (!aidl_struct_util::convertLegacyWifiRadioConfigurationToAidl(
                         l_radio_configurations_ptr, &radioConfiguration)) {
-                LOG(ERROR) << "Error converting wifi radio configuration";
+                ALOGE("Error converting wifi radio configuration");
                 return false;
             }
             radio_configurations_vec.push_back(radioConfiguration);
@@ -3054,8 +3102,7 @@ bool convertLegacyRadioCombinationsMatrixToAidl(
 bool convertAidlNanPairingInitiatorRequestToLegacy(const NanPairingRequest& aidl_request,
                                                    legacy_hal::NanPairingRequest* legacy_request) {
     if (!legacy_request) {
-        LOG(ERROR) << "convertAidlNanPairingInitiatorRequestToLegacy: "
-                      "legacy_request is null";
+        ALOGE("convertAidlNanPairingInitiatorRequestToLegacy: legacy_request is null");
         return false;
     }
     *legacy_request = {};
@@ -3078,8 +3125,7 @@ bool convertAidlNanPairingInitiatorRequestToLegacy(const NanPairingRequest& aidl
         legacy_request->key_info.key_type = legacy_hal::NAN_SECURITY_KEY_INPUT_PMK;
         legacy_request->key_info.body.pmk_info.pmk_len = aidl_request.securityConfig.pmk.size();
         if (legacy_request->key_info.body.pmk_info.pmk_len != NAN_PMK_INFO_LEN) {
-            LOG(ERROR) << "convertAidlNanPairingInitiatorRequestToLegacy: "
-                          "invalid pmk_len";
+            ALOGE("convertAidlNanPairingInitiatorRequestToLegacy: invalid pmk_len");
             return false;
         }
         memcpy(legacy_request->key_info.body.pmk_info.pmk, aidl_request.securityConfig.pmk.data(),
@@ -3091,14 +3137,12 @@ bool convertAidlNanPairingInitiatorRequestToLegacy(const NanPairingRequest& aidl
                 aidl_request.securityConfig.passphrase.size();
         if (legacy_request->key_info.body.passphrase_info.passphrase_len <
             NAN_SECURITY_MIN_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanPairingInitiatorRequestToLegacy: "
-                          "passphrase_len too small";
+            ALOGE("convertAidlNanPairingInitiatorRequestToLegacy: passphrase_len too small");
             return false;
         }
         if (legacy_request->key_info.body.passphrase_info.passphrase_len >
             NAN_SECURITY_MAX_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanPairingInitiatorRequestToLegacy: "
-                          "passphrase_len too large";
+            ALOGE("convertAidlNanPairingInitiatorRequestToLegacy: passphrase_len too large");
             return false;
         }
         memcpy(legacy_request->key_info.body.passphrase_info.passphrase,
@@ -3113,8 +3157,7 @@ bool convertAidlNanPairingIndicationResponseToLegacy(
         const NanRespondToPairingIndicationRequest& aidl_request,
         legacy_hal::NanPairingIndicationResponse* legacy_request) {
     if (!legacy_request) {
-        LOG(ERROR) << "convertAidlNanPairingIndicationResponseToLegacy: "
-                      "legacy_request is null";
+        ALOGE("convertAidlNanPairingIndicationResponseToLegacy: legacy_request is null");
         return false;
     }
     *legacy_request = {};
@@ -3138,8 +3181,7 @@ bool convertAidlNanPairingIndicationResponseToLegacy(
         legacy_request->key_info.key_type = legacy_hal::NAN_SECURITY_KEY_INPUT_PMK;
         legacy_request->key_info.body.pmk_info.pmk_len = aidl_request.securityConfig.pmk.size();
         if (legacy_request->key_info.body.pmk_info.pmk_len != NAN_PMK_INFO_LEN) {
-            LOG(ERROR) << "convertAidlNanPairingIndicationResponseToLegacy: "
-                          "invalid pmk_len";
+            ALOGE("convertAidlNanPairingIndicationResponseToLegacy: invalid pmk_len");
             return false;
         }
         memcpy(legacy_request->key_info.body.pmk_info.pmk, aidl_request.securityConfig.pmk.data(),
@@ -3151,14 +3193,12 @@ bool convertAidlNanPairingIndicationResponseToLegacy(
                 aidl_request.securityConfig.passphrase.size();
         if (legacy_request->key_info.body.passphrase_info.passphrase_len <
             NAN_SECURITY_MIN_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanPairingIndicationResponseToLegacy: "
-                          "passphrase_len too small";
+            ALOGE("convertAidlNanPairingIndicationResponseToLegacy: passphrase_len too small");
             return false;
         }
         if (legacy_request->key_info.body.passphrase_info.passphrase_len >
             NAN_SECURITY_MAX_PASSPHRASE_LEN) {
-            LOG(ERROR) << "convertAidlNanPairingIndicationResponseToLegacy: "
-                          "passphrase_len too large";
+            ALOGE("convertAidlNanPairingIndicationResponseToLegacy: passphrase_len too large");
             return false;
         }
         memcpy(legacy_request->key_info.body.passphrase_info.passphrase,
@@ -3173,8 +3213,7 @@ bool convertAidlNanBootstrappingInitiatorRequestToLegacy(
         const NanBootstrappingRequest& aidl_request,
         legacy_hal::NanBootstrappingRequest* legacy_request) {
     if (!legacy_request) {
-        LOG(ERROR) << "convertAidlNanBootstrappingInitiatorRequestToLegacy: "
-                      "legacy_request is null";
+        ALOGE("convertAidlNanBootstrappingInitiatorRequestToLegacy: legacy_request is null");
         return false;
     }
     *legacy_request = {};
@@ -3194,8 +3233,7 @@ bool convertAidlNanBootstrappingIndicationResponseToLegacy(
         const NanBootstrappingResponse& aidl_request,
         legacy_hal::NanBootstrappingIndicationResponse* legacy_request) {
     if (!legacy_request) {
-        LOG(ERROR) << "convertAidlNanBootstrappingIndicationResponseToLegacy: "
-                      "legacy_request is null";
+        ALOGE("convertAidlNanBootstrappingIndicationResponseToLegacy: legacy_request is null");
         return false;
     }
     *legacy_request = {};
@@ -3210,7 +3248,7 @@ bool convertAidlNanBootstrappingIndicationResponseToLegacy(
 bool convertLegacyNanPairingRequestIndToAidl(const legacy_hal::NanPairingRequestInd& legacy_ind,
                                              NanPairingRequestInd* aidl_ind) {
     if (!aidl_ind) {
-        LOG(ERROR) << "convertLegacyNanPairingRequestIndToAidl: aidl_ind is null";
+        ALOGE("convertLegacyNanPairingRequestIndToAidl: aidl_ind is null");
         return false;
     }
     *aidl_ind = {};
@@ -3233,7 +3271,7 @@ bool convertLegacyNanPairingRequestIndToAidl(const legacy_hal::NanPairingRequest
 bool convertLegacyNanPairingConfirmIndToAidl(const legacy_hal::NanPairingConfirmInd& legacy_ind,
                                              NanPairingConfirmInd* aidl_ind) {
     if (!aidl_ind) {
-        LOG(ERROR) << "convertLegacyNanPairingRequestIndToAidl: aidl_ind is null";
+        ALOGE("convertLegacyNanPairingRequestIndToAidl: aidl_ind is null");
         return false;
     }
     *aidl_ind = {};
@@ -3254,7 +3292,7 @@ bool convertLegacyNanBootstrappingRequestIndToAidl(
         const legacy_hal::NanBootstrappingRequestInd& legacy_ind,
         NanBootstrappingRequestInd* aidl_ind) {
     if (!aidl_ind) {
-        LOG(ERROR) << "convertLegacyNanBootstrappingRequestIndToAidl: aidl_ind is null";
+        ALOGE("convertLegacyNanBootstrappingRequestIndToAidl: aidl_ind is null");
         return false;
     }
     *aidl_ind = {};
@@ -3274,7 +3312,7 @@ bool convertLegacyNanBootstrappingConfirmIndToAidl(
         const legacy_hal::NanBootstrappingConfirmInd& legacy_ind,
         NanBootstrappingConfirmInd* aidl_ind) {
     if (!aidl_ind) {
-        LOG(ERROR) << "convertLegacyNanBootstrappingConfirmIndToAidl: aidl_ind is null";
+        ALOGE("convertLegacyNanBootstrappingConfirmIndToAidl: aidl_ind is null");
         return false;
     }
     *aidl_ind = {};
@@ -3333,7 +3371,7 @@ bool convertLegacyIfaceMaskToIfaceConcurrencyType(u32 mask,
 bool convertLegacyIfaceCombinationsMatrixToChipMode(
         legacy_hal::wifi_iface_concurrency_matrix& legacy_matrix, IWifiChip::ChipMode* chip_mode) {
     if (!chip_mode) {
-        LOG(ERROR) << "chip_mode is null";
+        ALOGE("chip_mode is null");
         return false;
     }
     *chip_mode = {};
@@ -3341,7 +3379,7 @@ bool convertLegacyIfaceCombinationsMatrixToChipMode(
     int num_combinations = legacy_matrix.num_iface_combinations;
     std::vector<IWifiChip::ChipConcurrencyCombination> driver_Combinations_vec;
     if (!num_combinations) {
-        LOG(ERROR) << "zero iface combinations";
+        ALOGE("zero iface combinations");
         return false;
     }
 
@@ -3356,8 +3394,7 @@ bool convertLegacyIfaceCombinationsMatrixToChipMode(
             std::vector<IfaceConcurrencyType> types;
             if (!convertLegacyIfaceMaskToIfaceConcurrencyType(comb->iface_limits[j].iface_mask,
                                                               &types)) {
-                LOG(ERROR) << "Failed to convert from iface_mask:"
-                           << comb->iface_limits[j].iface_mask;
+                ALOGE("Failed to convert from iface_mask: 0x%X", comb->iface_limits[j].iface_mask);
                 return false;
             }
             chipLimit.types = types;

@@ -21,7 +21,7 @@
 
 #include "wifi.h"
 
-#include <android-base/logging.h>
+#include <rpc/util/log_common.h>
 #include <wifi_rpc_event.h>
 
 #include "aidl_return_util.h"
@@ -108,15 +108,13 @@ ndk::ScopedAStatus Wifi::startInternal() {
         const auto& on_subsystem_restart_callback = [this](const std::string& error) {
             ndk::ScopedAStatus wifi_status = createWifiStatus(WifiStatusCode::ERROR_UNKNOWN, error);
             for (const auto& callback : event_cb_handler_.getCallbacks()) {
-                LOG(INFO) << "Attempting to invoke onSubsystemRestart "
-                             "callback";
+                ALOGI("Attempting to invoke onSubsystemRestart callback");
                 WifiStatusCode errorCode =
                         static_cast<WifiStatusCode>(wifi_status.getServiceSpecificError());
                 if (!callback->onSubsystemRestart(errorCode).isOk()) {
-                    LOG(ERROR) << "Failed to invoke onSubsystemRestart callback";
+                    ALOGE("Failed to invoke onSubsystemRestart callback");
                 } else {
-                    LOG(INFO) << "Succeeded to invoke onSubsystemRestart "
-                                 "callback";
+                    ALOGI("Succeeded to invoke onSubsystemRestart callback");
                 }
             }
         };
@@ -134,26 +132,25 @@ ndk::ScopedAStatus Wifi::startInternal() {
             std::shared_ptr<IWifiChipEventCallback> chip_event_callback =
                 std::make_shared<WifiChipRpcEvent>(chipId);
             if (!chip->registerEventCallback(chip_event_callback).isOk())
-                LOG(ERROR) << "Failed to register chip rpc event callback";
-
+                ALOGE("Failed to register chip rpc event callback");
             chipId++;
         }
         run_state_ = RunState::STARTED;
         for (const auto& callback : event_cb_handler_.getCallbacks()) {
             if (!callback->onStart().isOk()) {
-                LOG(ERROR) << "Failed to invoke onStart callback";
+                ALOGE("Failed to invoke onStart callback");
             };
         }
-        LOG(INFO) << "Wifi HAL started";
+        ALOGI("Wifi HAL started");
     } else {
         for (const auto& callback : event_cb_handler_.getCallbacks()) {
             WifiStatusCode errorCode =
                     static_cast<WifiStatusCode>(wifi_status.getServiceSpecificError());
             if (!callback->onFailure(errorCode).isOk()) {
-                LOG(ERROR) << "Failed to invoke onFailure callback";
+                ALOGE("Failed to invoke onFailure callback");
             }
         }
-        LOG(ERROR) << "Wifi HAL start failed";
+        ALOGE("Wifi HAL start failed");
         // Clear the event callback objects since the HAL start failed.
         event_cb_handler_.invalidate();
     }
@@ -180,19 +177,19 @@ ndk::ScopedAStatus Wifi::stopInternal(
     if (wifi_status.isOk()) {
         for (const auto& callback : event_cb_handler_.getCallbacks()) {
             if (!callback->onStop().isOk()) {
-                LOG(ERROR) << "Failed to invoke onStop callback";
+                ALOGE("Failed to invoke onStop callback");
             };
         }
-        LOG(INFO) << "Wifi HAL stopped";
+        ALOGI("Wifi HAL stopped");
     } else {
         for (const auto& callback : event_cb_handler_.getCallbacks()) {
             WifiStatusCode errorCode =
                     static_cast<WifiStatusCode>(wifi_status.getServiceSpecificError());
             if (!callback->onFailure(errorCode).isOk()) {
-                LOG(ERROR) << "Failed to invoke onFailure callback";
+                ALOGE("Failed to invoke onFailure callback");
             }
         }
-        LOG(ERROR) << "Wifi HAL stop failed";
+        ALOGE("Wifi HAL stop failed");
     }
     // Clear the event callback objects since the HAL is now stopped.
     event_cb_handler_.invalidate();
@@ -220,7 +217,7 @@ std::pair<std::shared_ptr<IWifiChip>, ndk::ScopedAStatus> Wifi::getChipInternal(
 
 ndk::ScopedAStatus Wifi::initializeModeControllerAndLegacyHal() {
     if (!mode_controller_->initialize()) {
-        LOG(ERROR) << "Failed to initialize firmware mode controller";
+        ALOGE("Failed to initialize firmware mode controller");
         return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
     }
 
@@ -234,8 +231,8 @@ ndk::ScopedAStatus Wifi::initializeModeControllerAndLegacyHal() {
             // only initializes the function table. If this changes, need to
             // implement WifiLegacyHal::deinitialize and deinitalize the
             // HALs already initialized
-            LOG(ERROR) << "Failed to initialize legacy HAL index: " << index
-                       << " error: " << legacyErrorToString(legacy_status);
+            ALOGE("Failed to initialize legacy HAL index: %d error: %s",
+                    index, legacyErrorToString(legacy_status).c_str());
             return createWifiStatusFromLegacyError(legacy_status);
         }
         index++;
@@ -252,8 +249,8 @@ ndk::ScopedAStatus Wifi::stopLegacyHalAndDeinitializeModeController(
     for (auto& hal : legacy_hals_) {
         legacy_hal::wifi_error tmp = hal->stop(lock, [&]() {});
         if (tmp != legacy_hal::WIFI_SUCCESS) {
-            LOG(ERROR) << "Failed to stop legacy HAL index: " << index
-                       << " error: " << legacyErrorToString(legacy_status);
+            ALOGE("Failed to stop legacy HAL index: %d error: %s",
+                    index, legacyErrorToString(legacy_status).c_str());
             legacy_status = tmp;
         }
         index++;
@@ -261,11 +258,11 @@ ndk::ScopedAStatus Wifi::stopLegacyHalAndDeinitializeModeController(
     run_state_ = RunState::STOPPED;
 
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
-        LOG(ERROR) << "One or more legacy HALs failed to stop";
+        ALOGE("One or more legacy HALs failed to stop");
         return createWifiStatusFromLegacyError(legacy_status);
     }
     if (!mode_controller_->deinitialize()) {
-        LOG(ERROR) << "Failed to deinitialize firmware mode controller";
+        ALOGE("Failed to deinitialize firmware mode controller");
         return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
     }
     return ndk::ScopedAStatus::ok();

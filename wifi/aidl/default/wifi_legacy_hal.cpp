@@ -21,7 +21,6 @@
 
 #include "wifi_legacy_hal.h"
 
-#include <android-base/logging.h>
 #include <rpc/util/log_common.h>
 #include <net/if.h>
 
@@ -470,8 +469,12 @@ wifi_error WifiLegacyHal::initialize() {
 
 wifi_error WifiLegacyHal::start() {
     // Ensure that we're starting in a good state.
-    CHECK(global_func_table_.wifi_initialize && !global_handle_ && iface_name_to_handle_.empty() &&
-          !awaiting_event_loop_termination_);
+    if(!(global_func_table_.wifi_initialize && !global_handle_ && iface_name_to_handle_.empty() &&
+          !awaiting_event_loop_termination_)){
+        ALOGE("Check failed: global_func_table_.wifi_initialize && "
+                "!global_handle_ && iface_name_to_handle_.empty() &&"
+                "!awaiting_event_loop_termination_");
+    }
     if (is_started_) {
         ALOGD("Legacy HAL already started");
         return WIFI_SUCCESS;
@@ -520,7 +523,9 @@ wifi_error WifiLegacyHal::stop(
     ALOGD("Stopping legacy HAL");
     on_stop_complete_internal_callback = [on_stop_complete_user_callback,
                                           this](wifi_handle handle) {
-        CHECK_EQ(global_handle_, handle) << "Handle mismatch";
+        if(!(global_handle_ == handle)){
+            ALOGE("Check failed: Handle mismatch");
+        }
         ALOGI("Legacy HAL stop complete callback received");
         // Invalidate all the internal pointers now that the HAL is
         // stopped.
@@ -676,7 +681,7 @@ wifi_error WifiLegacyHal::startGscan(
                     on_results_user_callback(id, cached_scan_results);
                     return;
                 }
-                FALLTHROUGH_INTENDED;
+                [[clang::fallthrough]];
             }
             // Fall through if failed. Failure to retrieve cached scan
             // results should trigger a background scan failure.
@@ -734,7 +739,9 @@ std::pair<wifi_error, std::vector<uint32_t>> WifiLegacyHal::getValidFrequenciesF
     wifi_error status = global_func_table_.wifi_get_valid_channels(
             getIfaceHandle(iface_name), band, freqs.size(),
             reinterpret_cast<wifi_channel*>(freqs.data()), &num_freqs);
-    CHECK(num_freqs >= 0 && static_cast<uint32_t>(num_freqs) <= kMaxGscanFrequenciesForBand);
+    if(!(num_freqs >= 0 && static_cast<uint32_t>(num_freqs) <= kMaxGscanFrequenciesForBand)){
+        ALOGE("Check failed: num_freqs >= 0 && static_cast<uint32_t>(num_freqs) <= kMaxGscanFrequenciesForBand");
+    }
     freqs.resize(num_freqs);
     return {status, std::move(freqs)};
 }
@@ -1067,7 +1074,9 @@ std::pair<wifi_error, std::vector<wifi_tx_report>> WifiLegacyHal::getTxPktFates(
     size_t num_fates = 0;
     wifi_error status = global_func_table_.wifi_get_tx_pkt_fates(
             getIfaceHandle(iface_name), tx_pkt_fates.data(), tx_pkt_fates.size(), &num_fates);
-    CHECK(num_fates <= MAX_FATE_LOG_LEN);
+    if(!(num_fates <= MAX_FATE_LOG_LEN)){
+        ALOGE("Check failed: num_fates <= MAX_FATE_LOG_LEN");
+    }
     tx_pkt_fates.resize(num_fates);
     return {status, std::move(tx_pkt_fates)};
 }
@@ -1079,7 +1088,9 @@ std::pair<wifi_error, std::vector<wifi_rx_report>> WifiLegacyHal::getRxPktFates(
     size_t num_fates = 0;
     wifi_error status = global_func_table_.wifi_get_rx_pkt_fates(
             getIfaceHandle(iface_name), rx_pkt_fates.data(), rx_pkt_fates.size(), &num_fates);
-    CHECK(num_fates <= MAX_FATE_LOG_LEN);
+    if(!(num_fates <= MAX_FATE_LOG_LEN)){
+        ALOGE("Check failed: num_fates <= MAX_FATE_LOG_LEN");
+    }
     rx_pkt_fates.resize(num_fates);
     return {status, std::move(rx_pkt_fates)};
 }
@@ -1104,15 +1115,25 @@ std::pair<wifi_error, WakeReasonStats> WifiLegacyHal::getWakeReasonStats(
     wifi_error status = global_func_table_.wifi_get_wake_reason_stats(getIfaceHandle(iface_name),
                                                                       &stats.wake_reason_cnt);
 
-    CHECK(stats.wake_reason_cnt.cmd_event_wake_cnt_used >= 0 &&
+    if(!(stats.wake_reason_cnt.cmd_event_wake_cnt_used >= 0 &&
           static_cast<uint32_t>(stats.wake_reason_cnt.cmd_event_wake_cnt_used) <=
-                  kMaxWakeReasonStatsArraySize);
+                  kMaxWakeReasonStatsArraySize)){
+        ALOGE("Check failed: stats.wake_reason_cnt.cmd_event_wake_cnt_used >= 0 && "
+                "static_cast<uint32_t>(stats.wake_reason_cnt.cmd_event_wake_cnt_used) <= "
+                "kMaxWakeReasonStatsArraySize");
+    }
+
     stats.cmd_event_wake_cnt.resize(stats.wake_reason_cnt.cmd_event_wake_cnt_used);
     stats.wake_reason_cnt.cmd_event_wake_cnt = nullptr;
 
-    CHECK(stats.wake_reason_cnt.driver_fw_local_wake_cnt_used >= 0 &&
+    if(!(stats.wake_reason_cnt.driver_fw_local_wake_cnt_used >= 0 &&
           static_cast<uint32_t>(stats.wake_reason_cnt.driver_fw_local_wake_cnt_used) <=
-                  kMaxWakeReasonStatsArraySize);
+                  kMaxWakeReasonStatsArraySize)){
+        ALOGE("Check failed: stats.wake_reason_cnt.driver_fw_local_wake_cnt_used >= 0 && "
+                "static_cast<uint32_t>(stats.wake_reason_cnt.driver_fw_local_wake_cnt_used) <= "
+                "kMaxWakeReasonStatsArraySize");
+    }
+
     stats.driver_fw_local_wake_cnt.resize(stats.wake_reason_cnt.driver_fw_local_wake_cnt_used);
     stats.wake_reason_cnt.driver_fw_local_wake_cnt = nullptr;
 
@@ -1156,7 +1177,9 @@ std::pair<wifi_error, std::vector<wifi_ring_buffer_status>> WifiLegacyHal::getRi
     uint32_t num_rings = kMaxRingBuffers;
     wifi_error status = global_func_table_.wifi_get_ring_buffers_status(
             getIfaceHandle(iface_name), &num_rings, ring_buffers_status.data());
-    CHECK(num_rings <= kMaxRingBuffers);
+    if(!(num_rings <= kMaxRingBuffers)){
+        ALOGE("Check failed: num_rings <= kMaxRingBuffers");
+    }
     ring_buffers_status.resize(num_rings);
     return {status, std::move(ring_buffers_status)};
 }
@@ -1184,7 +1207,9 @@ wifi_error WifiLegacyHal::registerErrorAlertCallbackHandler(
     on_error_alert_internal_callback = [on_user_alert_callback](wifi_request_id id, char* buffer,
                                                                 int buffer_size, int err_code) {
         if (buffer) {
-            CHECK(id == 0);
+            if(!(id == 0)){
+                ALOGE("Check failed: id == 0");
+            }
             on_user_alert_callback(
                     err_code,
                     std::vector<uint8_t>(reinterpret_cast<uint8_t*>(buffer),
@@ -1664,7 +1689,9 @@ std::pair<wifi_error, std::vector<wifi_cached_scan_results>> WifiLegacyHal::getG
     wifi_error status = global_func_table_.wifi_get_cached_gscan_results(
             getIfaceHandle(iface_name), true /* always flush */, cached_scan_results.size(),
             cached_scan_results.data(), &num_results);
-    CHECK(num_results >= 0 && static_cast<uint32_t>(num_results) <= kMaxCachedGscanResults);
+    if(!(num_results >= 0 && static_cast<uint32_t>(num_results) <= kMaxCachedGscanResults)){
+        ALOGE("Check failed: num_results >= 0 && static_cast<uint32_t>(num_results) <= kMaxCachedGscanResults!");
+    }
     cached_scan_results.resize(num_results);
     // Check for invalid IE lengths in these cached scan results and correct it.
     for (auto& cached_scan_result : cached_scan_results) {
@@ -1809,7 +1836,9 @@ std::pair<wifi_error, std::vector<wifi_usable_channel>> WifiLegacyHal::getUsable
     wifi_error status = global_func_table_.wifi_get_usable_channels(
             global_handle_, band_mask, iface_mode_mask, filter_mask, channels.size(), &size,
             reinterpret_cast<wifi_usable_channel*>(channels.data()));
-    CHECK(size >= 0 && size <= kMaxWifiUsableChannels);
+    if(!(size >= 0 && size <= kMaxWifiUsableChannels)){
+        ALOGE("Check failed: size >= 0 && size <= kMaxWifiUsableChannels");
+    }
     channels.resize(size);
     return {status, std::move(channels)};
 }
@@ -1832,7 +1861,9 @@ WifiLegacyHal::getSupportedRadioCombinationsMatrix() {
     wifi_error status = global_func_table_.wifi_get_supported_radio_combinations_matrix(
             global_handle_, kMaxSupportedRadioCombinationsMatrixLength, &size,
             radio_combination_matrix_ptr);
-    CHECK(size >= 0 && size <= kMaxSupportedRadioCombinationsMatrixLength);
+    if(!(size >= 0 && size <= kMaxSupportedRadioCombinationsMatrixLength)){
+        ALOGE("Check failed: size >= 0 && size <= kMaxSupportedRadioCombinationsMatrixLength");
+    }
     return {status, radio_combination_matrix_ptr};
 }
 

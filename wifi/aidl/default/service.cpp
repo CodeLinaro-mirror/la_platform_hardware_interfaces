@@ -19,7 +19,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <android-base/logging.h>
 #include <signal.h>
 
 #include <wifi_instance_util.h>
@@ -50,11 +49,11 @@ using android::wifi_system::InterfaceTool;
 
 int main(int /*argc*/, char** argv) {
     signal(SIGPIPE, SIG_IGN);
-    android::base::InitLogging(argv, &android::base::StdioLogger);
-    LOG(INFO) << "Wifi Hal is booting up...";
 
     property_init();
     InitLogExt(APP_NAME, 10);
+
+    ALOGI("Wifi Hal is booting up...");
 
     const auto iface_tool = std::make_shared<InterfaceTool>();
     const auto legacy_hal_factory =
@@ -66,31 +65,31 @@ int main(int /*argc*/, char** argv) {
     std::shared_ptr<IWifiEventCallback> callback =
         std::make_shared<WifiRpcEvent>();
     if (!wifi_service->registerEventCallback(callback).isOk())
-        LOG(ERROR) << "Failed to register wifi rpc event callback";
+        ALOGE("Failed to register wifi rpc event callback");
 
     WifiManagerRegisterService(wifi_service);
 
     if (!WifiRpcInitSomeipService()) {
-        LOG(ERROR) << "Wifi rpc init someip service fail";
-	return -1;
+        ALOGE("Wifi rpc init someip service fail");
+        return -1;
     }
 
-    LOG(INFO) << "Wifi rpc someip service is starting...";
+    ALOGI("Wifi rpc someip service is starting...");
 
     WifiRpcStartSomeipService();
 
-    LOG(INFO) << "Wifi rpc someip service is stopping...";
+    ALOGI("Wifi rpc someip service is stopping...");
 
     WifiRpcStopSomeipService();
 
     WifiRpcDeinitSomeipService();
 
-    LOG(INFO) << "Wifi Hal is terminating...";
+    ALOGI("Wifi Hal is terminating...");
 
     wifi_service->stop();
 
-	DeinitLog();
-	property_exit();
+    DeinitLog();
+    property_exit();
 
     return 0;
 }

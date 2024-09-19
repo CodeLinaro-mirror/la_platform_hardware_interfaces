@@ -19,8 +19,8 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <android-base/logging.h>
-#include <android-base/macros.h>
+#include <rpc/util/log_common.h>
+//#include <android-base/macros.h>
 #include <net/if.h>
 
 #include <cstddef>
@@ -64,7 +64,7 @@ bool WifiIfaceUtil::setMacAddress(const std::string& iface_name,
 
     if (!(legacy_feature_set & WIFI_FEATURE_DYNAMIC_SET_MAC) &&
         !iface_tool_.lock()->SetUpState(iface_name.c_str(), false)) {
-        LOG(ERROR) << "SetUpState(false) failed.";
+        ALOGE("SetUpState(false) failed.");
         return false;
     }
 #endif
@@ -72,14 +72,14 @@ bool WifiIfaceUtil::setMacAddress(const std::string& iface_name,
 #ifndef WIFI_AVOID_IFACE_RESET_MAC_CHANGE
     if (!(legacy_feature_set & WIFI_FEATURE_DYNAMIC_SET_MAC) &&
         !iface_tool_.lock()->SetUpState(iface_name.c_str(), true)) {
-        LOG(ERROR) << "SetUpState(true) failed. Wait for driver ready.";
+        ALOGE("SetUpState(true) failed. Wait for driver ready.");
         // Wait for driver ready and try to set iface UP again
         if (legacy_hal_.lock()->waitForDriverReady() != legacy_hal::WIFI_SUCCESS) {
-            LOG(ERROR) << "SetUpState(true) wait for driver ready failed.";
+            ALOGE("SetUpState(true) wait for driver ready failed.");
             return false;
         }
         if (!iface_tool_.lock()->SetUpState(iface_name.c_str(), true)) {
-            LOG(ERROR) << "SetUpState(true) failed after retry.";
+            ALOGE("SetUpState(true) failed after retry.");
             return false;
         }
     }
@@ -93,9 +93,9 @@ bool WifiIfaceUtil::setMacAddress(const std::string& iface_name,
         event_handlers.on_state_toggle_off_on(iface_name);
     }
     if (!success) {
-        LOG(ERROR) << "SetMacAddress failed on " << iface_name;
+        ALOGE("SetMacAddress failed on %s", iface_name.c_str());
     } else {
-        LOG(DEBUG) << "SetMacAddress succeeded on " << iface_name;
+        ALOGI("SetMacAddress succeeded on %s", iface_name.c_str());
     }
     return success;
 }
@@ -134,7 +134,7 @@ std::array<uint8_t, 6> WifiIfaceUtil::createRandomMacAddress() {
 
 bool WifiIfaceUtil::setUpState(const std::string& iface_name, bool request_up) {
     if (!iface_tool_.lock()->SetUpState(iface_name.c_str(), request_up)) {
-        LOG(ERROR) << "SetUpState to " << request_up << " failed";
+        ALOGE("SetUpState to %d failed", request_up);
         return false;
     }
     return true;
@@ -150,14 +150,14 @@ bool WifiIfaceUtil::createBridge(const std::string& br_name) {
     }
 
     if (!iface_tool_.lock()->SetUpState(br_name.c_str(), true)) {
-        LOG(ERROR) << "bridge SetUpState(true) failed.";
+        ALOGE("bridge SetUpState(true) failed.");
     }
     return true;
 }
 
 bool WifiIfaceUtil::deleteBridge(const std::string& br_name) {
     if (!iface_tool_.lock()->SetUpState(br_name.c_str(), false)) {
-        LOG(INFO) << "SetUpState(false) failed for bridge=" << br_name.c_str();
+        ALOGI("SetUpState(false) failed for bridge = %s", br_name.c_str());
     }
 
     return iface_tool_.lock()->deleteBridge(br_name);

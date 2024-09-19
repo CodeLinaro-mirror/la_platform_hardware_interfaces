@@ -19,7 +19,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <android-base/logging.h>
 #include <rpc/util/log_common.h>
 #include <android-base/unique_fd.h>
 #include <fcntl.h>
@@ -92,7 +91,9 @@ std::shared_ptr<Iface> findUsingName(std::vector<std::shared_ptr<Iface>>& ifaces
 
 std::string getWlanIfaceName(unsigned idx) {
     if (idx >= kMaxWlanIfaces) {
-        CHECK(false) << "Requested interface beyond wlan" << kMaxWlanIfaces;
+        if(!(false)){
+            ALOGE("Check failed: false - Requested interface beyond wlan%d", kMaxWlanIfaces);
+        }
         return {};
     }
 
@@ -1674,7 +1675,10 @@ WifiChip::getCurrentModeConcurrencyCombinations() {
         }
     }
 
-    CHECK(0) << "Expected to find concurrency combinations for current mode!";
+    if(!(0)){
+        ALOGE("Check failed: 0 - Expected to find concurrency combinations for current mode");
+    }
+
     return std::vector<IWifiChip::ChipConcurrencyCombination>();
 }
 
@@ -1916,7 +1920,9 @@ std::string WifiChip::allocateApOrStaIfaceName(IfaceType type, uint32_t start_id
         return ifname;
     }
     // This should never happen. We screwed up somewhere if it did.
-    CHECK(false) << "All wlan interfaces in use already!";
+    if(!(false)){
+        ALOGE("Check failed: false - All wlan interfaces in use already!");
+    }
     return {};
 }
 

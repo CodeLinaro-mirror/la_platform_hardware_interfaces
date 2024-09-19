@@ -21,7 +21,7 @@
 
 #include "wifi_sta_iface.h"
 
-#include <android-base/logging.h>
+#include <rpc/util/log_common.h>
 
 #include "aidl_return_util.h"
 #include "aidl_struct_util.h"
@@ -40,7 +40,7 @@ WifiStaIface::WifiStaIface(const std::string& ifname,
     // Turn on DFS channel usage for STA iface.
     legacy_hal::wifi_error legacy_status = legacy_hal_.lock()->setDfsFlag(ifname_, true);
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
-        LOG(ERROR) << "Failed to set DFS flag; DFS channels may be unavailable.";
+        ALOGE("Failed to set DFS flag; DFS channels may be unavailable.");
     }
 }
 
@@ -306,12 +306,12 @@ ndk::ScopedAStatus WifiStaIface::startBackgroundScanInternal(
     const auto& on_failure_callback = [weak_ptr_this](legacy_hal::wifi_request_id id) {
         const auto shared_ptr_this = weak_ptr_this.lock();
         if (!shared_ptr_this.get() || !shared_ptr_this->isValid()) {
-            LOG(ERROR) << "Callback invoked on an invalid object";
+            ALOGE("Callback invoked on an invalid object");
             return;
         }
         for (const auto& callback : shared_ptr_this->getEventCallbacks()) {
             if (!callback->onBackgroundScanFailure(id).isOk()) {
-                LOG(ERROR) << "Failed to invoke onBackgroundScanFailure callback";
+                ALOGE("Failed to invoke onBackgroundScanFailure callback");
             }
         }
     };
@@ -320,18 +320,18 @@ ndk::ScopedAStatus WifiStaIface::startBackgroundScanInternal(
                             const std::vector<legacy_hal::wifi_cached_scan_results>& results) {
                 const auto shared_ptr_this = weak_ptr_this.lock();
                 if (!shared_ptr_this.get() || !shared_ptr_this->isValid()) {
-                    LOG(ERROR) << "Callback invoked on an invalid object";
+                    ALOGE("Callback invoked on an invalid object");
                     return;
                 }
                 std::vector<StaScanData> aidl_scan_datas;
                 if (!aidl_struct_util::convertLegacyVectorOfCachedGscanResultsToAidl(
                             results, &aidl_scan_datas)) {
-                    LOG(ERROR) << "Failed to convert scan results to AIDL structs";
+                    ALOGE("Failed to convert scan results to AIDL structs");
                     return;
                 }
                 for (const auto& callback : shared_ptr_this->getEventCallbacks()) {
                     if (!callback->onBackgroundScanResults(id, aidl_scan_datas).isOk()) {
-                        LOG(ERROR) << "Failed to invoke onBackgroundScanResults callback";
+                        ALOGE("Failed to invoke onBackgroundScanResults callback");
                     }
                 }
             };
@@ -341,18 +341,18 @@ ndk::ScopedAStatus WifiStaIface::startBackgroundScanInternal(
                                                   uint32_t buckets_scanned) {
         const auto shared_ptr_this = weak_ptr_this.lock();
         if (!shared_ptr_this.get() || !shared_ptr_this->isValid()) {
-            LOG(ERROR) << "Callback invoked on an invalid object";
+            ALOGE("Callback invoked on an invalid object");
             return;
         }
         StaScanResult aidl_scan_result;
         if (!aidl_struct_util::convertLegacyGscanResultToAidl(*result, true, &aidl_scan_result)) {
-            LOG(ERROR) << "Failed to convert full scan results to AIDL structs";
+            ALOGE("Failed to convert full scan results to AIDL structs");
             return;
         }
         for (const auto& callback : shared_ptr_this->getEventCallbacks()) {
             if (!callback->onBackgroundFullScanResult(id, buckets_scanned, aidl_scan_result)
                          .isOk()) {
-                LOG(ERROR) << "Failed to invoke onBackgroundFullScanResult callback";
+                ALOGE("Failed to invoke onBackgroundFullScanResult callback");
             }
         }
     };
@@ -408,12 +408,12 @@ ndk::ScopedAStatus WifiStaIface::startRssiMonitoringInternal(int32_t cmd_id, int
                             int8_t rssi) {
                 const auto shared_ptr_this = weak_ptr_this.lock();
                 if (!shared_ptr_this.get() || !shared_ptr_this->isValid()) {
-                    LOG(ERROR) << "Callback invoked on an invalid object";
+                    ALOGE("Callback invoked on an invalid object");
                     return;
                 }
                 for (const auto& callback : shared_ptr_this->getEventCallbacks()) {
                     if (!callback->onRssiThresholdBreached(id, bssid, rssi).isOk()) {
-                        LOG(ERROR) << "Failed to invoke onRssiThresholdBreached callback";
+                        ALOGE("Failed to invoke onRssiThresholdBreached callback");
                     }
                 }
             };

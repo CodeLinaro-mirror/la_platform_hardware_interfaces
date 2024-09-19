@@ -16,7 +16,7 @@
 
 #include "ringbuffer.h"
 
-#include <android-base/logging.h>
+#include <rpc/util/log_common.h>
 
 namespace aidl {
 namespace android {
@@ -30,15 +30,14 @@ enum Ringbuffer::AppendStatus Ringbuffer::append(const std::vector<uint8_t>& inp
         return AppendStatus::FAIL_IP_BUFFER_ZERO;
     }
     if (input.size() > maxSize_) {
-        LOG(INFO) << "Oversized message of " << input.size() << " bytes is dropped";
+        ALOGI("Oversized message of %d bytes is dropped", input.size());
         return AppendStatus::FAIL_IP_BUFFER_EXCEEDED_MAXSIZE;
     }
     data_.push_back(input);
     size_ += input.size() * sizeof(input[0]);
     while (size_ > maxSize_) {
         if (data_.front().size() <= 0 || data_.front().size() > maxSize_) {
-            LOG(ERROR) << "First buffer in the ring buffer is Invalid. Size: "
-                       << data_.front().size();
+            ALOGE("First buffer in the ring buffer is Invalid. Size: %d", data_.front().size());
             return AppendStatus::FAIL_RING_BUFFER_CORRUPTED;
         }
         size_ -= data_.front().size() * sizeof(data_.front()[0]);

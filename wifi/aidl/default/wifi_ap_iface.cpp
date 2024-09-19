@@ -16,7 +16,7 @@
 
 #include "wifi_ap_iface.h"
 
-#include <android-base/logging.h>
+#include <rpc/util/log_common.h>
 
 #include "aidl_return_util.h"
 #include "aidl_struct_util.h"
@@ -104,7 +104,7 @@ ndk::ScopedAStatus WifiApIface::setMacAddressInternal(const std::array<uint8_t, 
             // reverse the bits to avoid collision
             rmac[rbyte] = 0xff - rmac[rbyte];
             if (!iface_util_.lock()->setMacAddress(intf, rmac)) {
-                LOG(INFO) << "Failed to set random mac address on " << intf;
+                ALOGI("Failed to set random mac address on %s", intf.c_str());
                 return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
             }
             rbyte++;
@@ -114,7 +114,7 @@ ndk::ScopedAStatus WifiApIface::setMacAddressInternal(const std::array<uint8_t, 
     // address of bridged interface will be changed after one of instance
     // down.
     if (!iface_util_.lock()->setMacAddress(ifname_, mac)) {
-        LOG(ERROR) << "Fail to config MAC for interface " << ifname_;
+        ALOGE("Fail to config MAC for interface %s", ifname_.c_str());
         return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
     }
     return ndk::ScopedAStatus::ok();
@@ -134,7 +134,7 @@ ndk::ScopedAStatus WifiApIface::resetToFactoryMacAddressInternal() {
     if (instances_.size() == 2) {
         for (auto const& intf : instances_) {
             getMacResult = getFactoryMacAddressInternal(intf);
-            LOG(DEBUG) << "Reset MAC to factory MAC on " << intf;
+            ALOGD("Reset MAC to factory MAC on %s", intf.c_str());
             if (!getMacResult.second.isOk() ||
                 !iface_util_.lock()->setMacAddress(intf, getMacResult.first)) {
                 return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
@@ -148,12 +148,12 @@ ndk::ScopedAStatus WifiApIface::resetToFactoryMacAddressInternal() {
         // for the operation of bpf and other networking operations.
         if (!iface_util_.lock()->setMacAddress(ifname_,
                                                iface_util_.lock()->createRandomMacAddress())) {
-            LOG(ERROR) << "Fail to config MAC for bridged interface " << ifname_;
+            ALOGE("Fail to config MAC for bridged interface %s", ifname_.c_str());
             return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
         }
     } else {
         getMacResult = getFactoryMacAddressInternal(ifname_);
-        LOG(DEBUG) << "Reset MAC to factory MAC on " << ifname_;
+        ALOGD("Reset MAC to factory MAC on %s", ifname_.c_str());
         if (!getMacResult.second.isOk() ||
             !iface_util_.lock()->setMacAddress(ifname_, getMacResult.first)) {
             return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);

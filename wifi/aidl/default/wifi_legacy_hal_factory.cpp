@@ -21,7 +21,7 @@
 
 #include "wifi_legacy_hal_factory.h"
 
-#include <android-base/logging.h>
+#include <rpc/util/log_common.h>
 //#include <dirent.h>
 #include <dlfcn.h>
 #ifdef CONFIG_XML
@@ -106,17 +106,17 @@ bool WifiLegacyHalFactory::initLinkedHalFunctionTable(wifi_hal_fn* hal_fn) {
     initfn = (init_wifi_vendor_hal_func_table_t)dlsym(RTLD_DEFAULT,
                                                       "init_wifi_vendor_hal_func_table");
     if (!initfn) {
-        LOG(INFO) << "no vendor HAL library linked, will try dynamic load";
+        ALOGI("no vendor HAL library linked, will try dynamic load");
         return false;
     }
 
     if (!initHalFuncTableWithStubs(hal_fn)) {
-        LOG(ERROR) << "Can not initialize the basic function pointer table";
+        ALOGE("Can not initialize the basic function pointer table");
         return false;
     }
 
     if (initfn(hal_fn) != WIFI_SUCCESS) {
-        LOG(ERROR) << "Can not initialize the vendor function pointer table";
+        ALOGE("Can not initialize the vendor function pointer table");
         return false;
     }
 
