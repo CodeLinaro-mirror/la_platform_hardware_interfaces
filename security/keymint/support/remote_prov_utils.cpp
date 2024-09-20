@@ -65,9 +65,9 @@ ErrMsgOr<bytevec> ecKeyGetPrivateKey(const EC_KEY* ecKey) {
     return privKey;
 }
 
-ErrMsgOr<bytevec> ecKeyGetPublicKey(const EC_KEY* ecKey) {
+ErrMsgOr<bytevec> ecKeyGetPublicKey(const EC_KEY* ecKey, const int nid) {
     // Extract public key.
-    auto group = EC_GROUP_Ptr(EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1));
+    auto group = EC_GROUP_Ptr(EC_GROUP_new_by_curve_name(nid));
     if (group.get() == nullptr) {
         return "Error creating EC group by curve name";
     }
@@ -123,11 +123,12 @@ ErrMsgOr<bytevec> getRawPublicKey(const EVP_PKEY_Ptr& pubKey) {
     int keyType = EVP_PKEY_base_id(pubKey.get());
     switch (keyType) {
         case EVP_PKEY_EC: {
+            int nid = EVP_PKEY_bits(pubKey.get()) == 384 ? NID_secp384r1 : NID_X9_62_prime256v1;
             auto ecKey = EC_KEY_Ptr(EVP_PKEY_get1_EC_KEY(pubKey.get()));
             if (ecKey.get() == nullptr) {
                 return "Failed to get ec key";
-            }
-            return ecKeyGetPublicKey(ecKey.get());
+          }
+          return ecKeyGetPublicKey(ecKey.get(), nid);
         }
         case EVP_PKEY_ED25519: {
             bytevec rawPubKey;
@@ -165,7 +166,7 @@ ErrMsgOr<std::tuple<bytevec, bytevec>> generateEc256KeyPair() {
     auto privKey = ecKeyGetPrivateKey(ec_key.get());
     if (!privKey) return privKey.moveMessage();
 
-    auto pubKey = ecKeyGetPublicKey(ec_key.get());
+    auto pubKey = ecKeyGetPublicKey(ec_key.get(), NID_X9_62_prime256v1);
     if (!pubKey) return pubKey.moveMessage();
 
     return std::make_tuple(pubKey.moveValue(), privKey.moveValue());
@@ -824,7 +825,7 @@ ErrMsgOr<bytevec> validateCertChain(const cppbor::Array& chain) {
         }
         if (i == chain.size() - 1) {
             auto key = getRawPublicKey(pubKey);
-            if (!key) key.moveMessage();
+            if (!key) return key.moveMessage();
             rawPubKey = key.moveValue();
         }
     }
@@ -973,15 +974,16 @@ ErrMsgOr<bytevec> parseAndValidateAuthenticatedRequestSignedPayload(
 
 ErrMsgOr<hwtrust::DiceChain::Kind> getDiceChainKind() {
     int vendor_api_level = ::android::base::GetIntProperty("ro.vendor.api_level", -1);
-    switch (vendor_api_level) {
-        case __ANDROID_API_T__:
-            return hwtrust::DiceChain::Kind::kVsr13;
-        case __ANDROID_API_U__:
-            return hwtrust::DiceChain::Kind::kVsr14;
-        case 202404: /* TODO(b/315056516) Use a version macro for vendor API 24Q2 */
-            return hwtrust::DiceChain::Kind::kVsr15;
-        default:
-            return "Unsupported vendor API level: " + std::to_string(vendor_api_level);
+    if (vendor_api_level == __ANDROID_API_T__) {
+        return hwtrust::DiceChain::Kind::kVsr13;
+    } else if (vendor_api_level == __ANDROID_API_U__) {
+        return hwtrust::DiceChain::Kind::kVsr14;
+    } else if (vendor_api_level == 202404) {
+        return hwtrust::DiceChain::Kind::kVsr15;
+    } else if (vendor_api_level > 202404) {
+        return hwtrust::DiceChain::Kind::kVsr16;
+    } else {
+        return "Unsupported vendor API level: " + std::to_string(vendor_api_level);
     }
 }
 
