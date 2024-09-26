@@ -60,7 +60,7 @@ public:
             in_radioModeInfos) override;
 
 private:
-    [[maybe_unused]] int32_t chipId_;
+    int32_t chipId_;
 };
 
 class WifiStaIfaceRpcEvent : public IWifiStaIfaceEventCallback {
@@ -78,7 +78,7 @@ public:
         int32_t in_currRssi) override;
 
 private:
-    int32_t instanceId_;
+    uint16_t instanceId_;
 };
 
 }  // namespace wifi

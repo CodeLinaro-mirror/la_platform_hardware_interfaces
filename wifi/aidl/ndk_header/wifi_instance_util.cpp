@@ -9,12 +9,12 @@
 
 namespace {
 
-constexpr int32_t StaIfaceInstanceIdBase = 0x100;
+constexpr uint16_t StaIfaceInstanceIdBase = 0x0100;
 #ifdef CONFIG_AP
-constexpr int32_t ApIfaceInstanceIdBase = 0x200;
+constexpr uint16_t ApIfaceInstanceIdBase = 0x0200;
 #endif
 #ifdef CONFIG_P2P
-constexpr int32_t P2pIfaceInstanceIdBase = 0x300;
+constexpr uint16_t P2pIfaceInstanceIdBase = 0x0300;
 #endif
 
 }
@@ -38,7 +38,7 @@ std::shared_ptr<WifiInstanceManager> WifiGetInstanceManager()
     return wifiInstanceManager;
 }
 
-int32_t WifiRegisterStaIfaceAndGetInstanceId(
+uint16_t WifiRegisterStaIfaceAndGetInstanceId(
     std::shared_ptr<IWifiStaIface> impl, const std::string& ifname,
     int32_t chip_id)
 {
@@ -48,7 +48,7 @@ int32_t WifiRegisterStaIfaceAndGetInstanceId(
     return -1;
 }
 
-int32_t WifiGetStaIfaceInstanceId(std::shared_ptr<IWifiStaIface> impl)
+uint16_t WifiGetStaIfaceInstanceId(std::shared_ptr<IWifiStaIface> impl)
 {
     if (wifiInstanceManager.get())
         return wifiInstanceManager->getStaIfaceInstanceId(impl);
@@ -62,7 +62,7 @@ void WifiRemoveStaIface(std::shared_ptr<IWifiStaIface> impl)
 }
 
 #ifdef CONFIG_AP
-int32_t WifiRegisterApIfaceAndGetInstanceId(
+uint16_t WifiRegisterApIfaceAndGetInstanceId(
     std::shared_ptr<IWifiApIface> impl, const std::string& ifname,
     int32_t chip_id)
 {
@@ -72,7 +72,7 @@ int32_t WifiRegisterApIfaceAndGetInstanceId(
     return -1;
 }
 
-int32_t WifiGetApIfaceInstanceId(std::shared_ptr<IWifiApIface> impl)
+uint16_t WifiGetApIfaceInstanceId(std::shared_ptr<IWifiApIface> impl)
 {
     if (wifiInstanceManager.get())
         return wifiInstanceManager->getApIfaceInstanceId(impl);
@@ -108,14 +108,14 @@ std::shared_ptr<IWifi> WifiInstanceManager::getWifiInstance()
     return _wifi_impl;
 }
 
-int32_t WifiInstanceManager::registerStaIfaceAndGetInstanceId(
+uint16_t WifiInstanceManager::registerStaIfaceAndGetInstanceId(
     std::shared_ptr<IWifiStaIface> impl, const std::string& ifname,
     int32_t chip_id)
 {
     if (!impl.get())
         return -1;
 
-    int32_t instanceId = (chip_id << 16) | StaIfaceInstanceIdBase |
+    uint16_t instanceId = (chip_id << 12) | StaIfaceInstanceIdBase |
         (if_nametoindex(ifname.c_str()) & 0xff);
 
     _wifi_sta_iface_map[instanceId] = impl;
@@ -123,7 +123,7 @@ int32_t WifiInstanceManager::registerStaIfaceAndGetInstanceId(
     return instanceId;
 }
 
-int32_t WifiInstanceManager::getStaIfaceInstanceId(
+uint16_t WifiInstanceManager::getStaIfaceInstanceId(
     std::shared_ptr<IWifiStaIface> impl)
 {
     for (auto [instanceId, staIface] : _wifi_sta_iface_map)
@@ -133,7 +133,7 @@ int32_t WifiInstanceManager::getStaIfaceInstanceId(
 }
 
 std::shared_ptr<IWifiStaIface> WifiInstanceManager::getStaIfaceByInstanceId(
-    int32_t instance_id)
+    uint16_t instance_id)
 {
     auto iter = _wifi_sta_iface_map.find(instance_id);
     if (iter != _wifi_sta_iface_map.end())
@@ -171,7 +171,7 @@ ndk::ScopedAStatus WifiInstanceManager::callWifiChipMethod(
 
 ndk::ScopedAStatus WifiInstanceManager::callWifiStaIfaceMethod(
     const std::function<ndk::ScopedAStatus(std::shared_ptr<IWifiStaIface>)> &method,
-    int32_t instance_id)
+    uint16_t instance_id)
 {
     std::shared_ptr<IWifiStaIface> sta_iface = getStaIfaceByInstanceId(instance_id);
     if (sta_iface.get())
@@ -180,14 +180,14 @@ ndk::ScopedAStatus WifiInstanceManager::callWifiStaIfaceMethod(
 }
 
 #ifdef CONFIG_AP
-int32_t WifiInstanceManager::registerApIfaceAndGetInstanceId(
+uint16_t WifiInstanceManager::registerApIfaceAndGetInstanceId(
     std::shared_ptr<IWifiApIface> impl, const std::string& ifname,
     int32_t chip_id)
 {
     if (!impl.get())
         return -1;
 
-    int32_t instanceId = (chip_id << 16) | ApIfaceInstanceIdBase |
+    uint16_t instanceId = (chip_id << 12) | ApIfaceInstanceIdBase |
         (if_nametoindex(ifname.c_str()) & 0xff);
 
     _wifi_ap_iface_map[instanceId] = impl;
@@ -195,7 +195,7 @@ int32_t WifiInstanceManager::registerApIfaceAndGetInstanceId(
     return instanceId;
 }
 
-int32_t WifiInstanceManager::getApIfaceInstanceId(
+uint16_t WifiInstanceManager::getApIfaceInstanceId(
     std::shared_ptr<IWifiApIface> impl)
 {
     for (auto [instanceId, apIface] : _wifi_ap_iface_map)
@@ -205,7 +205,7 @@ int32_t WifiInstanceManager::getApIfaceInstanceId(
 }
 
 std::shared_ptr<IWifiApIface> WifiInstanceManager::getApIfaceByInstanceId(
-    int32_t instance_id)
+    uint16_t instance_id)
 {
     auto iter = _wifi_ap_iface_map.find(instance_id);
     if (iter != _wifi_ap_iface_map.end())
@@ -226,7 +226,7 @@ void WifiInstanceManager::removeApIface(std::shared_ptr<IWifiApIface> impl)
 
 ndk::ScopedAStatus WifiInstanceManager::callWifiApIfaceMethod(
     const std::function<ndk::ScopedAStatus(std::shared_ptr<IWifiApIface>)> &method,
-    int32_t instance_id)
+    uint16_t instance_id)
 {
     std::shared_ptr<IWifiApIface> ap_iface = getApIfaceByInstanceId(instance_id);
     if (ap_iface.get())
@@ -236,14 +236,14 @@ ndk::ScopedAStatus WifiInstanceManager::callWifiApIfaceMethod(
 #endif
 
 #ifdef CONFIG_P2P
-int32_t WifiInstanceManager::registerP2pIfaceAndGetInstanceId(
+uint16_t WifiInstanceManager::registerP2pIfaceAndGetInstanceId(
     std::shared_ptr<IWifiP2pIface> impl,  const std::string& ifname,
     int32_t chip_id)
 {
     if (!impl.get())
         return -1;
 
-    int32_t instanceId = (chip_id << 16) | P2pIfaceInstanceIdBase |
+    uint16_t instanceId = (chip_id << 12) | P2pIfaceInstanceIdBase |
         (if_nametoindex(ifname.c_str()) & 0xff);
 
     _wifi_p2p_iface_map[instanceId] = impl;
@@ -251,7 +251,7 @@ int32_t WifiInstanceManager::registerP2pIfaceAndGetInstanceId(
     return instanceId;
 }
 
-int32_t WifiInstanceManager::getP2pIfaceInstanceId(
+uint16_t WifiInstanceManager::getP2pIfaceInstanceId(
     std::shared_ptr<IWifiP2pIface> impl)
 {
     for (auto [instanceId, apIface] : _wifi_p2p_iface_map)
@@ -261,7 +261,7 @@ int32_t WifiInstanceManager::getP2pIfaceInstanceId(
 }
 
 std::shared_ptr<IWifiP2pIface> WifiInstanceManager::getP2pIfaceByInstanceId(
-    int32_t instance_id)
+    uint16_t instance_id)
 {
     auto iter = _wifi_p2p_iface_map.find(instance_id);
     if (iter != _wifi_p2p_iface_map.end())
@@ -282,7 +282,7 @@ void WifiInstanceManager::removeP2pIface(std::shared_ptr<IWifiP2pIface> impl)
 
 ndk::ScopedAStatus WifiInstanceManager::callWifiP2pIfaceMethod(
     const std::function<ndk::ScopedAStatus(std::shared_ptr<IWifiP2pIface>)> &method,
-    int32_t instance_id)
+    uint16_t instance_id)
 {
     std::shared_ptr<IWifiP2pIface> p2p_iface = getP2pIfaceByInstanceId(instance_id);
     if (ap_iface.get())

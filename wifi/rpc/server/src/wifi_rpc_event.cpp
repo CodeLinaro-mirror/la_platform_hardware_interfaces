@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <rpc/util/common_util.h>
 #include <rpc/util/someip_api.h>
 #include <rpc/util/log_common.h>
 #include <wifi_chip_msg.h>
@@ -33,12 +32,20 @@ uint16_t wifiRpcEventArray[WIFI_HAL_SUPPORTED_EVENT_COUNT] = {
     WIFI_STA_IFACE_ON_RSSI_THRESHOLD_BREACHED_IND
 };
 
+static void WifiAddInstanceId(std::vector<uint8_t>& data, int32_t ChipId = 0, uint16_t IfaceId = 0)
+{
+    data.insert(data.begin(), (uint8_t)((IfaceId >> 8) & 0xff));
+    data.insert(data.begin(), (uint8_t)(IfaceId & 0xff));
+    data.insert(data.begin(), (uint8_t)((ChipId >> 8) & 0xff));
+    data.insert(data.begin(), (uint8_t)(ChipId & 0xff));
+}
+
 static ndk::ScopedAStatus WifiRpcSendEvent(uint16_t eventId,
     std::vector<uint8_t>& data)
 {
     if (!someip_send_event(eventId, data.data(), data.size())) {
         ALOGE("Failed to send event with ID 0x%x", eventId);
-	return ndk::ScopedAStatus::fail(WifiStatusCode::ERROR_BUSY);
+        return ndk::ScopedAStatus::fail(WifiStatusCode::ERROR_BUSY);
     }
 
     return ndk::ScopedAStatus::ok();
@@ -86,6 +93,8 @@ ndk::ScopedAStatus WifiRpcEvent::onSubsystemRestart(
         return ndk::ScopedAStatus::fail(
             WifiStatusCode::ERROR_INVALID_ARGS);
     }
+
+    WifiAddInstanceId(data);
 
     return WifiRpcSendEvent(WIFI_ON_SUBSYSTEM_RESTART_IND, data);
 }
@@ -158,6 +167,8 @@ ndk::ScopedAStatus WifiChipRpcEvent::onRadioModeChange(
         return ndk::ScopedAStatus::fail(WifiStatusCode::ERROR_INVALID_ARGS);
     }
 
+    WifiAddInstanceId(data, chipId_);
+
     return WifiRpcSendEvent(WIFI_CHIP_ON_RADIO_MODE_CHANGE_IND, data);
 }
 
@@ -175,7 +186,8 @@ ndk::ScopedAStatus WifiStaIfaceRpcEvent::onBackgroundFullScanResult(
         return ndk::ScopedAStatus::fail(WifiStatusCode::ERROR_INVALID_ARGS);
     }
 
-    ADD_INT32_TO_VECTOR(instanceId_, data);
+    WifiAddInstanceId(data, (0xffff & (instanceId_ >> 12)), instanceId_);
+
     return WifiRpcSendEvent(
         WIFI_STA_IFACE_ON_BACKGROUND_FULL_SCAN_RESULT_IND, data);
 }
@@ -191,7 +203,8 @@ ndk::ScopedAStatus WifiStaIfaceRpcEvent::onBackgroundScanFailure(
         return ndk::ScopedAStatus::fail(WifiStatusCode::ERROR_INVALID_ARGS);
     }
 
-    ADD_INT32_TO_VECTOR(instanceId_, data);
+    WifiAddInstanceId(data, (0xffff & (instanceId_ >> 12)), instanceId_);
+
     return WifiRpcSendEvent(
         WIFI_STA_IFACE_ON_BACKGROUND_SCAN_FAILURE_IND, data);
 }
@@ -208,7 +221,8 @@ ndk::ScopedAStatus WifiStaIfaceRpcEvent::onBackgroundScanResults(
         return ndk::ScopedAStatus::fail(WifiStatusCode::ERROR_INVALID_ARGS);
     }
 
-    ADD_INT32_TO_VECTOR(instanceId_, data);
+    WifiAddInstanceId(data, (0xffff & (instanceId_ >> 12)), instanceId_);
+
     return WifiRpcSendEvent(
         WIFI_STA_IFACE_ON_BACKGROUND_SCAN_RESULTS_IND, data);
 }
@@ -225,7 +239,8 @@ ndk::ScopedAStatus WifiStaIfaceRpcEvent::onRssiThresholdBreached(
         return ndk::ScopedAStatus::fail(WifiStatusCode::ERROR_INVALID_ARGS);
     }
 
-    ADD_INT32_TO_VECTOR(instanceId_, data);
+    WifiAddInstanceId(data, (0xffff & (instanceId_ >> 12)), instanceId_);
+
     return WifiRpcSendEvent(
         WIFI_STA_IFACE_ON_RSSI_THRESHOLD_BREACHED_IND, data);
 }

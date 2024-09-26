@@ -108,7 +108,6 @@ class WifiChip : public BnWifiChip {
     ndk::ScopedAStatus requestChipDebugInfo(IWifiChip::ChipDebugInfo* _aidl_return) override;
     ndk::ScopedAStatus requestDriverDebugDump(std::vector<uint8_t>* _aidl_return) override;
     ndk::ScopedAStatus requestFirmwareDebugDump(std::vector<uint8_t>* _aidl_return) override;
-#ifdef CONFIG_AP
     ndk::ScopedAStatus createApIface(std::shared_ptr<IWifiApIface>* _aidl_return) override;
     ndk::ScopedAStatus createBridgedApIface(std::shared_ptr<IWifiApIface>* _aidl_return) override;
     ndk::ScopedAStatus getApIfaceNames(std::vector<std::string>* _aidl_return) override;
@@ -117,7 +116,6 @@ class WifiChip : public BnWifiChip {
     ndk::ScopedAStatus removeApIface(const std::string& in_ifname) override;
     ndk::ScopedAStatus removeIfaceInstanceFromBridgedApIface(
             const std::string& in_brIfaceName, const std::string& in_ifaceInstanceName) override;
-#endif
 #ifdef CONFIG_NAN
     ndk::ScopedAStatus createNanIface(std::shared_ptr<IWifiNanIface>* _aidl_return) override;
     ndk::ScopedAStatus getNanIfaceNames(std::vector<std::string>* _aidl_return) override;
@@ -193,7 +191,6 @@ class WifiChip : public BnWifiChip {
     std::pair<IWifiChip::ChipDebugInfo, ndk::ScopedAStatus> requestChipDebugInfoInternal();
     std::pair<std::vector<uint8_t>, ndk::ScopedAStatus> requestDriverDebugDumpInternal();
     std::pair<std::vector<uint8_t>, ndk::ScopedAStatus> requestFirmwareDebugDumpInternal();
-#ifdef CONFIG_AP
     std::shared_ptr<WifiApIface> newWifiApIface(const std::string& ifname);
     ndk::ScopedAStatus createVirtualApInterface(const std::string& apVirtIf);
     std::pair<std::shared_ptr<IWifiApIface>, ndk::ScopedAStatus> createApIfaceInternal();
@@ -204,7 +201,6 @@ class WifiChip : public BnWifiChip {
     ndk::ScopedAStatus removeApIfaceInternal(const std::string& ifname);
     ndk::ScopedAStatus removeIfaceInstanceFromBridgedApIfaceInternal(
             const std::string& brIfaceName, const std::string& ifInstanceName);
-#endif
 #ifdef CONFIG_NAN
     std::pair<std::shared_ptr<IWifiNanIface>, ndk::ScopedAStatus> createNanIfaceInternal();
     std::pair<std::vector<std::string>, ndk::ScopedAStatus> getNanIfaceNamesInternal();

@@ -34,7 +34,8 @@
 #include "wifi_legacy_hal_factory.h"
 #include "wifi_mode_controller.h"
 
-#define APP_NAME "wifihal"
+#define APP_NAME    "wifihal"
+#define LOG_TAG     "HAL"
 
 using aidl::android::hardware::wifi::feature_flags::WifiFeatureFlags;
 using aidl::android::hardware::wifi::legacy_hal::WifiLegacyHal;
@@ -52,6 +53,7 @@ int main(int /*argc*/, char** argv) {
 
     property_init();
     InitLogExt(APP_NAME, 10);
+    setLogTag(LOG_TAG);
 
     ALOGI("Wifi Hal is booting up...");
 

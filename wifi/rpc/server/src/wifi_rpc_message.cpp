@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <rpc/util/common_util.h>
 #include <rpc/util/someip_api.h>
 #include <rpc/util/log_common.h>
 #ifdef CONFIG_AP
@@ -29,30 +28,33 @@ using namespace aidl::android::hardware::wifi::instance_util;
 #define INVALID_ARGS_ERROR_STATUS \
     (ndk::ScopedAStatus::fail(WifiStatusCode::ERROR_INVALID_ARGS))
 
+#define WIFI_PAYLOAD_MIN_SIZE 4
+
 /*
  * Deserialize request message payload funcions.
  * For specific multi interface instance,
  * instanceId is attached at the tail of payload.
  * Get instanceId firstly, then parse the specific parameter.
  */
-static bool WifiRpcParseInstanceId(uint8_t* data, size_t length, int32_t& id)
+static bool WifiRpcParseInstanceId(uint8_t* data, size_t length, uint16_t& chipId, uint16_t& ifaceId)
 {
-    if (!data || length < 4) {
-        ALOGE("Invalid data payload length %zu", length);
+    if (!data || length < WIFI_PAYLOAD_MIN_SIZE) {
+        ALOGE("Invalid payload header length %zu", length);
         return false;
     }
 
-    id = CONVERT_INT32_FROM_VECTOR(data, length - 4);
+    chipId = (uint16_t)data[0] | (((uint16_t)data[1]) << 8);
+    ifaceId = (uint16_t)data[2] | (((uint16_t)data[3]) << 8);
 
     return true;
 }
 
 template <typename ReqParamType, typename ParseFunc>
 static bool WifiRpcParseDataPayload(uint8_t* data, size_t length,
-    int32_t& id, ReqParamType& param, ParseFunc&& func)
+    uint16_t& id1, uint16_t& id2, ReqParamType& param, ParseFunc&& func)
 {
-    if (WifiRpcParseInstanceId(data, length, id) && func)
-        return (*func)(data, length - 4, param);
+    if (WifiRpcParseInstanceId(data, length, id1, id2) && func)
+        return (*func)(data + WIFI_PAYLOAD_MIN_SIZE, length - WIFI_PAYLOAD_MIN_SIZE, param);
 
     return false;
 }
@@ -132,10 +134,10 @@ static bool WifiMsgHandlerGetChip(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
     int32_t chipId;
-    if (!WifiParseGetChipReq(data, length, chipId)) {
+    if (!WifiParseGetChipReq(data + WIFI_PAYLOAD_MIN_SIZE, length - WIFI_PAYLOAD_MIN_SIZE, chipId)) {
         ALOGE("Wifi Chip parse get chip request fail.");
-	ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
-	return WifiRpcSerializeStatusResponse(status, outData);
+        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+        return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     std::shared_ptr<IWifiChip> wifiChip;
@@ -153,8 +155,14 @@ static bool WifiMsgHandlerGetChip(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerGetId(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     int32_t id;
-    auto status = WifiChipCallMethod(&IWifiChip::getId, &id);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::getId, &id);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -165,8 +173,14 @@ static bool WifiChipMsgHandlerGetId(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerGetFeatureSet(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     int32_t featureSet;
-    auto status = WifiChipCallMethod(&IWifiChip::getFeatureSet, &featureSet);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::getFeatureSet, &featureSet);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -177,8 +191,14 @@ static bool WifiChipMsgHandlerGetFeatureSet(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerGetAvailableModes(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     std::vector<IWifiChip::ChipMode> chipModes;
-    auto status = WifiChipCallMethod(&IWifiChip::getAvailableModes, &chipModes);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::getAvailableModes, &chipModes);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -189,8 +209,10 @@ static bool WifiChipMsgHandlerGetAvailableModes(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerConfigureChip(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     int32_t modeId;
-    if (!WifiChipParseConfigureChipReq(data, length, modeId)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, modeId,
+        &WifiChipParseConfigureChipReq)) {
         ALOGE("Wifi Chip parse configure chip request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
@@ -198,7 +220,7 @@ static bool WifiChipMsgHandlerConfigureChip(uint8_t* data, size_t length,
 
     ALOGD("Wifi config chip modeId: %d.", modeId);
 
-    auto status = WifiChipCallMethod(&IWifiChip::configureChip, modeId);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::configureChip, modeId);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -208,8 +230,14 @@ static bool WifiChipMsgHandlerConfigureChip(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerGetMode(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     int32_t mode;
-    auto status = WifiChipCallMethod(&IWifiChip::getMode, &mode);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::getMode, &mode);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -221,8 +249,14 @@ static bool WifiChipMsgHandlerGetMode(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerRequestChipDebugInfo(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     IWifiChip::ChipDebugInfo chipDebugInfo;
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::requestChipDebugInfo, &chipDebugInfo);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -234,8 +268,14 @@ static bool WifiChipMsgHandlerRequestChipDebugInfo(uint8_t* data,
 static bool WifiChipMsgHandlerRequestDriverDebugDump(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     std::vector<uint8_t> dbgDump;
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::requestDriverDebugDump, &dbgDump);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -247,8 +287,14 @@ static bool WifiChipMsgHandlerRequestDriverDebugDump(uint8_t* data,
 static bool WifiChipMsgHandlerRequestFirmwareDebugDump(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     std::vector<uint8_t> dbgDump;
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::requestFirmwareDebugDump, &dbgDump);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -262,12 +308,18 @@ static bool WifiChipMsgHandlerRequestFirmwareDebugDump(uint8_t* data,
 static bool WifiChipMsgHandlerCreateApIface(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     std::shared_ptr<IWifiApIface> wifiApIface;
-    auto status = WifiChipCallMethod(&IWifiChip::createApIface, &wifiApIface);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::createApIface, &wifiApIface);
 
     WIFI_RPC_PRINT_STATUS(status);
 
-    int32_t instanceId = WifiGetApIfaceInstanceId(wifiApIface);
+    uint16_t instanceId = WifiGetApIfaceInstanceId(wifiApIface);
     ALOGI("Wifi Chip create ap iface instance Id %d.", instanceId);
 
     return WifiRpcSerializeResultResponse(status, instanceId,
@@ -277,13 +329,19 @@ static bool WifiChipMsgHandlerCreateApIface(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlercreateBridgedApIface(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     std::shared_ptr<IWifiApIface> wifiApIface;
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::createBridgedApIface, &wifiApIface);
 
     WIFI_RPC_PRINT_STATUS(status);
 
-    int32_t instanceId = WifiGetApIfaceInstanceId(wifiApIface);
+    uint16_t instanceId = WifiGetApIfaceInstanceId(wifiApIface);
     ALOGI("Wifi Chip create bridged ap iface instance Id %d.", instanceId);
 
     return WifiRpcSerializeResultResponse(status, instanceId,
@@ -293,8 +351,14 @@ static bool WifiChipMsgHandlercreateBridgedApIface(uint8_t* data,
 static bool WifiChipMsgHandlerGetApIfaceNames(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     std::vector<std::string> names;
-    auto status = WifiChipCallMethod(&IWifiChip::getApIfaceNames, &names);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::getApIfaceNames, &names);
     WIFI_RPC_PRINT_STATUS(status);
 
     return WifiRpcSerializeResultResponse(status, names,
@@ -304,19 +368,21 @@ static bool WifiChipMsgHandlerGetApIfaceNames(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerGetApIface(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     std::string name;
-    if (!WifiChipParseGetApIfaceReq(data, length, name)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, name,
+        &WifiChipParseGetApIfaceReq)) {
         ALOGE("Wifi Chip parse get Ap Iface request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     std::shared_ptr<IWifiApIface> apIface;
-    auto status = WifiChipCallMethod(&IWifiChip::getApIface, name, &apIface);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::getApIface, name, &apIface);
 
     WIFI_RPC_PRINT_STATUS(status);
 
-    int32_t instanceId = WifiGetApIfaceInstanceId(apIface);
+    uint16_t instanceId = WifiGetApIfaceInstanceId(apIface);
     ALOGI("Wifi Chip get ap iface instance Id %d.", instanceId);
 
     return WifiRpcSerializeResultResponse(status, instanceId,
@@ -326,8 +392,10 @@ static bool WifiChipMsgHandlerGetApIface(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerRemoveApIface(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     std::string ifname;
-    if (!WifiChipParseRemoveApIfaceReq(data, length, ifname)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, ifname,
+        &WifiChipParseRemoveApIfaceReq)) {
         ALOGE("Wifi Chip parse Remove AP iface request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
@@ -335,7 +403,7 @@ static bool WifiChipMsgHandlerRemoveApIface(uint8_t* data, size_t length,
 
     ALOGD("Wifi Chip remove AP iface %s.", ifname.c_str());
 
-    auto status = WifiChipCallMethod(&IWifiChip::removeApIface, ifname);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::removeApIface, ifname);
 
     /*Call Instance manager to remove ap interface*/
 
@@ -347,9 +415,10 @@ static bool WifiChipMsgHandlerRemoveApIface(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerRemoveIfaceInstanceFromBridgedApIface(
     uint8_t* data, size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     RemoveIfaceInstanceFromBridgedApIfaceReqChipParam param;
-    if (!WifiChipParseRemoveIfaceInstanceFromBridgedApIfaceReq(
-        data, length, param)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, param,
+        &WifiChipParseRemoveIfaceInstanceFromBridgedApIfaceReq)) {
         ALOGE("Wifi Chip parse Remove Bridges AP iface request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
@@ -359,7 +428,7 @@ static bool WifiChipMsgHandlerRemoveIfaceInstanceFromBridgedApIface(
         "ifaceInstanceName: %s.", param.brIfaceName.c_str(),
         param.ifaceInstanceName.c_str());
 
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::removeIfaceInstanceFromBridgedApIface,
         param.brIfaceName, param.ifaceInstanceName);
 
@@ -372,12 +441,18 @@ static bool WifiChipMsgHandlerRemoveIfaceInstanceFromBridgedApIface(
 static bool WifiChipMsgHandlerCreateStaIface(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     std::shared_ptr<IWifiStaIface> staIface;
-    auto status = WifiChipCallMethod(&IWifiChip::createStaIface, &staIface);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::createStaIface, &staIface);
 
     WIFI_RPC_PRINT_STATUS(status);
 
-    int32_t instanceId = WifiGetStaIfaceInstanceId(staIface);
+    uint16_t instanceId = WifiGetStaIfaceInstanceId(staIface);
     ALOGI("Wifi Chip create sta iface instance Id %d.", instanceId);
 
     return WifiRpcSerializeResultResponse(status, instanceId,
@@ -387,8 +462,14 @@ static bool WifiChipMsgHandlerCreateStaIface(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerGetStaIfaceNames(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     std::vector<std::string> ifaceNames;
-    auto status = WifiChipCallMethod(&IWifiChip::getStaIfaceNames, &ifaceNames);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::getStaIfaceNames, &ifaceNames);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -399,20 +480,22 @@ static bool WifiChipMsgHandlerGetStaIfaceNames(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerGetStaIface(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     std::string name;
-    if (!WifiChipParseGetStaIfaceReq(data, length, name)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, name,
+        &WifiChipParseGetStaIfaceReq)) {
         ALOGE("Wifi Chip parse get sta iface request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     std::shared_ptr<IWifiStaIface> staIface;
-    auto status = WifiChipCallMethod(&IWifiChip::getStaIface, name, &staIface);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::getStaIface, name, &staIface);
 
     WIFI_RPC_PRINT_STATUS(status);
 
     /* Get InstanceId based on staIface */
-    int32_t instanceId = WifiGetStaIfaceInstanceId(staIface);
+    uint16_t instanceId = WifiGetStaIfaceInstanceId(staIface);
     ALOGI("Wifi Chip create sta iface instance Id %d.", instanceId);
 
     return WifiRpcSerializeResultResponse(status, instanceId,
@@ -422,8 +505,10 @@ static bool WifiChipMsgHandlerGetStaIface(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerRemoveStaIface(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     std::string ifname;
-    if (!WifiChipParseRemoveStaIfaceReq(data, length, ifname)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, ifname,
+        &WifiChipParseRemoveStaIfaceReq)) {
         ALOGE("Wifi Chip parse remove sta iface request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
@@ -431,7 +516,7 @@ static bool WifiChipMsgHandlerRemoveStaIface(uint8_t* data, size_t length,
 
     ALOGD("Wifi Chip remove STA iface %s.", ifname.c_str());
 
-    auto status = WifiChipCallMethod(&IWifiChip::removeStaIface, ifname);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::removeStaIface, ifname);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -442,8 +527,14 @@ static bool WifiChipMsgHandlerRemoveStaIface(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerGetDebugRingBuffersStatus(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     std::vector<WifiDebugRingBufferStatus> dbgRingBufStatus;
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::getDebugRingBuffersStatus, &dbgRingBufStatus);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -455,14 +546,16 @@ static bool WifiChipMsgHandlerGetDebugRingBuffersStatus(uint8_t* data,
 static bool WifiChipMsgHandlerStartLoggingToDebugRingBuffer(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     StartLoggingToDebugRingBufferReqChipParam param;
-    if (!WifiChipParseStartLoggingToDebugRingBufferReq(data, length, param)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, param,
+        &WifiChipParseStartLoggingToDebugRingBufferReq)) {
         ALOGE("Wifi Chip parse start logging request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::startLoggingToDebugRingBuffer, param.ringName,
         param.verboseLevel, param.maxIntervalInSec, param.minDataSizeInBytes);
 
@@ -474,14 +567,16 @@ static bool WifiChipMsgHandlerStartLoggingToDebugRingBuffer(uint8_t* data,
 static bool WifiChipMsgHandlerForceDumpToDebugRingBuffer(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     std::string ringName;
-    if (!WifiChipParseForceDumpToDebugRingBufferReq(data, length, ringName)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, ringName,
+        &WifiChipParseForceDumpToDebugRingBufferReq)) {
         ALOGE("Wifi Chip parse force dump request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::forceDumpToDebugRingBuffer, ringName);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -492,7 +587,13 @@ static bool WifiChipMsgHandlerForceDumpToDebugRingBuffer(uint8_t* data,
 static bool WifiChipMsgHandlerFlushRingBufferToFile(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    auto status = WifiChipCallMethod(&IWifiChip::flushRingBufferToFile);
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::flushRingBufferToFile);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -502,7 +603,13 @@ static bool WifiChipMsgHandlerFlushRingBufferToFile(uint8_t* data,
 static bool WifiChipMsgHandlerStopLoggingToDebugRingBuffer(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    auto status = WifiChipCallMethod(&IWifiChip::stopLoggingToDebugRingBuffer);
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::stopLoggingToDebugRingBuffer);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -512,8 +619,14 @@ static bool WifiChipMsgHandlerStopLoggingToDebugRingBuffer(uint8_t* data,
 static bool WifiChipMsgHandlerGetDebugHostWakeReasonStats(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     WifiDebugHostWakeReasonStats reasonStatus;
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::getDebugHostWakeReasonStats, &reasonStatus);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -525,14 +638,16 @@ static bool WifiChipMsgHandlerGetDebugHostWakeReasonStats(uint8_t* data,
 static bool WifiChipMsgHandlerEnableDebugErrorAlerts(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     bool enable;
-    if (!WifiChipParseEnableDebugErrorAlertsReq(data, length, enable)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, enable,
+        &WifiChipParseEnableDebugErrorAlertsReq)) {
         ALOGE("Wifi Chip parse enable debug error alert request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::enableDebugErrorAlerts, enable);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -544,14 +659,16 @@ static bool WifiChipMsgHandlerEnableDebugErrorAlerts(uint8_t* data,
 static bool WifiChipMsgHandlerSelectTxPowerScenario(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     IWifiChip::TxPowerScenario scenario;
-    if (!WifiChipParseSelectTxPowerScenarioReq(data, length, scenario)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, scenario,
+        &WifiChipParseSelectTxPowerScenarioReq)) {
         ALOGE("Wifi Chip parse select tx power scenario request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::selectTxPowerScenario, scenario);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -562,7 +679,13 @@ static bool WifiChipMsgHandlerSelectTxPowerScenario(uint8_t* data,
 static bool WifiChipMsgHandlerResetTxPowerScenario(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
-    auto status = WifiChipCallMethod(&IWifiChip::resetTxPowerScenario);
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::resetTxPowerScenario);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -572,14 +695,16 @@ static bool WifiChipMsgHandlerResetTxPowerScenario(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerSetLatencyMode(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     IWifiChip::LatencyMode mode;
-    if (!WifiChipParseSetLatencyModeReq(data, length, mode)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, mode,
+        &WifiChipParseSetLatencyModeReq)) {
         ALOGE("Wifi Chip parse select set latency mode request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(&IWifiChip::setLatencyMode, mode);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::setLatencyMode, mode);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -589,14 +714,16 @@ static bool WifiChipMsgHandlerSetLatencyMode(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerSetMultiStaPrimaryConnection(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     std::string ifname;
-    if (!WifiChipParseSetMultiStaPrimaryConnectionReq(data, length, ifname)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, ifname,
+        &WifiChipParseSetMultiStaPrimaryConnectionReq)) {
         ALOGE("Wifi Chip parse set multi sta primary conneciton request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::setMultiStaPrimaryConnection, ifname);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -607,14 +734,16 @@ static bool WifiChipMsgHandlerSetMultiStaPrimaryConnection(uint8_t* data,
 static bool WifiChipMsgHandlerSetMultiStaUseCase(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     IWifiChip::MultiStaUseCase useCase;
-    if (!WifiChipParseSetMultiStaUseCaseReq(data, length, useCase)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, useCase,
+        &WifiChipParseSetMultiStaUseCaseReq)) {
         ALOGE("Wifi Chip parse select set multi use case request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(&IWifiChip::setMultiStaUseCase, useCase);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::setMultiStaUseCase, useCase);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -624,14 +753,16 @@ static bool WifiChipMsgHandlerSetMultiStaUseCase(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerSetCoexUnsafeChannels(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     SetCoexUnsafeChannelsReqChipParam param;
-    if (!WifiChipParseSetCoexUnsafeChannelsReq(data, length, param)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, param,
+        &WifiChipParseSetCoexUnsafeChannelsReq)) {
         ALOGE("Wifi Chip parse set coex unsafe channels request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(&IWifiChip::setCoexUnsafeChannels,
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::setCoexUnsafeChannels,
         param.unsafeChannels, param.restrictions);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -642,14 +773,16 @@ static bool WifiChipMsgHandlerSetCoexUnsafeChannels(uint8_t* data,
 static bool WifiChipMsgHandlerSetCountryCode(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     std::array<uint8_t, 2> code;
-    if (!WifiChipParseSetCountryCodeReq(data, length, code)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, code,
+        &WifiChipParseSetCountryCodeReq)) {
         ALOGE("Wifi Chip parse set country code request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(&IWifiChip::setCountryCode, code);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::setCountryCode, code);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -659,15 +792,17 @@ static bool WifiChipMsgHandlerSetCountryCode(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerGetUsableChannels(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     GetUsableChannelsReqChipParam param;
-    if (!WifiChipParseGetUsableChannelsReq(data, length, param)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, param,
+        &WifiChipParseGetUsableChannelsReq)) {
         ALOGE("Wifi Chip parse get usable channels request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     std::vector<WifiUsableChannel> channels;
-    auto status = WifiChipCallMethod(&IWifiChip::getUsableChannels,
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::getUsableChannels,
         param.band, param.ifaceModeMask, param.filterMask, &channels);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -679,14 +814,16 @@ static bool WifiChipMsgHandlerGetUsableChannels(uint8_t* data, size_t length,
 static bool WifiChipMsgHandlerSetAfcChannelAllowance(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     AfcChannelAllowance afcChanAllow;
-    if (!WifiChipParseSetAfcChannelAllowanceReq(data, length, afcChanAllow)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, afcChanAllow,
+        &WifiChipParseSetAfcChannelAllowanceReq)) {
         ALOGE("Wifi Chip parse set afc channel allowance request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::setAfcChannelAllowance, afcChanAllow);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -697,7 +834,13 @@ static bool WifiChipMsgHandlerSetAfcChannelAllowance(uint8_t* data, size_t lengt
 static bool WifiChipMsgHandlerTriggerSubsystemRestart(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    auto status = WifiChipCallMethod(&IWifiChip::triggerSubsystemRestart);
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::triggerSubsystemRestart);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -707,8 +850,14 @@ static bool WifiChipMsgHandlerTriggerSubsystemRestart(uint8_t* data,
 static bool WifiChipMsgHandlerGetSupportedRadioCombinations(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     std::vector<WifiRadioCombination> radioCombinations;
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::getSupportedRadioCombinations, &radioCombinations);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -720,8 +869,14 @@ static bool WifiChipMsgHandlerGetSupportedRadioCombinations(uint8_t* data,
 static bool WifiChipMsgHandlerGetWifiChipCapabilities(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
+        return WifiRpcSerializeStatusResponse(status, outData);
+    }
+
     WifiChipCapabilities capabilities;
-    auto status = WifiChipCallMethod(
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId),
         &IWifiChip::getWifiChipCapabilities, &capabilities);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -733,15 +888,16 @@ static bool WifiChipMsgHandlerGetWifiChipCapabilities(uint8_t* data,
 static bool WifiChipMsgHandlerEnableStaChannelForPeerNetwork(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     int32_t channelCategoryEnableFlag;
-    if (!WifiChipParseEnableStaChannelForPeerNetworkReq(data, length,
-        channelCategoryEnableFlag)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, channelCategoryEnableFlag,
+        &WifiChipParseEnableStaChannelForPeerNetworkReq)) {
         ALOGE("Wifi Chip parse enable sta channel for peer network fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(&IWifiChip::enableStaChannelForPeerNetwork,
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::enableStaChannelForPeerNetwork,
         channelCategoryEnableFlag);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -752,14 +908,16 @@ static bool WifiChipMsgHandlerEnableStaChannelForPeerNetwork(uint8_t* data,
 static bool WifiChipMsgHandlerSetMloMode(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
+    uint16_t chipId, ifaceId;
     IWifiChip::ChipMloMode mode;
-    if (!WifiChipParseSetMloModeReq(data, length, mode)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, mode,
+        &WifiChipParseSetMloModeReq)) {
         ALOGE("Wifi Chip parse set mlo mode request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiChipCallMethod(&IWifiChip::setMloMode, mode);
+    auto status = WifiChipCallMethod(static_cast<int32_t>(chipId), &IWifiChip::setMloMode, mode);
 
     WIFI_RPC_PRINT_STATUS(status);
 
@@ -772,14 +930,14 @@ static bool WifiChipMsgHandlerSetMloMode(uint8_t* data, size_t length,
 static bool WifiStaIfaceMsgHandlerGetName(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     std::string staIfaceName;
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::getName, &staIfaceName);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -791,14 +949,14 @@ static bool WifiStaIfaceMsgHandlerGetName(uint8_t* data, size_t length,
 static bool WifiStaIfaceMsgHandlerGetFeatureSet(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     int32_t featureSet;
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::getFeatureSet, &featureSet);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -810,14 +968,14 @@ static bool WifiStaIfaceMsgHandlerGetFeatureSet(uint8_t* data, size_t length,
 static bool WifiStaIfaceMsgHandlerGetApfPacketFilterCapabilities(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     StaApfPacketFilterCapabilities pktFilterCap;
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::getApfPacketFilterCapabilities, &pktFilterCap);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -829,16 +987,16 @@ static bool WifiStaIfaceMsgHandlerGetApfPacketFilterCapabilities(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerInstallApfPacketFilter(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     std::vector<uint8_t> program;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, program,
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, program,
         &WifiStaIfaceParseInstallApfPacketFilterReq)) {
         ALOGE("Wifi Sta Iface parse apf pkt filter request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::installApfPacketFilter, program);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -849,14 +1007,14 @@ static bool WifiStaIfaceMsgHandlerInstallApfPacketFilter(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerReadApfPacketFilterData(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     std::vector<uint8_t> readData;
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::readApfPacketFilterData, &readData);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -868,14 +1026,14 @@ static bool WifiStaIfaceMsgHandlerReadApfPacketFilterData(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerGetBackgroundScanCapabilities(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     StaBackgroundScanCapabilities bgScanCap;
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::getBackgroundScanCapabilities, &bgScanCap);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -887,16 +1045,16 @@ static bool WifiStaIfaceMsgHandlerGetBackgroundScanCapabilities(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerStartBackgroundScan(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     StartBackgroundScanReqStaIfaceParam param;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, param,
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, param,
         &WifiStaIfaceParseStartBackgroundScanReq)) {
         ALOGE("Wifi Sta Iface parse BG scan start request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::startBackgroundScan,
         param.cmdId, param.params);
 
@@ -908,15 +1066,16 @@ static bool WifiStaIfaceMsgHandlerStartBackgroundScan(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerStopBackgroundScan(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId, cmdId;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, cmdId,
+    uint16_t chipId, ifaceId;
+    int32_t cmdId;
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, cmdId,
         &WifiStaIfaceParseStopBackgroundScanReq)) {
         ALOGE("Wifi Sta Iface parse BG scan stop request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::stopBackgroundScan, cmdId);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -927,16 +1086,16 @@ static bool WifiStaIfaceMsgHandlerStopBackgroundScan(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerEnableLinkLayerStatsCollection(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     bool debug;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, debug,
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, debug,
         &WifiStaIfaceParseEnableLinkLayerStatsCollectionReq)) {
         ALOGE("Wifi Sta Iface parse link layer stats collect request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::enableLinkLayerStatsCollection, debug);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -947,13 +1106,13 @@ static bool WifiStaIfaceMsgHandlerEnableLinkLayerStatsCollection(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerDisableLinkLayerStatsCollection(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::disableLinkLayerStatsCollection);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -964,14 +1123,14 @@ static bool WifiStaIfaceMsgHandlerDisableLinkLayerStatsCollection(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerGetLinkLayerStats(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     StaLinkLayerStats linkLayerStats;
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::getLinkLayerStats, &linkLayerStats);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -983,16 +1142,16 @@ static bool WifiStaIfaceMsgHandlerGetLinkLayerStats(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerStartRssiMonitoring(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     StartRssiMonitoringReqStaIfaceParam param;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, param,
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, param,
         &WifiStaIfaceParseStartRssiMonitoringReq)) {
         ALOGE("Wifi Sta Iface parse start rssi monitoring request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::startRssiMonitoring,
         param.cmdId, param.maxRssi, param.minRssi);
 
@@ -1004,15 +1163,16 @@ static bool WifiStaIfaceMsgHandlerStartRssiMonitoring(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerStopRssiMonitoring(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId, cmdId;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, cmdId,
+    uint16_t chipId, ifaceId;
+    int32_t cmdId;
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, cmdId,
         &WifiStaIfaceParseStopRssiMonitoringReq)) {
         ALOGE("Wifi Sta Iface parse stop rssi monitoring request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::stopRssiMonitoring, cmdId);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1023,14 +1183,14 @@ static bool WifiStaIfaceMsgHandlerStopRssiMonitoring(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerGetRoamingCapabilities(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     StaRoamingCapabilities capbilities;
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::getRoamingCapabilities, &capbilities);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1042,16 +1202,16 @@ static bool WifiStaIfaceMsgHandlerGetRoamingCapabilities(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerConfigureRoaming(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     StaRoamingConfig config;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, config,
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, config,
         &WifiStaIfaceParseConfigureRoamingReq)) {
         ALOGE("Wifi Sta Iface parse configure roaming request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::configureRoaming, config);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1062,16 +1222,16 @@ static bool WifiStaIfaceMsgHandlerConfigureRoaming(uint8_t* data, size_t length,
 static bool WifiStaIfaceMsgHandlerSetRoamingState(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     StaRoamingState state;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, state,
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, state,
         &WifiStaIfaceParseSetRoamingStateReq)) {
         ALOGE("Wifi Sta Iface parse set roaming state request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::setRoamingState, state);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1082,16 +1242,16 @@ static bool WifiStaIfaceMsgHandlerSetRoamingState(uint8_t* data, size_t length,
 static bool WifiStaIfaceMsgHandlerEnableNdOffload(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     bool enable;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, enable,
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, enable,
         &WifiStaIfaceParseEnableNdOffloadReq)) {
         ALOGE("Wifi Sta Iface parse enable nd offload request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::enableNdOffload, enable);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1102,16 +1262,16 @@ static bool WifiStaIfaceMsgHandlerEnableNdOffload(uint8_t* data, size_t length,
 static bool WifiStaIfaceMsgHandlerStartSendingKeepAlivePackets(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     StartSendingKeepAlivePacketsReqStaIfaceParam param;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, param,
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, param,
         &WifiStaIfaceParseStartSendingKeepAlivePacketsReq)) {
         ALOGE("Wifi Sta Iface parse sending keep alive pkt request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::startSendingKeepAlivePackets,
         param.cmdId, param.ipPacketData, param.etherType,
         param.srcAddress, param.dstAddress, param.periodInMs);
@@ -1124,15 +1284,16 @@ static bool WifiStaIfaceMsgHandlerStartSendingKeepAlivePackets(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerStopSendingKeepAlivePackets(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId, cmdId;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, cmdId,
+    uint16_t chipId, ifaceId;
+    int32_t cmdId;
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, cmdId,
         &WifiStaIfaceParseStopSendingKeepAlivePacketsReq)) {
         ALOGE("Wifi Sta Iface parse stop send keep alive pkt request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::stopSendingKeepAlivePackets, cmdId);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1144,13 +1305,13 @@ static bool WifiStaIfaceMsgHandlerStopSendingKeepAlivePackets(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerStartDebugPacketFateMonitoring(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::startDebugPacketFateMonitoring);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1161,14 +1322,14 @@ static bool WifiStaIfaceMsgHandlerStartDebugPacketFateMonitoring(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerGetDebugTxPacketFates(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     std::vector<WifiDebugTxPacketFateReport> txPktFateReport;
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::getDebugTxPacketFates, &txPktFateReport);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1180,14 +1341,14 @@ static bool WifiStaIfaceMsgHandlerGetDebugTxPacketFates(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerGetDebugRxPacketFates(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     std::vector<WifiDebugRxPacketFateReport> rxPktFateReport;
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::getDebugRxPacketFates, &rxPktFateReport);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1200,16 +1361,16 @@ static bool WifiStaIfaceMsgHandlerGetDebugRxPacketFates(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerSetMacAddress(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     std::array<uint8_t, 6> mac;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, mac,
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, mac,
         &WifiStaIfaceParseSetMacAddressReq)) {
         ALOGE("Wifi Sta Iface parse set mac address request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::setMacAddress, mac);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1220,14 +1381,14 @@ static bool WifiStaIfaceMsgHandlerSetMacAddress(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerGetFactoryMacAddress(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
+    uint16_t chipId, ifaceId;
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
+        ndk::ScopedAStatus status(WifiStatusCode::ERROR_INVALID_ARGS);
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
     std::array<uint8_t, 6> mac;
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::getFactoryMacAddress, &mac);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1239,16 +1400,16 @@ static bool WifiStaIfaceMsgHandlerGetFactoryMacAddress(uint8_t* data,
 static bool WifiStaIfaceMsgHandlerSetScanMode(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     bool enable;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, enable,
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, enable,
         &WifiStaIfaceParseSetScanModeReq)) {
         ALOGE("Wifi Sta Iface parse set scan mode request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::setScanMode, enable);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1259,15 +1420,16 @@ static bool WifiStaIfaceMsgHandlerSetScanMode(uint8_t* data, size_t length,
 static bool WifiStaIfaceMsgHandlerSetDtimMultiplier(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId, multiplier;
-    if (!WifiRpcParseDataPayload(data, length, instanceId, multiplier,
+    uint16_t chipId, ifaceId;
+    int32_t multiplier;
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, multiplier,
         &WifiStaIfaceParseSetDtimMultiplierReq)) {
         ALOGE("Wifi Sta Iface parse set dtim multiplier request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiStaIfaceCallMethod(instanceId,
+    auto status = WifiStaIfaceCallMethod(ifaceId,
         &IWifiStaIface::setDtimMultiplier, multiplier);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1282,14 +1444,13 @@ static bool WifiStaIfaceMsgHandlerSetDtimMultiplier(uint8_t* data,
 static bool WifiApIfaceMsgHandlerGetName(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     std::string apIfaceName;
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ALOGE("Wifi Ap InstanceId parse fail.");
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
-    auto status = WifiApIfaceCallMethod(instanceId,
+    auto status = WifiApIfaceCallMethod(ifaceId,
         &IWifiApIface::getName, &apIfaceName);
     WIFI_RPC_PRINT_STATUS(status);
     return WifiRpcSerializeResultResponse(status, apIfaceName,
@@ -1299,22 +1460,16 @@ static bool WifiApIfaceMsgHandlerGetName(uint8_t* data, size_t length,
 static bool WifiApIfaceMsgHandlerSetCountryCode(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     std::array<uint8_t, 2> code;
-
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ALOGE("Wifi Ap InstanceId parse fail.");
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, code,
+        &WifiApIfaceParseSetCountryCodeReq)) {
+        ALOGE("Wifi Sta Iface parse set country code request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    if (!WifiApIfaceParseSetCountryCodeReq(data, length -  4, code)) {
-        ALOGE("Wifi Ap Iface parse set country code request fail.");
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
-        return WifiRpcSerializeStatusResponse(status, outData);
-    }
-
-    auto status = WifiApIfaceCallMethod(instanceId,
+    auto status = WifiApIfaceCallMethod(ifaceId,
         &IWifiApIface::setCountryCode, code);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1325,22 +1480,16 @@ static bool WifiApIfaceMsgHandlerSetCountryCode(uint8_t* data, size_t length,
 static bool WifiApIfaceMsgHandlerSetMacAddress(uint8_t* data, size_t length,
     std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     std::array<uint8_t, 6> mac;
-
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ALOGE("Wifi Ap InstanceId parse fail.");
-        ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
-        return WifiRpcSerializeStatusResponse(status, outData);
-    }
-
-    if (!WifiApIfaceParseSetMacAddressReq(data, length - 4, mac)) {
+    if (!WifiRpcParseDataPayload(data, length, chipId, ifaceId, mac,
+        &WifiApIfaceParseSetMacAddressReq)) {
         ALOGE("Wifi Ap Iface parse set mac address request fail.");
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiApIfaceCallMethod(instanceId,
+    auto status = WifiApIfaceCallMethod(ifaceId,
         &IWifiApIface::setMacAddress, mac);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1351,16 +1500,15 @@ static bool WifiApIfaceMsgHandlerSetMacAddress(uint8_t* data, size_t length,
 static bool WifiApIfaceMsgHandlerGetFactoryMacAddress(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     std::array<uint8_t, 6> mac;
 
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ALOGE("Wifi Ap InstanceId parse fail.");
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiApIfaceCallMethod(instanceId,
+    auto status = WifiApIfaceCallMethod(ifaceId,
         &IWifiApIface::getFactoryMacAddress, &mac);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1372,15 +1520,14 @@ static bool WifiApIfaceMsgHandlerGetFactoryMacAddress(uint8_t* data,
 static bool WifiApIfaceMsgHandlerResetToFactoryMacAddress(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
 
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ALOGE("Wifi Ap InstanceId parse fail.");
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiApIfaceCallMethod(instanceId,
+    auto status = WifiApIfaceCallMethod(ifaceId,
         &IWifiApIface::resetToFactoryMacAddress);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1391,16 +1538,15 @@ static bool WifiApIfaceMsgHandlerResetToFactoryMacAddress(uint8_t* data,
 static bool WifiApIfaceMsgHandlerGetBridgedInstances(uint8_t* data,
     size_t length, std::vector<uint8_t>& outData)
 {
-    int32_t instanceId;
+    uint16_t chipId, ifaceId;
     std::vector<std::string> bridgedInstances;
 
-    if (!WifiRpcParseInstanceId(data, length, instanceId)) {
-        ALOGE("Wifi Ap InstanceId parse fail.");
+    if (!WifiRpcParseInstanceId(data, length, chipId, ifaceId)) {
         ndk::ScopedAStatus status = INVALID_ARGS_ERROR_STATUS;
         return WifiRpcSerializeStatusResponse(status, outData);
     }
 
-    auto status = WifiApIfaceCallMethod(instanceId,
+    auto status = WifiApIfaceCallMethod(ifaceId,
         &IWifiApIface::getBridgedInstances, &bridgedInstances);
 
     WIFI_RPC_PRINT_STATUS(status);
@@ -1546,14 +1692,14 @@ void WifiRpcProcessSomeIPRequestMessage(uint16_t methodId,
     MsgHandler handler = WifiRpcGetMessageHandler(methodId);
     if (!handler) {
         ALOGE("Unspported SomeIP request method id 0x%x", methodId);
-	return;
+        return;
     }
 
     std::vector<uint8_t> response;
     bool ret = handler(data, length, response);
     if (!ret) {
         ALOGE("Process SomeIP Request fail.");
-	return;
+        return;
     }
 
     WifiRpcDumpData("SomeIP Response", methodId,

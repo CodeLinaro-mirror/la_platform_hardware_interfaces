@@ -31,53 +31,53 @@ public:
 
     std::shared_ptr<IWifi> getWifiInstance();
 
-    int32_t registerStaIfaceAndGetInstanceId(
+    uint16_t registerStaIfaceAndGetInstanceId(
         std::shared_ptr<IWifiStaIface> impl,  const std::string& ifname,
-        int32_t chip_id = 0);
-    int32_t getStaIfaceInstanceId(std::shared_ptr<IWifiStaIface> impl);
-    std::shared_ptr<IWifiStaIface> getStaIfaceByInstanceId(int32_t instance_id);
+        int32_t chip_id);
+    uint16_t getStaIfaceInstanceId(std::shared_ptr<IWifiStaIface> impl);
+    std::shared_ptr<IWifiStaIface> getStaIfaceByInstanceId(uint16_t instance_id);
     void removeStaIface(std::shared_ptr<IWifiStaIface> impl);
 
     ndk::ScopedAStatus callWifiMethod(const std::function<
         ndk::ScopedAStatus(std::shared_ptr<IWifi>)> &method);
     ndk::ScopedAStatus callWifiChipMethod(const std::function<
         ndk::ScopedAStatus(std::shared_ptr<IWifiChip>)> &method,
-        int32_t chip_id = 0);
+        int32_t chip_id);
     ndk::ScopedAStatus callWifiStaIfaceMethod(const std::function<
         ndk::ScopedAStatus(std::shared_ptr<IWifiStaIface>)> &method,
-        int32_t instance_id);
+        uint16_t instance_id);
 #ifdef CONFIG_AP
-    int32_t registerApIfaceAndGetInstanceId(
+    uint16_t registerApIfaceAndGetInstanceId(
         std::shared_ptr<IWifiApIface> impl,  const std::string& ifname,
-        int32_t chip_id = 0);
-    int32_t getApIfaceInstanceId(std::shared_ptr<IWifiApIface> impl);
-    std::shared_ptr<IWifiApIface> getApIfaceByInstanceId(int32_t instance_id);
+        int32_t chip_id);
+    uint16_t getApIfaceInstanceId(std::shared_ptr<IWifiApIface> impl);
+    std::shared_ptr<IWifiApIface> getApIfaceByInstanceId(uint16_t instance_id);
     void removeApIface(std::shared_ptr<IWifiApIface> impl);
     ndk::ScopedAStatus callWifiApIfaceMethod(const std::function<
         ndk::ScopedAStatus(std::shared_ptr<IWifiApIface>)> &method,
-        int32_t instance_id);
+        uint16_t instance_id);
 #endif
 #ifdef CONFIG_P2P
-    int32_t registerP2pIfaceAndGetInstanceId(
+    uint16_t registerP2pIfaceAndGetInstanceId(
         std::shared_ptr<IWifiP2pIface> impl,  const std::string& ifname,
-        int32_t chip_id = 0);
-    int32_t getP2pIfaceInstanceId(std::shared_ptr<IWifiP2pIface> impl);
-    std::shared_ptr<IWifiP2pIface> getP2pIfaceByInstanceId(int32_t instance_id);
+        int32_t chip_id);
+    uint16_t getP2pIfaceInstanceId(std::shared_ptr<IWifiP2pIface> impl);
+    std::shared_ptr<IWifiP2pIface> getP2pIfaceByInstanceId(uint16_t instance_id);
     void removeP2pIface(std::shared_ptr<IWifiP2pIface> impl);
     ndk::ScopedAStatus callWifiP2pIfaceMethod(const std::function<
         ndk::ScopedAStatus(std::shared_ptr<IWifiP2pIface>)> &method,
-        int32_t instance_id);
+        uint16_t instance_id);
 #endif
 
 private:
     std::shared_ptr<IWifi> _wifi_impl;
 
-    std::map<int32_t, std::shared_ptr<IWifiStaIface>> _wifi_sta_iface_map;
+    std::map<uint16_t, std::shared_ptr<IWifiStaIface>> _wifi_sta_iface_map;
 #ifdef CONFIG_AP
-    std::map<int32_t, std::shared_ptr<IWifiApIface>> _wifi_ap_iface_map;
+    std::map<uint16_t, std::shared_ptr<IWifiApIface>> _wifi_ap_iface_map;
 #endif
 #ifdef CONFIG_P2P
-    std::map<int32_t, std::shared_ptr<IWifiP2pIface>> _wifi_p2p_iface_map;
+    std::map<uint16_t, std::shared_ptr<IWifiP2pIface>> _wifi_p2p_iface_map;
 #endif
 };
 
@@ -85,10 +85,10 @@ namespace instance_util {
 
 void WifiManagerRegisterService(std::shared_ptr<IWifi> impl);
 std::shared_ptr<WifiInstanceManager> WifiGetInstanceManager();
-int32_t WifiRegisterStaIfaceAndGetInstanceId(
+uint16_t WifiRegisterStaIfaceAndGetInstanceId(
     std::shared_ptr<IWifiStaIface> impl,  const std::string& ifname,
-    int32_t chip_id = 0);
-int32_t WifiGetStaIfaceInstanceId(std::shared_ptr<IWifiStaIface> impl);
+    int32_t chip_id);
+uint16_t WifiGetStaIfaceInstanceId(std::shared_ptr<IWifiStaIface> impl);
 void WifiRemoveStaIface(std::shared_ptr<IWifiStaIface> impl);
 
 template <typename FuncType, typename... Args>
@@ -106,7 +106,7 @@ ndk::ScopedAStatus WifiCallMethod(FuncType&& func, Args&&... args)
 }
 
 template <typename FuncType, typename... Args>
-ndk::ScopedAStatus WifiChipCallMethod(/*int32_t chip_id,*/
+ndk::ScopedAStatus WifiChipCallMethod(int32_t chip_id,
     FuncType&& func, Args&&... args)
 {
     std::shared_ptr<WifiInstanceManager> manager = WifiGetInstanceManager();
@@ -117,11 +117,11 @@ ndk::ScopedAStatus WifiChipCallMethod(/*int32_t chip_id,*/
     const std::function<
         ndk::ScopedAStatus(std::shared_ptr<IWifiChip>)> method =
             std::bind(func, std::placeholders::_1, std::forward<Args>(args)...);
-    return manager->callWifiChipMethod(method);
+    return manager->callWifiChipMethod(method, chip_id);
 }
 
 template <typename FuncType, typename... Args>
-ndk::ScopedAStatus WifiStaIfaceCallMethod(int32_t instance_id,
+ndk::ScopedAStatus WifiStaIfaceCallMethod(uint16_t instance_id,
     FuncType&& func, Args&&... args)
 {
     std::shared_ptr<WifiInstanceManager> manager = WifiGetInstanceManager();
@@ -136,13 +136,13 @@ ndk::ScopedAStatus WifiStaIfaceCallMethod(int32_t instance_id,
 }
 
 #ifdef CONFIG_AP
-int32_t WifiRegisterApIfaceAndGetInstanceId(
+uint16_t WifiRegisterApIfaceAndGetInstanceId(
     std::shared_ptr<IWifiApIface> impl,  const std::string& ifname,
-    int32_t chip_id = 0);
-int32_t WifiGetApIfaceInstanceId(std::shared_ptr<IWifiApIface> impl);
+    int32_t chip_id);
+uint16_t WifiGetApIfaceInstanceId(std::shared_ptr<IWifiApIface> impl);
 void WifiRemoveApIface(std::shared_ptr<IWifiApIface> impl);
 template <typename FuncType, typename... Args>
-ndk::ScopedAStatus WifiApIfaceCallMethod(int32_t instance_id,
+ndk::ScopedAStatus WifiApIfaceCallMethod(uint16_t instance_id,
     FuncType&& func, Args&&... args)
 {
     std::shared_ptr<WifiInstanceManager> manager = WifiGetInstanceManager();
@@ -159,7 +159,7 @@ ndk::ScopedAStatus WifiApIfaceCallMethod(int32_t instance_id,
 
 #ifdef CONDIF_P2P
 template <typename FuncType, typename... Args>
-ndk::ScopedAStatus WifiP2pIfaceCallMethod(int32_t instance_id,
+ndk::ScopedAStatus WifiP2pIfaceCallMethod(uint16_t instance_id,
     FuncType&& func, Args&&... args)
 {
     std::shared_ptr<WifiInstanceManager> manager = WifiGetInstanceManager();
