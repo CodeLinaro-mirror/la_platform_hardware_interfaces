@@ -3,26 +3,31 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <iostream>
 #include <thread>
 
-#include <rpc/util/someip_api.h>
-#include <rpc/util/someip_common_def.h>
 #include <rpc/util/log_common.h>
 #include <rpc/util/properties.h>
+#include <rpc/util/someip_server.h>
+
 #include <wifi_message_def.h>
 
 #include "wifi_rpc_event.h"
 #include "wifi_rpc_message.h"
 #include "wifi_rpc_server.h"
 
-#define WIFI_HAL_INSTANCE_ID_CHM ((uint16_t) 0x1110)
-#define WIFI_HAL_INSTANCE_ID_CEM ((uint16_t) 0x1111)
-#define WIFI_HAL_EVENTGROUP_ID ((uint16_t) 0xAAA0)
-#define MAX_SOMEIP_START_TIMEOUT_IN_SEC 60
-static char WIFI_HAL_SERVICE_NAME[] = "wifihal_someip_service";
+#define WIFI_HAL_INSTANCE_ID_CHM                           ((uint16_t) 0x1110)
+#define WIFI_HAL_INSTANCE_ID_CEM                           ((uint16_t) 0x1111)
+#define WIFI_HAL_EVENTGROUP_ID                             ((uint16_t) 0xAAA0)
 
-static SomeipRegisterInfo serviceInfo;
+using qti::hal::rpc::SomeipContext;
+using qti::hal::rpc::SomeipCallback;
+using qti::hal::rpc::SomeipMessage;
+using qti::hal::rpc::Someip;
+using qti::hal::rpc::SomeipServer;
+
+std::string WIFI_HAL_SERVICE_NAME = "wifihal_someip_service";
+std::shared_ptr<SomeipServer> wifihal_someip_server;
+
 bool WifiRpcInitSomeipService()
 {
     uint16_t wifirpc_instance_id;
@@ -33,55 +38,55 @@ bool WifiRpcInitSomeipService()
     }else{
         wifirpc_instance_id = WIFI_HAL_INSTANCE_ID_CHM;
     }
-    serviceInfo.context.app_name = WIFI_HAL_SERVICE_NAME;
-    serviceInfo.context.service_id = WIFI_HAL_SERVICE_ID;
-    serviceInfo.context.service_instance_id = wifirpc_instance_id;
-    serviceInfo.context.eventgroup_id = WIFI_HAL_EVENTGROUP_ID;
-    serviceInfo.context.event_id_number = WIFI_HAL_SUPPORTED_EVENT_COUNT;
-    serviceInfo.context.event_id = wifiRpcEventArray;
+    SomeipContext context(WIFI_HAL_SERVICE_ID, wifirpc_instance_id,
+        WIFI_HAL_EVENTGROUP_ID, wifiRpcEventArray);
+    SomeipCallback cb(nullptr,
+                      WifiRpcProcessSomeIPRequestMessage);
 
-    serviceInfo.dataCallback = &WifiRpcProcessSomeIPRequestMessage;
+    Someip::setup(cb);
+    wifihal_someip_server = std::make_shared<SomeipServer>(WIFI_HAL_SERVICE_NAME, context);
 
-    bool ret = someip_init(&serviceInfo);
-    ALOGI("Wifi Hal Someip service initialize %s.", ret ? "success" : "fail");
+    ALOGI("Wifi-Hal someip service is initialized");
 
-    return ret;
+    return true;
 }
 
 void WifiRpcDeinitSomeipService()
 {
-    ALOGI("WiFi hal someip service deinit...");
+    if (!wifihal_someip_server)
+        return;
 
-    someip_deinit();
+    ALOGI("Wifi-Hal someip service deinit...");
+    wifihal_someip_server = nullptr;
 }
 
 bool WifiRpcStartSomeipService()
 {
-    uint32_t timeoutInSec = 1, totalTimeout = 0;
-
-    ALOGI("WiFi hal someip service main loop start...");
-
-    while (true) {
-        if (someip_open())
-            break;
-
-        ALOGE("Failed to start SomeIP Client.");
-        /* Start someip every 1 second, until timeout occurs */
-        if (totalTimeout < MAX_SOMEIP_START_TIMEOUT_IN_SEC) {
-            sleep(timeoutInSec);
-            totalTimeout += timeoutInSec;
-        } else {
-            ALOGE("fail to start someip in %d sec", totalTimeout);
-            break;
-        }
-    }
+    ALOGI("Wifi-Hal someip service loop starting...");
+    wifihal_someip_server->start();
 
     return true;
 }
 
 void WifiRpcStopSomeipService()
 {
-    ALOGI("WiFi hal someip service main loop stop...");
-    someip_close();
-    someip_deinit();
+    if (!wifihal_someip_server)
+        return;
+
+    ALOGI("Wifi-Hal someip service main loop stop...");
+    wifihal_someip_server->stop();
+}
+
+bool someip_send_event(uint16_t method_id, std::vector<uint8_t> &data)
+{
+    if (!wifihal_someip_server)
+        return false;
+    return wifihal_someip_server->sendEvent(method_id, data);
+}
+
+bool someip_send_message(std::shared_ptr<SomeipMessage> message)
+{
+    if (!wifihal_someip_server)
+        return false;
+    return wifihal_someip_server->sendMessage(message);
 }

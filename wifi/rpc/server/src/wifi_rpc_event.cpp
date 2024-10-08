@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <rpc/util/someip_api.h>
 #include <rpc/util/log_common.h>
 #include <wifi_chip_msg.h>
 #include <wifi_message_def.h>
@@ -12,7 +11,7 @@
 
 #include "wifi_rpc_event.h"
 
-uint16_t wifiRpcEventArray[WIFI_HAL_SUPPORTED_EVENT_COUNT] = {
+std::vector<uint16_t> wifiRpcEventArray{
     /* WIFI_ON_FAILURE_IND, */
     /* WIFI_ON_START_IND, */
     /* WIFI_ON_STOP_IND, */
@@ -43,7 +42,7 @@ static void WifiAddInstanceId(std::vector<uint8_t>& data, int32_t ChipId = 0, ui
 static ndk::ScopedAStatus WifiRpcSendEvent(uint16_t eventId,
     std::vector<uint8_t>& data)
 {
-    if (!someip_send_event(eventId, data.data(), data.size())) {
+    if (!someip_send_event(eventId, data)) {
         ALOGE("Failed to send event with ID 0x%x", eventId);
         return ndk::ScopedAStatus::fail(WifiStatusCode::ERROR_BUSY);
     }

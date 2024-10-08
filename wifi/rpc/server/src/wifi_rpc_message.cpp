@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <rpc/util/someip_api.h>
 #include <rpc/util/log_common.h>
 #ifdef CONFIG_AP
 #include <wifi_ap_iface_msg.h>
@@ -1683,28 +1682,31 @@ static void WifiRpcDumpData(const char* description, uint16_t id,
 #endif
 }
 
-void WifiRpcProcessSomeIPRequestMessage(uint16_t methodId,
-    uint8_t *data, size_t length)
+void WifiRpcProcessSomeIPRequestMessage(
+    const std::shared_ptr<SomeipMessage> &msg)
 {
+    uint16_t methodId = msg->getMethodId();
     ALOGI("Recv Someip Request message : method_id: 0x%x", methodId);
-    WifiRpcDumpData("SomeIP Request", methodId, data, length);
+    WifiRpcDumpData("SomeIP Request", methodId, msg->getData(), msg->getLength());
 
     MsgHandler handler = WifiRpcGetMessageHandler(methodId);
     if (!handler) {
-        ALOGE("Unspported SomeIP request method id 0x%x", methodId);
+        ALOGE("Unsupported SomeIP request method id 0x%x", methodId);
         return;
     }
 
-    std::vector<uint8_t> response;
-    bool ret = handler(data, length, response);
+    std::vector<uint8_t> response_data;
+    bool ret = handler(msg->getData(), msg->getLength(), response_data);
     if (!ret) {
-        ALOGE("Process SomeIP Request fail.");
+        ALOGE("Process SomeIP Request fail");
         return;
     }
-
     WifiRpcDumpData("SomeIP Response", methodId,
-        response.data(), response.size());
-    ret = someip_send_response(methodId, response.data(), response.size());
+        response_data.data(), response_data.size());
+
+    std::shared_ptr<SomeipMessage> response = 
+           std::make_shared<SomeipMessage>(msg->createResponse(response_data));
+    ret = someip_send_message(response);
     if (!ret)
-        ALOGE("Send SomeIP Response fail.");
+        ALOGE("Send SomeIP Response fail");
 }

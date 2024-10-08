@@ -19,8 +19,9 @@
 #include <aidl/android/hardware/wifi/StaScanData.h>
 #include <aidl/android/hardware/wifi/ScopedAStatus.h>
 
-#define WIFI_HAL_SUPPORTED_EVENT_COUNT    6
-extern uint16_t wifiRpcEventArray[WIFI_HAL_SUPPORTED_EVENT_COUNT];
+extern std::vector<uint16_t> wifiRpcEventArray;
+
+bool someip_send_event(uint16_t method_id, std::vector<uint8_t> &data);
 
 namespace aidl {
 namespace android {

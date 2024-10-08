@@ -6,7 +6,13 @@
 #ifndef WIFI_RPC_MESSAGE_H
 #define WIFI_RPC_MESSAGE_H
 
+#include <rpc/util/someip_util.h>
+
+using qti::hal::rpc::SomeipMessage;
+
 void WifiRpcProcessSomeIPRequestMessage(
-    uint16_t methodId, uint8_t *data, size_t length);
+    const std::shared_ptr<SomeipMessage> &msg);
+
+bool someip_send_message(std::shared_ptr<SomeipMessage> message);
 
 #endif /* WIFI_RPC_MESSAGE_H */
