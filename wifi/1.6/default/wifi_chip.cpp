@@ -378,7 +378,7 @@ WifiChip::WifiChip(ChipId chip_id, bool is_primary,
       debug_ring_buffer_cb_registered_(false),
       subsystemCallbackHandler_(handler) {
     setActiveWlanIfaceNameProperty(kNoActiveWlanIfaceNamePropertyValue);
-    using_dynamic_iface_combination_ = false;
+    using_dynamic_iface_combination_ = true;
 }
 
 void WifiChip::retrieveDynamicIfaceCombination() {
