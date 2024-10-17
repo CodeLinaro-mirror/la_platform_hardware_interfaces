@@ -9,13 +9,15 @@
 #include <rpc/util/someip_api.h>
 #include <rpc/util/someip_common_def.h>
 #include <rpc/util/log_common.h>
+#include <rpc/util/properties.h>
 #include <wifi_message_def.h>
 
 #include "wifi_rpc_event.h"
 #include "wifi_rpc_message.h"
 #include "wifi_rpc_server.h"
 
-#define WIFI_HAL_INSTANCE_ID ((uint16_t) 0x1110)
+#define WIFI_HAL_INSTANCE_ID_CHM ((uint16_t) 0x1110)
+#define WIFI_HAL_INSTANCE_ID_CEM ((uint16_t) 0x1111)
 #define WIFI_HAL_EVENTGROUP_ID ((uint16_t) 0xAAA0)
 #define MAX_SOMEIP_START_TIMEOUT_IN_SEC 60
 static char WIFI_HAL_SERVICE_NAME[] = "wifihal_someip_service";
@@ -23,10 +25,17 @@ static char WIFI_HAL_SERVICE_NAME[] = "wifihal_someip_service";
 static SomeipRegisterInfo serviceInfo;
 bool WifiRpcInitSomeipService()
 {
+    uint16_t wifirpc_instance_id;
+    std::array<char, PROPERTY_VALUE_MAX> someip_config_file;
+    property_get("persist.vendor.someip.config_file", someip_config_file.data(), "/etc/someip/vsomeip_server.json");
+    if(strstr(someip_config_file.data(), "cem")){
+        wifirpc_instance_id = WIFI_HAL_INSTANCE_ID_CEM;
+    }else{
+        wifirpc_instance_id = WIFI_HAL_INSTANCE_ID_CHM;
+    }
     serviceInfo.context.app_name = WIFI_HAL_SERVICE_NAME;
     serviceInfo.context.service_id = WIFI_HAL_SERVICE_ID;
-    serviceInfo.context.service_instance_id = WIFI_HAL_INSTANCE_ID;
-
+    serviceInfo.context.service_instance_id = wifirpc_instance_id;
     serviceInfo.context.eventgroup_id = WIFI_HAL_EVENTGROUP_ID;
     serviceInfo.context.event_id_number = WIFI_HAL_SUPPORTED_EVENT_COUNT;
     serviceInfo.context.event_id = wifiRpcEventArray;

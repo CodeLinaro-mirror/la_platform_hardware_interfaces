@@ -53,6 +53,7 @@ constexpr char kActiveWlanIfaceNameProperty[] = "wifi.active.interface";
 constexpr char kNoActiveWlanIfaceNamePropertyValue[] = "";
 constexpr unsigned kMaxWlanIfaces = 5;
 constexpr char kApBridgeIfacePrefix[] = "ap_br_";
+constexpr char kCemSuffix[] = "_cem";
 
 template <typename Iface>
 void invalidateAndClear(std::vector<std::shared_ptr<Iface>>& ifaces, std::shared_ptr<Iface> iface) {
@@ -106,7 +107,11 @@ std::string getWlanIfaceName(unsigned idx) {
     std::string propName = "wifi.interface." + std::to_string(idx);
     auto res = property_get(propName.c_str(), buffer.data(), nullptr);
     if (res > 0) return buffer.data();
-
+    std::array<char, PROPERTY_VALUE_MAX> someip_config_file;
+    property_get("persist.vendor.someip.config_file", someip_config_file.data(), "/etc/someip/vsomeip_server.json");
+    if(strstr(someip_config_file.data(), "cem")){
+        return "wlan_cem" + std::to_string(idx);
+    }
     return "wlan" + std::to_string(idx);
 }
 
@@ -962,7 +967,34 @@ std::pair<std::shared_ptr<IWifiApIface>, ndk::ScopedAStatus> WifiChip::createApI
     if (!status.isOk()) {
         return {std::shared_ptr<WifiApIface>(), std::move(status)};
     }
-    std::shared_ptr<WifiApIface> iface = newWifiApIface(ifname);
+    std::vector<std::string> ap_instances;
+    ap_instances.push_back(ifname);
+    std::string br_ifname = kApBridgeIfacePrefix + ifname;
+    br_ifaces_ap_instances_[br_ifname] = ap_instances;
+    if (!iface_util_->createBridge(br_ifname)) {
+        ALOGE("Failed createBridge - br_name=%s", br_ifname.c_str());
+        deleteApIface(br_ifname);
+        return {nullptr, createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE)};
+    }
+    if (!iface_util_->addIfaceToBridge(br_ifname, ifname)) {
+        ALOGE("Failed add if to Bridge - if_name=%s", ifname.c_str());
+        deleteApIface(br_ifname);
+        return {nullptr, createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE)};
+    }
+    std::array<char, PROPERTY_VALUE_MAX> vlan_bridge;
+    std::array<char, PROPERTY_VALUE_MAX> someip_config_file;
+    property_get("persist.vendor.someip.config_file", someip_config_file.data(), "/etc/someip/vsomeip_server.json");
+    if(strstr(someip_config_file.data(), "cem")){
+        property_get("persist.vendor.wifi.cem_bridge_vlan", vlan_bridge.data(), "vlan47");
+    }else{
+        property_get("persist.vendor.wifi.chm_bridge_vlan", vlan_bridge.data(), "vlan43");
+    }
+    if (!iface_util_->addIfaceToBridge(br_ifname, vlan_bridge.data())) {
+        ALOGE("Failed add if to AP Bridge - if_name = %s", vlan_bridge.data());
+        deleteApIface(br_ifname);
+        return {nullptr, createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE)};
+    }
+    std::shared_ptr<WifiApIface> iface = newWifiApIface(br_ifname);
     /* Register Ap Iface to instance manager and generate instance ID */
     uint16_t instance_id = WifiRegisterApIfaceAndGetInstanceId(
         static_cast<std::shared_ptr<IWifiApIface>>(iface), ifname, chip_id_);
@@ -1006,6 +1038,20 @@ WifiChip::createBridgedApIfaceInternal() {
             return {nullptr, createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE)};
         }
     }
+    std::array<char, PROPERTY_VALUE_MAX> vlan_bridge;
+    std::array<char, PROPERTY_VALUE_MAX> someip_config_file;
+    property_get("persist.vendor.someip.config_file", someip_config_file.data(), "/etc/someip/vsomeip_server.json");
+    if(strstr(someip_config_file.data(), "cem")){
+        property_get("persist.vendor.wifi.cem_bridge_vlan", vlan_bridge.data(), "vlan47");
+    }else{
+        property_get("persist.vendor.wifi.chm_bridge_vlan", vlan_bridge.data(), "vlan43");
+    }
+    if (!iface_util_->addIfaceToBridge(br_ifname, vlan_bridge.data())) {
+        ALOGE("Failed add if to AP Bridge - if_name = %s", vlan_bridge.data());
+        deleteApIface(br_ifname);
+        return {nullptr, createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE)};
+    }
+    
     std::shared_ptr<WifiApIface> iface = newWifiApIface(br_ifname);
     /* Register AP Iface to instance manager and generate instance ID */
     uint16_t instance_id = WifiRegisterApIfaceAndGetInstanceId(
@@ -1041,13 +1087,13 @@ ndk::ScopedAStatus WifiChip::removeApIfaceInternal(const std::string& ifname) {
     // here and not make that assumption all over the place.
     invalidateAndRemoveDependencies(ifname);
     deleteApIface(ifname);
+    WifiRemoveApIface(static_cast<std::shared_ptr<IWifiApIface>>(iface));
     invalidateAndClear(ap_ifaces_, iface);
     for (const auto& callback : event_cb_handler_.getCallbacks()) {
         if (!callback->onIfaceRemoved(IfaceType::AP, ifname).isOk()) {
             ALOGE("Failed to invoke onIfaceRemoved callback");
         }
     }
-    WifiRemoveApIface(static_cast<std::shared_ptr<IWifiApIface>>(iface));
     setActiveWlanIfaceNameProperty(getFirstActiveWlanIfaceName());
     return ndk::ScopedAStatus::ok();
 }
@@ -1905,7 +1951,7 @@ std::string WifiChip::getFirstActiveWlanIfaceName() {
     // This could happen if the chip call is made before any STA/AP
     // iface is created. Default to wlan0 for such cases.
     ALOGW("No active wlan interfaces in use! Using default");
-    return getWlanIfaceNameWithType(IfaceType::STA, 0);
+    return "wlan0";
 }
 
 // Return the first wlan (wlan0, wlan1 etc.) starting from |start_idx|

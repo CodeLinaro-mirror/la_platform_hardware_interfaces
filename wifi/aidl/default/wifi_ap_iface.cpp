@@ -97,7 +97,7 @@ ndk::ScopedAStatus WifiApIface::setCountryCodeInternal(const std::array<uint8_t,
 
 ndk::ScopedAStatus WifiApIface::setMacAddressInternal(const std::array<uint8_t, 6>& mac) {
     // Support random MAC up to 2 interfaces
-    if (instances_.size() == 2) {
+    if (instances_.size() == 2 || instances_.size() == 1) {
         int rbyte = 1;
         for (auto const& intf : instances_) {
             std::array<uint8_t, 6> rmac = mac;
@@ -131,7 +131,7 @@ std::pair<std::array<uint8_t, 6>, ndk::ScopedAStatus> WifiApIface::getFactoryMac
 
 ndk::ScopedAStatus WifiApIface::resetToFactoryMacAddressInternal() {
     std::pair<std::array<uint8_t, 6>, ndk::ScopedAStatus> getMacResult;
-    if (instances_.size() == 2) {
+    if (instances_.size() == 2 || instances_.size() == 1) {
         for (auto const& intf : instances_) {
             getMacResult = getFactoryMacAddressInternal(intf);
             ALOGD("Reset MAC to factory MAC on %s", intf.c_str());
