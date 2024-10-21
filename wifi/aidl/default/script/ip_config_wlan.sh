@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #!/bin/sh
-echo "ip_config"
+echo "ip_config_wlan"
 
 cmd=$1
 
-echo "ip_config: $cmd"
+echo "ip_config_wlan: $cmd"
 PLATFORM=`uname -a| cut -d ' ' -f2`
 IP_ADDRESS=`cat /etc/someip/vsomeip_server.json | grep unicast |cut -d '"' -f4`
 WLAN_KO_PATH=`find /lib/modules/ -name "wlan-hamilton.ko"`
@@ -31,9 +31,8 @@ config_vlan()
         case "$PLATFORM" in
         imx8*)
             echo "config vlan"
-            insmod $WLAN_KO_PATH
             ip link add link eth0 name vlan41 type vlan id 41
-            ip addr add 10.41.2.103/24 dev vlan41
+            ip addr add 10.41.3.203/16 dev vlan41
             ip link set vlan41 up
             ip link add link eth0 name vlan43 type vlan id 43
             ip link set vlan43 up
@@ -50,7 +49,6 @@ config_ethernet()
         case "$PLATFORM" in
         imx8*)
             echo "config ethernet"
-            insmod $WLAN_KO_PATH
             ;;
         *)
             echo "Unknown platform: $PLATFORM"
