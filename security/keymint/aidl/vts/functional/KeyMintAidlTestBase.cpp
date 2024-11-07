@@ -236,10 +236,10 @@ uint32_t KeyMintAidlTestBase::boot_patch_level() {
 
 /**
  * An API to determine device IDs attestation is required or not,
- * which is mandatory for KeyMint version 2 or first_api_level 33 or greater.
+ * which is mandatory for KeyMint version 2 and first_api_level 33 or greater.
  */
 bool KeyMintAidlTestBase::isDeviceIdAttestationRequired() {
-    return AidlVersion() >= 2 || property_get_int32("ro.vendor.api_level", 0) >= __ANDROID_API_T__;
+    return AidlVersion() >= 2 && property_get_int32("ro.vendor.api_level", 0) >= __ANDROID_API_T__;
 }
 
 /**
@@ -2398,6 +2398,43 @@ std::string get_imei(int slot) {
     }
 
     return imei;
+}
+
+std::optional<std::string> get_attestation_id(const char* prop) {
+    // The frameworks code (in AndroidKeyStoreKeyPairGeneratorSpi.java) populates device ID
+    // values from one of 3 places, so the same logic needs to be reproduced here so the tests
+    // check what's expected correctly.
+    //
+    // In order of preference, the properties checked are:
+    //
+    // 1) `ro.product.<device-id>_for_attestation`: This should only be set in special cases; in
+    //     particular, AOSP builds for reference devices use a different value than the normal
+    //     builds for the same device (e.g. model of "aosp_raven" instead of "raven").
+    ::android::String8 prop_name =
+            ::android::String8::format("ro.product.%s_for_attestation", prop);
+    std::string prop_value = ::android::base::GetProperty(prop_name.c_str(), /* default= */ "");
+    if (!prop_value.empty()) {
+        return prop_value;
+    }
+
+    // 2) `ro.product.vendor.<device-id>`: This property refers to the vendor code, and so is
+    //    retained even in a GSI environment.
+    prop_name = ::android::String8::format("ro.product.vendor.%s", prop);
+    prop_value = ::android::base::GetProperty(prop_name.c_str(), /* default= */ "");
+    if (!prop_value.empty()) {
+        return prop_value;
+    }
+
+    // 3) `ro.product.<device-id>`: Note that this property is replaced by a default value when
+    //    running a GSI environment, and so will *not* match the value expected/used by the
+    //    vendor code on the device.
+    prop_name = ::android::String8::format("ro.product.%s", prop);
+    prop_value = ::android::base::GetProperty(prop_name.c_str(), /* default= */ "");
+    if (!prop_value.empty()) {
+        return prop_value;
+    }
+
+    return std::nullopt;
 }
 
 }  // namespace test

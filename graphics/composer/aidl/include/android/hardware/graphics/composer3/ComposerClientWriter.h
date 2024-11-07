@@ -30,6 +30,7 @@
 #include <aidl/android/hardware/graphics/composer3/DisplayBrightness.h>
 #include <aidl/android/hardware/graphics/composer3/LayerBrightness.h>
 #include <aidl/android/hardware/graphics/composer3/LayerLifecycleBatchCommandType.h>
+#include <aidl/android/hardware/graphics/composer3/Luts.h>
 #include <aidl/android/hardware/graphics/composer3/PerFrameMetadata.h>
 #include <aidl/android/hardware/graphics/composer3/PerFrameMetadataBlob.h>
 
@@ -243,6 +244,10 @@ class ComposerClientWriter final {
 
     void setLayerBlockingRegion(int64_t display, int64_t layer, const std::vector<Rect>& blocking) {
         getLayerCommand(display, layer).blockingRegion.emplace(blocking.begin(), blocking.end());
+    }
+
+    void setLayerLuts(int64_t display, int64_t layer, Luts& luts) {
+        getLayerCommand(display, layer).luts.emplace(std::move(luts));
     }
 
     std::vector<DisplayCommand> takePendingCommands() {
