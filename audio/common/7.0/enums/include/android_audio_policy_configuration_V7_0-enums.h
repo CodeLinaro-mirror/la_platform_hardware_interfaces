@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #ifndef ANDROID_AUDIO_POLICY_CONFIGURATION_V7_0__ENUMS_H
 #define ANDROID_AUDIO_POLICY_CONFIGURATION_V7_0__ENUMS_H
@@ -170,6 +175,7 @@ static inline bool isOutputDevice(AudioDevice device) {
         case AudioDevice::AUDIO_DEVICE_OUT_ECHO_CANCELLER:
         case AudioDevice::AUDIO_DEVICE_OUT_BLE_HEADSET:
         case AudioDevice::AUDIO_DEVICE_OUT_BLE_SPEAKER:
+        case AudioDevice::AUDIO_DEVICE_OUT_BLE_BROADCAST:
         case AudioDevice::AUDIO_DEVICE_OUT_DEFAULT:
         case AudioDevice::AUDIO_DEVICE_OUT_STUB:
             return true;
