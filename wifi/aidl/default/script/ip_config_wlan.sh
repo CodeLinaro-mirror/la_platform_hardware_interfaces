@@ -32,8 +32,11 @@ config_vlan()
         imx8*)
             echo "config vlan"
             ip link add link eth0 name vlan41 type vlan id 41
-            ip addr add 10.41.3.203/16 dev vlan41
+            ip addr add 10.41.3.1/16 dev vlan41
             ip link set vlan41 up
+            ip link add link eth0 name vlan42 type vlan id 42
+            ip addr add 10.42.3.1/16 dev vlan42
+            ip link set vlan42 up
             ip link add link eth0 name vlan43 type vlan id 43
             ip link set vlan43 up
             ;;
