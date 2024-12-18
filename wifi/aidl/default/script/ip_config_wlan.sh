@@ -39,6 +39,9 @@ config_vlan()
             ip link set vlan42 up
             ip link add link eth0 name vlan43 type vlan id 43
             ip link set vlan43 up
+            echo "1" > /proc/sys/net/ipv4/ip_forward
+            iptables -t nat -A POSTROUTING -s 10.41.0.0/16 -o wlan0 -j MASQUERADE
+            iptables -t nat -A POSTROUTING -s 10.42.0.0/16 -o wlan1 -j MASQUERADE
             ;;
         *)
             echo "Unknown platform: $PLATFORM"
