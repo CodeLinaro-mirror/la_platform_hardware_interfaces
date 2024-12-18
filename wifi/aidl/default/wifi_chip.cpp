@@ -998,7 +998,6 @@ std::pair<std::shared_ptr<IWifiApIface>, ndk::ScopedAStatus> WifiChip::createApI
     /* Register Ap Iface to instance manager and generate instance ID */
     uint16_t instance_id = WifiRegisterApIfaceAndGetInstanceId(
         static_cast<std::shared_ptr<IWifiApIface>>(iface), ifname, chip_id_);
-    ap_ifaces_.push_back(iface);
     return {iface, ndk::ScopedAStatus::ok()};
 }
 
@@ -1056,7 +1055,6 @@ WifiChip::createBridgedApIfaceInternal() {
     /* Register AP Iface to instance manager and generate instance ID */
     uint16_t instance_id = WifiRegisterApIfaceAndGetInstanceId(
         static_cast<std::shared_ptr<IWifiApIface>>(iface), br_ifname, chip_id_);
-    ap_ifaces_.push_back(iface);
     return {iface, ndk::ScopedAStatus::ok()};
 }
 
