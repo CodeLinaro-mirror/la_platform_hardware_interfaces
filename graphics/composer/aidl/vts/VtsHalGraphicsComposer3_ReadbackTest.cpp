@@ -543,6 +543,7 @@ void generateLuts(Luts* luts, LutProperties::Dimension dimension, int32_t size,
     luts->lutProperties = {LutProperties{dimension, size, {key}}};
 }
 
+// @VsrTest = 4.4-016
 TEST_P(GraphicsCompositionTest, Luts) {
     ASSERT_TRUE(
             mComposerClient->setClientTargetSlotCount(getPrimaryDisplayId(), kClientTargetSlotCount)
@@ -1614,6 +1615,7 @@ class GraphicsColorManagementCompositionTest
     std::shared_ptr<TestBufferLayer> mLayer;
 };
 
+// @VsrTest = 4.4-015
 TEST_P(GraphicsColorManagementCompositionTest, ColorConversion) {
     for (ColorMode mode : mTestColorModes) {
         EXPECT_TRUE(mComposerClient
