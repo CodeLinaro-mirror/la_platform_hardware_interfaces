@@ -42,6 +42,16 @@ config_vlan()
             echo "1" > /proc/sys/net/ipv4/ip_forward
             iptables -t nat -A POSTROUTING -s 10.41.0.0/16 -o wlan0 -j MASQUERADE
             iptables -t nat -A POSTROUTING -s 10.42.0.0/16 -o wlan1 -j MASQUERADE
+            echo e > /sys/class/net/eth0/queues/rx-0/rps_cpus
+            echo e > /sys/class/net/eth0/queues/rx-1/rps_cpus
+            echo e > /sys/class/net/eth0/queues/rx-2/rps_cpus
+            echo e > /sys/class/net/eth0/queues/tx-0/xps_cpus
+            echo e > /sys/class/net/eth0/queues/tx-1/xps_cpus
+            echo e > /sys/class/net/eth0/queues/tx-2/xps_cpus
+            echo 32768 > /proc/sys/net/core/rps_sock_flow_entries
+            echo 8192 > /sys/class/net/eth0/queues/rx-0/rps_flow_cnt
+            echo 8192 > /sys/class/net/eth0/queues/rx-1/rps_flow_cnt
+            echo 8192 > /sys/class/net/eth0/queues/rx-2/rps_flow_cnt
             ;;
         *)
             echo "Unknown platform: $PLATFORM"
