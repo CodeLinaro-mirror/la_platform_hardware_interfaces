@@ -17,8 +17,10 @@
 #include <VtsCoreUtil.h>
 #include <aidl/Gtest.h>
 #include <aidl/Vintf.h>
+#include <aidl/android/hardware/wifi/supplicant/BandMask.h>
 #include <aidl/android/hardware/wifi/supplicant/BnSupplicant.h>
 #include <aidl/android/hardware/wifi/supplicant/BnSupplicantP2pIfaceCallback.h>
+#include <aidl/android/hardware/wifi/supplicant/P2pPairingBootstrappingMethodMask.h>
 #include <aidl/android/hardware/wifi/supplicant/SupplicantStatusCode.h>
 #include <android/binder_manager.h>
 #include <android/binder_status.h>
@@ -29,17 +31,20 @@
 #include "supplicant_test_utils.h"
 #include "wifi_aidl_test_utils.h"
 
+using aidl::android::hardware::wifi::supplicant::BandMask;
 using aidl::android::hardware::wifi::supplicant::BnSupplicantP2pIfaceCallback;
 using aidl::android::hardware::wifi::supplicant::DebugLevel;
 using aidl::android::hardware::wifi::supplicant::FreqRange;
 using aidl::android::hardware::wifi::supplicant::IfaceType;
 using aidl::android::hardware::wifi::supplicant::ISupplicant;
 using aidl::android::hardware::wifi::supplicant::ISupplicantP2pIface;
+using aidl::android::hardware::wifi::supplicant::ISupplicantP2pNetwork;
 using aidl::android::hardware::wifi::supplicant::MiracastMode;
 using aidl::android::hardware::wifi::supplicant::P2pAddGroupConfigurationParams;
 using aidl::android::hardware::wifi::supplicant::P2pConnectInfo;
 using aidl::android::hardware::wifi::supplicant::P2pCreateGroupOwnerInfo;
 using aidl::android::hardware::wifi::supplicant::P2pDeviceFoundEventParams;
+using aidl::android::hardware::wifi::supplicant::P2pDirInfo;
 using aidl::android::hardware::wifi::supplicant::P2pDiscoveryInfo;
 using aidl::android::hardware::wifi::supplicant::P2pExtListenInfo;
 using aidl::android::hardware::wifi::supplicant::P2pFrameTypeMask;
@@ -47,13 +52,20 @@ using aidl::android::hardware::wifi::supplicant::P2pGoNegotiationReqEventParams;
 using aidl::android::hardware::wifi::supplicant::P2pGroupCapabilityMask;
 using aidl::android::hardware::wifi::supplicant::P2pGroupStartedEventParams;
 using aidl::android::hardware::wifi::supplicant::P2pInvitationEventParams;
+using aidl::android::hardware::wifi::supplicant::P2pPairingBootstrappingMethodMask;
 using aidl::android::hardware::wifi::supplicant::P2pPeerClientDisconnectedEventParams;
 using aidl::android::hardware::wifi::supplicant::P2pPeerClientJoinedEventParams;
 using aidl::android::hardware::wifi::supplicant::P2pProvDiscStatusCode;
 using aidl::android::hardware::wifi::supplicant::P2pProvisionDiscoveryCompletedEventParams;
+using aidl::android::hardware::wifi::supplicant::P2pProvisionDiscoveryParams;
+using aidl::android::hardware::wifi::supplicant::P2pReinvokePersistentGroupParams;
 using aidl::android::hardware::wifi::supplicant::P2pScanType;
 using aidl::android::hardware::wifi::supplicant::P2pStatusCode;
+using aidl::android::hardware::wifi::supplicant::P2pUsdBasedServiceAdvertisementConfig;
+using aidl::android::hardware::wifi::supplicant::P2pUsdBasedServiceDiscoveryConfig;
+using aidl::android::hardware::wifi::supplicant::P2pUsdBasedServiceDiscoveryResultParams;
 using aidl::android::hardware::wifi::supplicant::SupplicantStatusCode;
+using aidl::android::hardware::wifi::supplicant::UsdTerminateReasonCode;
 using aidl::android::hardware::wifi::supplicant::WpsConfigMethods;
 using aidl::android::hardware::wifi::supplicant::WpsDevPasswordId;
 using aidl::android::hardware::wifi::supplicant::WpsProvisionMethod;
@@ -67,13 +79,20 @@ const std::vector<uint8_t> kTestMacAddr = {0x56, 0x67, 0x67, 0xf4, 0x56, 0x92};
 const std::vector<uint8_t> kTestPeerMacAddr = {0x56, 0x67, 0x55,
                                                0xf4, 0x56, 0x92};
 const std::vector<uint8_t> kTestZeroMacAddr = std::vector<uint8_t>(6, 0);
+const std::string kTestServiceSpecificInfoStr = "TestServiceSpecificInfo";
+const std::vector<uint8_t> kTestServiceSpecificInfo = std::vector<uint8_t>(
+        kTestServiceSpecificInfoStr.begin(), kTestServiceSpecificInfoStr.end());
+const std::vector<uint8_t> kTestNonce = {0x11, 0x22, 0x33, 0x44, 0x55, 0x92, 0x22, 0x33};
+const std::vector<uint8_t> kTestDirTag = {0xaa, 0x22, 0x55, 0x44, 0x55, 0x92, 0x22, 0x33};
 const std::string kTestPassphrase = "P2pWorld1234";
 const std::string kTestConnectPin = "34556665";
 const std::string kTestGroupIfName = "TestGroup";
+const std::string kTestServiceName = "TestServiceName";
 const uint32_t kTestFindTimeout = 5;
 const uint32_t kTestConnectGoIntent = 6;
 const uint32_t kTestNetworkId = 7;
 const uint32_t kTestGroupFreq = 0;
+const uint32_t kTestServiceProtocolType = 1;
 const bool kTestGroupPersistent = false;
 const bool kTestGroupIsJoin = false;
 const auto& kTestVendorDataOptional = generateOuiKeyedDataListOptional(5);
@@ -222,6 +241,18 @@ class SupplicantP2pIfaceCallback : public BnSupplicantP2pIfaceCallback {
             const P2pInvitationEventParams& /* invitationEventParams */) override {
         return ndk::ScopedAStatus::ok();
     }
+    ::ndk::ScopedAStatus onUsdBasedServiceDiscoveryResult(
+            const P2pUsdBasedServiceDiscoveryResultParams& /* discoveryResultParams*/) override {
+        return ndk::ScopedAStatus::ok();
+    }
+    ::ndk::ScopedAStatus onUsdBasedServiceDiscoveryTerminated(
+            int32_t /* sessionId */, UsdTerminateReasonCode /* reasonCode */) override {
+        return ndk::ScopedAStatus::ok();
+    }
+    ::ndk::ScopedAStatus onUsdBasedServiceAdvertisementTerminated(
+            int32_t /* sessionId */, UsdTerminateReasonCode /* reasonCode */) override {
+        return ndk::ScopedAStatus::ok();
+    }
 };
 
 class SupplicantP2pIfaceAidlTest : public testing::TestWithParam<std::string> {
@@ -246,6 +277,9 @@ class SupplicantP2pIfaceAidlTest : public testing::TestWithParam<std::string> {
         EXPECT_TRUE(supplicant_->getP2pInterface(getP2pIfaceName(), &p2p_iface_)
                         .isOk());
         ASSERT_NE(p2p_iface_, nullptr);
+        if (interface_version_ >= 4) {
+            EXPECT_TRUE(p2p_iface_->getFeatureSet(&supported_features_).isOk());
+        }
     }
 
     void TearDown() override {
@@ -257,6 +291,7 @@ class SupplicantP2pIfaceAidlTest : public testing::TestWithParam<std::string> {
     std::shared_ptr<ISupplicant> supplicant_;
     std::shared_ptr<ISupplicantP2pIface> p2p_iface_;
     int interface_version_;
+    int64_t supported_features_;
 };
 
 /*
@@ -364,8 +399,8 @@ TEST_P(SupplicantP2pIfaceAidlTest, SetWpsModelName) {
  * SetWpsModelNumber
  */
 TEST_P(SupplicantP2pIfaceAidlTest, SetWpsModelNumber) {
-    const std::string modelNumber = "TestModelNumber";
-    EXPECT_TRUE(p2p_iface_->setWpsModelName(modelNumber).isOk());
+    const std::string modelNumber = "Model1234";
+    EXPECT_TRUE(p2p_iface_->setWpsModelNumber(modelNumber).isOk());
 }
 
 /*
@@ -815,14 +850,227 @@ TEST_P(SupplicantP2pIfaceAidlTest, SetVendorElements) {
 }
 
 /*
- * getFeatureSet
+ * GetFeatureSet
  */
-TEST_P(SupplicantP2pIfaceAidlTest, getFeatureSet) {
+TEST_P(SupplicantP2pIfaceAidlTest, gGetFeatureSet) {
     if (interface_version_ < 4) {
         GTEST_SKIP() << "getFeatureSet is available as of Supplicant V4";
     }
     int64_t featureSet;
     EXPECT_TRUE(p2p_iface_->getFeatureSet(&featureSet).isOk());
+}
+
+/*
+ * StartUsdBasedServiceDiscovery/stopUsdBasedServiceDiscovery
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, StartStopUsdBasedServiceDiscovery) {
+    if (interface_version_ < 4) {
+        GTEST_SKIP() << "Start/Stop UsdBasedServiceDiscovery is available as of Supplicant V4";
+    }
+    if (!(supported_features_ & ISupplicantP2pIface::P2P_FEATURE_V2)) {
+        GTEST_SKIP() << "P2P2 is not supported";
+    }
+
+    int32_t sessionId;
+    P2pUsdBasedServiceDiscoveryConfig config;
+    config.serviceName = kTestServiceName;
+    config.serviceProtocolType = kTestServiceProtocolType;
+    config.serviceSpecificInfo = kTestServiceSpecificInfo;
+    config.bandMask = BandMask::BAND_2_GHZ;
+    config.timeoutInSeconds = 30;
+
+    EXPECT_TRUE(p2p_iface_->startUsdBasedServiceDiscovery(config, &sessionId).isOk());
+    sleep(1);
+    EXPECT_TRUE(p2p_iface_->stopUsdBasedServiceDiscovery(sessionId).isOk());
+}
+
+/*
+ * StartUsdBasedServiceAdvertisement/StopUsdBasedServiceAdvertisement
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, StartStopUsdBasedServiceAdvertisement) {
+    if (interface_version_ < 4) {
+        GTEST_SKIP() << "start/Stop UsdBasedServiceAdvertisement is available as of Supplicant V4";
+    }
+    if (!(supported_features_ & ISupplicantP2pIface::P2P_FEATURE_V2)) {
+        GTEST_SKIP() << "P2P2 is not supported";
+    }
+
+    int32_t sessionId;
+    P2pUsdBasedServiceAdvertisementConfig config;
+    config.serviceName = kTestServiceName;
+    config.serviceProtocolType = kTestServiceProtocolType;
+    config.serviceSpecificInfo = kTestServiceSpecificInfo;
+    config.frequencyMHz = 2412;
+    config.timeoutInSeconds = 30;
+
+    EXPECT_TRUE(p2p_iface_->startUsdBasedServiceAdvertisement(config, &sessionId).isOk());
+    sleep(1);
+    EXPECT_TRUE(p2p_iface_->stopUsdBasedServiceAdvertisement(sessionId).isOk());
+}
+
+/*
+ * ProvisionDiscoveryWithParams
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, ProvisionDiscoveryWithParams) {
+    if (interface_version_ < 4) {
+        GTEST_SKIP() << "ProvisionDiscoveryWithParams is available as of Supplicant V4";
+    }
+    if (!(supported_features_ & ISupplicantP2pIface::P2P_FEATURE_V2)) {
+        GTEST_SKIP() << "P2P2 is not supported";
+    }
+
+    P2pProvisionDiscoveryParams params;
+    params.peerMacAddress = vecToArrayMacAddr(kTestMacAddr);
+    params.provisionMethod = WpsProvisionMethod::NONE;
+    params.pairingBootstrappingMethod =
+            P2pPairingBootstrappingMethodMask::BOOTSTRAPPING_OPPORTUNISTIC;
+
+    EXPECT_TRUE(p2p_iface_->provisionDiscoveryWithParams(params).isOk());
+}
+
+/*
+ * ValidateDirInfo
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, ValidateDirInfo) {
+    if (interface_version_ < 4) {
+        GTEST_SKIP() << "ValidateDirInfo is available as of Supplicant V4";
+    }
+    if (!(supported_features_ & ISupplicantP2pIface::P2P_FEATURE_V2)) {
+        GTEST_SKIP() << "P2P2 is not supported";
+    }
+
+    int32_t ret;
+    P2pDirInfo dirInfo;
+    dirInfo.cipherVersion = P2pDirInfo::CipherVersion::DIRA_CIPHER_VERSION_128_BIT;
+    dirInfo.deviceInterfaceMacAddress = vecToArrayMacAddr(kTestMacAddr);
+    dirInfo.nonce = kTestNonce;
+    dirInfo.dirTag = kTestDirTag;
+    EXPECT_TRUE(p2p_iface_->validateDirInfo(dirInfo, &ret).isOk());
+}
+
+/*
+ * GetDirInfo
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, GetDirInfo) {
+    if (interface_version_ < 4) {
+        GTEST_SKIP() << "GetDirInfo is available as of Supplicant V4";
+    }
+    if (!(supported_features_ & ISupplicantP2pIface::P2P_FEATURE_V2)) {
+        GTEST_SKIP() << "P2P2 is not supported";
+    }
+
+    P2pDirInfo dirInfo;
+    EXPECT_TRUE(p2p_iface_->getDirInfo(&dirInfo).isOk());
+}
+
+/*
+ * ReinvokePersistentGroup
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, ReinvokePersistentGroup) {
+    if (interface_version_ < 4) {
+        GTEST_SKIP() << "ReinvokePersistentGroup is available as of Supplicant V4";
+    }
+    if (!(supported_features_ & ISupplicantP2pIface::P2P_FEATURE_V2)) {
+        GTEST_SKIP() << "P2P2 is not supported";
+    }
+
+    P2pReinvokePersistentGroupParams params;
+    params.peerMacAddress = vecToArrayMacAddr(kTestMacAddr);
+    params.persistentNetworkId = 0;
+    params.deviceIdentityEntryId = 0;
+
+    EXPECT_TRUE(p2p_iface_->reinvokePersistentGroup(params).isOk());
+}
+
+/*
+ * Test the P2P network management functions.
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, ManageNetworks) {
+    // Create a persistent group to bring up a network
+    EXPECT_TRUE(p2p_iface_->addGroup(true /* persistent */, -1).isOk());
+    sleep(2);
+
+    std::vector<int32_t> networkList;
+    EXPECT_TRUE(p2p_iface_->listNetworks(&networkList).isOk());
+    ASSERT_FALSE(networkList.empty());
+
+    int networkId = networkList[0];
+    std::shared_ptr<ISupplicantP2pNetwork> network;
+    EXPECT_TRUE(p2p_iface_->getNetwork(networkId, &network).isOk());
+    ASSERT_NE(network, nullptr);
+    EXPECT_TRUE(p2p_iface_->removeNetwork(networkId).isOk());
+}
+
+/*
+ * Request and cancel service discovery
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, RequestAndCancelServiceDiscovery) {
+    int64_t discoveryId;
+    std::vector<uint8_t> query = {0x11, 0x22, 0x33};
+    EXPECT_TRUE(p2p_iface_->requestServiceDiscovery(kTestMacAddr, query, &discoveryId).isOk());
+    EXPECT_TRUE(p2p_iface_->cancelServiceDiscovery(discoveryId).isOk());
+}
+
+/*
+ * Start and stop WPS
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, StartAndStopWps) {
+    // Expected to fail with test values
+    std::string generatedPin;
+    EXPECT_FALSE(p2p_iface_->startWpsPbc(kTestGroupIfName, kTestMacAddr).isOk());
+    EXPECT_FALSE(
+            p2p_iface_->startWpsPinDisplay(kTestGroupIfName, kTestMacAddr, &generatedPin).isOk());
+    EXPECT_FALSE(p2p_iface_->startWpsPinKeypad(kTestGroupIfName, kTestConnectPin).isOk());
+    EXPECT_FALSE(p2p_iface_->cancelWps(kTestGroupIfName).isOk());
+}
+
+/*
+ * Create message and report handover for NFC Request
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, CreateAndReportNfcRequest) {
+    std::vector<uint8_t> requestMsg;
+    EXPECT_TRUE(p2p_iface_->createNfcHandoverRequestMessage(&requestMsg).isOk());
+    EXPECT_FALSE(requestMsg.empty());
+    EXPECT_TRUE(p2p_iface_->reportNfcHandoverResponse(requestMsg).isOk());
+}
+
+/*
+ * Create message and report handover for NFC Select
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, CreateAndReportNfcSelect) {
+    std::vector<uint8_t> selectMsg;
+    EXPECT_TRUE(p2p_iface_->createNfcHandoverSelectMessage(&selectMsg).isOk());
+    EXPECT_FALSE(selectMsg.empty());
+    EXPECT_TRUE(p2p_iface_->reportNfcHandoverInitiation(selectMsg).isOk());
+}
+
+/*
+ * RemoveClient
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, RemoveClient) {
+    // Method returns success for any valid MAC address
+    EXPECT_TRUE(p2p_iface_->removeClient(kTestMacAddr, false).isOk());
+    // Returns failure for any invalid MAC address
+    std::vector<uint8_t> invalidMacAddr = {0x11, 0x22};
+    EXPECT_FALSE(p2p_iface_->removeClient(invalidMacAddr, false).isOk());
+}
+
+/*
+ * ConfigureEapolIpAddressAllocationParams
+ */
+TEST_P(SupplicantP2pIfaceAidlTest, ConfigureEapolIpAddressAllocationParams) {
+    if (interface_version_ < 2) {
+        GTEST_SKIP() << "ConfigureEapolIpAddressAllocationParams is available as of Supplicant V2";
+    }
+    // The IP addresses are IPV4 addresses and higher-order address bytes are in the
+    // lower-order int bytes (e.g. 192.168.1.1 is represented as 0x0101A8C0)
+    EXPECT_TRUE(p2p_iface_
+                        ->configureEapolIpAddressAllocationParams(0x0101A8C0, 0x00FFFFFF,
+                                                                  0x0501A8C0, 0x0801A8C0)
+                        .isOk());
+
+    // Clear the configuration.
+    EXPECT_TRUE(p2p_iface_->configureEapolIpAddressAllocationParams(0, 0, 0, 0).isOk());
 }
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(SupplicantP2pIfaceAidlTest);

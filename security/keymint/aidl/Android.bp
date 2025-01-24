@@ -46,9 +46,21 @@ aidl_interface {
             version: "3",
             imports: ["android.hardware.security.secureclock-V1"],
         },
+        {
+            version: "4",
+            imports: ["android.hardware.security.secureclock-V1"],
+        },
 
     ],
 
+}
+
+// An aidl_interface_defaults that includes the latest KeyMint AIDL interface.
+// aidl_interface modules that depend on KeyMint directly can include this
+// aidl_interface_defaults to avoid managing dependency versions explicitly.
+aidl_interface_defaults {
+    name: "android.hardware.security.keymint-latest-defaults",
+    imports: ["android.hardware.security.keymint-V4"],
 }
 
 // cc_defaults that includes the latest KeyMint AIDL library.
@@ -57,28 +69,28 @@ aidl_interface {
 cc_defaults {
     name: "keymint_use_latest_hal_aidl_ndk_static",
     static_libs: [
-        "android.hardware.security.keymint-V3-ndk",
+        "android.hardware.security.keymint-V4-ndk",
     ],
 }
 
 cc_defaults {
     name: "keymint_use_latest_hal_aidl_ndk_shared",
     shared_libs: [
-        "android.hardware.security.keymint-V3-ndk",
+        "android.hardware.security.keymint-V4-ndk",
     ],
 }
 
 cc_defaults {
     name: "keymint_use_latest_hal_aidl_cpp_static",
     static_libs: [
-        "android.hardware.security.keymint-V3-cpp",
+        "android.hardware.security.keymint-V4-cpp",
     ],
 }
 
 cc_defaults {
     name: "keymint_use_latest_hal_aidl_cpp_shared",
     shared_libs: [
-        "android.hardware.security.keymint-V3-cpp",
+        "android.hardware.security.keymint-V4-cpp",
     ],
 }
 
@@ -88,6 +100,6 @@ cc_defaults {
 rust_defaults {
     name: "keymint_use_latest_hal_aidl_rust",
     rustlibs: [
-        "android.hardware.security.keymint-V3-rust",
+        "android.hardware.security.keymint-V4-rust",
     ],
 }

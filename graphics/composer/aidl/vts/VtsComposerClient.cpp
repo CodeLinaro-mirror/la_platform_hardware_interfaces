@@ -690,4 +690,16 @@ bool VtsComposerClient::destroyAllLayers(ComposerClientWriter* writer) {
     mDisplayResources.clear();
     return true;
 }
+
+std::pair<ScopedAStatus, int32_t> VtsComposerClient::getMaxLayerPictureProfiles(int64_t display) {
+    int32_t outMaxProfiles = 0;
+    return {mComposerClient->getMaxLayerPictureProfiles(display, &outMaxProfiles), outMaxProfiles};
+}
+
+std::pair<ScopedAStatus, std::vector<Luts>> VtsComposerClient::getLuts(
+        int64_t display, const std::vector<Buffer>& buffers) {
+    std::vector<Luts> outLuts;
+    return {mComposerClient->getLuts(display, buffers, &outLuts), std::move(outLuts)};
+}
+
 }  // namespace aidl::android::hardware::graphics::composer3::vts

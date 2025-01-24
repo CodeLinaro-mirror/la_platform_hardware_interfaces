@@ -18,8 +18,12 @@ package android.hardware.contexthub;
 
 import android.hardware.contexthub.ContextHubInfo;
 import android.hardware.contexthub.ContextHubMessage;
+import android.hardware.contexthub.EndpointInfo;
 import android.hardware.contexthub.HostEndpointInfo;
+import android.hardware.contexthub.HubInfo;
 import android.hardware.contexthub.IContextHubCallback;
+import android.hardware.contexthub.IEndpointCallback;
+import android.hardware.contexthub.IEndpointCommunication;
 import android.hardware.contexthub.MessageDeliveryStatus;
 import android.hardware.contexthub.NanSessionStateUpdate;
 import android.hardware.contexthub.NanoappBinary;
@@ -221,7 +225,7 @@ interface IContextHub {
     void onNanSessionStateChanged(in NanSessionStateUpdate update);
 
     /**
-     * Puts the context hub in and out of test mode. Test mode is a clean state
+     * Puts the Context Hub in and out of test mode. Test mode is a clean state
      * where tests can be executed in the same environment. If enable is true,
      * this will enable test mode by unloading all nanoapps. If enable is false,
      * this will disable test mode and reverse the actions of enabling test mode
@@ -231,7 +235,7 @@ interface IContextHub {
      * @TestApi or development tools. This should not be used in a production
      * environment.
      *
-     * @param enable If true, put the context hub in test mode. If false, disable
+     * @param enable If true, put the Context Hub in test mode. If false, disable
      *               test mode.
      */
     void setTestMode(in boolean enable);
@@ -256,4 +260,30 @@ interface IContextHub {
      * value EX_SERVICE_SPECIFIC.
      */
     const int EX_CONTEXT_HUB_UNSPECIFIED = -1;
+
+    /** Lists all the hubs, including the Context Hub and generic hubs. */
+    List<HubInfo> getHubs();
+
+    /** Lists all the endpoints, including the Context Hub nanoapps and generic endpoints. */
+    List<EndpointInfo> getEndpoints();
+
+    /**
+     * Registers a new hub for endpoint communication which will receive events for its endpoints
+     * over the given callback. Returns an interface for the hub to register endpoints, start
+     * sessions, and send messages.
+     *
+     * It is valid for the same callback to be registered for multiple hubs, as the
+     * IEndpointCallback events provide sufficient information to determine which hub the event is
+     * intended for:
+     * * session ids are allocated to a specific hub and are unique
+     * * endpoints are identified by hub and endpoint id
+     *
+     * @param callback Interface to send endpoint events targeting the caller
+     * @param hubInfo Details of the hub being registered
+     * @return Interface for the hub to interact with other endpoint hubs
+     *
+     * @throws EX_ILLEGAL_STATE if hubInfo.hubId has already been registered
+     */
+    @PropagateAllowBlocking
+    IEndpointCommunication registerEndpointHub(in IEndpointCallback callback, in HubInfo hubInfo);
 }

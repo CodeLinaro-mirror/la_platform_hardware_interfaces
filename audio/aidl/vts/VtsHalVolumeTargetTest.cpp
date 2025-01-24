@@ -66,7 +66,7 @@ class VolumeControlHelper : public EffectHelper {
 
     void initFrameCount() {
         int channelCount = getChannelCount(
-                AudioChannelLayout::make<AudioChannelLayout::layoutMask>(kDefaultChannelLayout));
+                AudioChannelLayout::make<AudioChannelLayout::layoutMask>(mChannelLayout));
         mInputFrameCount = kBufferSize / channelCount;
         mOutputFrameCount = kBufferSize / channelCount;
     }
@@ -93,11 +93,10 @@ class VolumeControlHelper : public EffectHelper {
         }
     }
 
-    static constexpr int kSamplingFrequency = 44100;
-    static constexpr int kDurationMilliSec = 720;
+    static constexpr int kDurationMilliSec = 1440;
     static constexpr int kBufferSize = kSamplingFrequency * kDurationMilliSec / 1000;
     static constexpr int kMinLevel = -96;
-    static constexpr int kDefaultChannelLayout = AudioChannelLayout::LAYOUT_STEREO;
+    static constexpr int mChannelLayout = kDefaultChannelLayout;
     long mInputFrameCount, mOutputFrameCount;
     std::shared_ptr<IFactory> mFactory;
     std::shared_ptr<IEffect> mEffect;
@@ -108,16 +107,13 @@ class VolumeControlHelper : public EffectHelper {
  * Here we focus on specific parameter checking, general IEffect interfaces testing performed in
  * VtsAudioEffectTargetTest.
  */
-enum ParamName { PARAM_INSTANCE_NAME, PARAM_LEVEL, PARAM_MUTE };
-using VolumeParamTestParam =
-        std::tuple<std::pair<std::shared_ptr<IFactory>, Descriptor>, int, bool>;
+enum VolumeLevelParamName { PARAM_INSTANCE_NAME, PARAM_LEVEL };
+using VolumeLevelTestParam = std::tuple<std::pair<std::shared_ptr<IFactory>, Descriptor>, int>;
 
-class VolumeParamTest : public ::testing::TestWithParam<VolumeParamTestParam>,
-                        public VolumeControlHelper {
+class VolumeLevelParamTest : public ::testing::TestWithParam<VolumeLevelTestParam>,
+                             public VolumeControlHelper {
   public:
-    VolumeParamTest()
-        : mParamLevel(std::get<PARAM_LEVEL>(GetParam())),
-          mParamMute(std::get<PARAM_MUTE>(GetParam())) {
+    VolumeLevelParamTest() : mParamLevel(std::get<PARAM_LEVEL>(GetParam())) {
         std::tie(mFactory, mDescriptor) = std::get<PARAM_INSTANCE_NAME>(GetParam());
     }
 
@@ -125,13 +121,31 @@ class VolumeParamTest : public ::testing::TestWithParam<VolumeParamTestParam>,
     void TearDown() override { TearDownVolumeControl(); }
 
     int mParamLevel = 0;
-    bool mParamMute = false;
 };
 
-TEST_P(VolumeParamTest, SetAndGetParams) {
+TEST_P(VolumeLevelParamTest, SetAndGetParams) {
     ASSERT_NO_FATAL_FAILURE(
             setAndVerifyParameters(Volume::levelDb, mParamLevel,
                                    isLevelValid(mParamLevel) ? EX_NONE : EX_ILLEGAL_ARGUMENT));
+}
+
+enum VolumeMuteParamName { MUTE_PARAM_INSTANCE_NAME, PARAM_MUTE };
+using VolumeMuteTestParam = std::tuple<std::pair<std::shared_ptr<IFactory>, Descriptor>, bool>;
+
+class VolumeMuteParamTest : public ::testing::TestWithParam<VolumeMuteTestParam>,
+                            public VolumeControlHelper {
+  public:
+    VolumeMuteParamTest() : mParamMute(std::get<PARAM_MUTE>(GetParam())) {
+        std::tie(mFactory, mDescriptor) = std::get<MUTE_PARAM_INSTANCE_NAME>(GetParam());
+    }
+
+    void SetUp() override { ASSERT_NO_FATAL_FAILURE(SetUpVolumeControl()); }
+    void TearDown() override { TearDownVolumeControl(); }
+
+    bool mParamMute = false;
+};
+
+TEST_P(VolumeMuteParamTest, SetAndGetParams) {
     ASSERT_NO_FATAL_FAILURE(setAndVerifyParameters(Volume::mute, mParamMute, EX_NONE));
 }
 
@@ -148,8 +162,6 @@ class VolumeDataTest : public ::testing::TestWithParam<VolumeDataTestParam>,
         mInputMag.resize(mTestFrequencies.size());
         mBinOffsets.resize(mTestFrequencies.size());
         roundToFreqCenteredToFftBin(mTestFrequencies, mBinOffsets, kBinWidth);
-        generateMultiTone(mTestFrequencies, mInput, kSamplingFrequency);
-        mInputMag = calculateMagnitude(mInput, mBinOffsets, kNPointFFT);
     }
 
     std::vector<int> calculatePercentageDiff(const std::vector<float>& outputMag) {
@@ -169,6 +181,11 @@ class VolumeDataTest : public ::testing::TestWithParam<VolumeDataTestParam>,
         SKIP_TEST_IF_DATA_UNSUPPORTED(mDescriptor.common.flags);
         // Skips test fixture if api_level <= 34 (__ANDROID_API_U__).
         if (kVsrApiLevel <= __ANDROID_API_U__) GTEST_SKIP();
+        ASSERT_NO_FATAL_FAILURE(generateSineWave(mTestFrequencies, mInput, 1.0, kSamplingFrequency,
+                                                 mChannelLayout));
+        ASSERT_NO_FATAL_FAILURE(
+                calculateAndVerifyMagnitude(mInputMag, mChannelLayout, mInput, mBinOffsets));
+
         ASSERT_NO_FATAL_FAILURE(SetUpVolumeControl());
     }
     void TearDown() override {
@@ -180,7 +197,6 @@ class VolumeDataTest : public ::testing::TestWithParam<VolumeDataTestParam>,
     const int kVsrApiLevel;
     static constexpr int kMaxAudioSample = 1;
     static constexpr int kTransitionDuration = 300;
-    static constexpr int kNPointFFT = 16384;
     static constexpr float kBinWidth = (float)kSamplingFrequency / kNPointFFT;
     static constexpr size_t offset = kSamplingFrequency * kTransitionDuration / 1000;
     static constexpr float kBaseLevel = 0;
@@ -204,7 +220,9 @@ TEST_P(VolumeDataTest, ApplyLevelMuteUnmute) {
     ASSERT_NO_FATAL_FAILURE(setAndVerifyParameters(Volume::levelDb, kBaseLevel, EX_NONE));
     ASSERT_NO_FATAL_FAILURE(processAndWriteToOutput(mInput, output, mEffect, &mOpenEffectReturn));
 
-    outputMag = calculateMagnitude(output, mBinOffsets, kNPointFFT);
+    ASSERT_NO_FATAL_FAILURE(
+            calculateAndVerifyMagnitude(outputMag, mChannelLayout, output, mBinOffsets));
+
     diffs = calculatePercentageDiff(outputMag);
 
     for (size_t i = 0; i < diffs.size(); i++) {
@@ -217,7 +235,10 @@ TEST_P(VolumeDataTest, ApplyLevelMuteUnmute) {
     ASSERT_NO_FATAL_FAILURE(processAndWriteToOutput(mInput, output, mEffect, &mOpenEffectReturn));
 
     std::vector<float> subOutputMute(output.begin() + offset, output.end());
-    outputMag = calculateMagnitude(subOutputMute, mBinOffsets, kNPointFFT);
+
+    ASSERT_NO_FATAL_FAILURE(
+            calculateAndVerifyMagnitude(outputMag, mChannelLayout, subOutputMute, mBinOffsets));
+
     diffs = calculatePercentageDiff(outputMag);
 
     for (size_t i = 0; i < diffs.size(); i++) {
@@ -225,7 +246,9 @@ TEST_P(VolumeDataTest, ApplyLevelMuteUnmute) {
     }
 
     // Verifying Fade out
-    outputMag = calculateMagnitude(output, mBinOffsets, kNPointFFT);
+    ASSERT_NO_FATAL_FAILURE(
+            calculateAndVerifyMagnitude(outputMag, mChannelLayout, output, mBinOffsets));
+
     diffs = calculatePercentageDiff(outputMag);
 
     for (size_t i = 0; i < diffs.size(); i++) {
@@ -239,7 +262,9 @@ TEST_P(VolumeDataTest, ApplyLevelMuteUnmute) {
 
     std::vector<float> subOutputUnmute(output.begin() + offset, output.end());
 
-    outputMag = calculateMagnitude(subOutputUnmute, mBinOffsets, kNPointFFT);
+    ASSERT_NO_FATAL_FAILURE(
+            calculateAndVerifyMagnitude(outputMag, mChannelLayout, subOutputUnmute, mBinOffsets));
+
     diffs = calculatePercentageDiff(outputMag);
 
     for (size_t i = 0; i < diffs.size(); i++) {
@@ -247,7 +272,9 @@ TEST_P(VolumeDataTest, ApplyLevelMuteUnmute) {
     }
 
     // Verifying Fade in
-    outputMag = calculateMagnitude(output, mBinOffsets, kNPointFFT);
+    ASSERT_NO_FATAL_FAILURE(
+            calculateAndVerifyMagnitude(outputMag, mChannelLayout, output, mBinOffsets));
+
     diffs = calculatePercentageDiff(outputMag);
 
     for (size_t i = 0; i < diffs.size(); i++) {
@@ -269,7 +296,9 @@ TEST_P(VolumeDataTest, DecreasingLevels) {
     ASSERT_NO_FATAL_FAILURE(
             processAndWriteToOutput(mInput, baseOutput, mEffect, &mOpenEffectReturn));
 
-    outputMag = calculateMagnitude(baseOutput, mBinOffsets, kNPointFFT);
+    ASSERT_NO_FATAL_FAILURE(
+            calculateAndVerifyMagnitude(outputMag, mChannelLayout, baseOutput, mBinOffsets));
+
     baseDiffs = calculatePercentageDiff(outputMag);
 
     for (int level : decreasingLevels) {
@@ -284,7 +313,9 @@ TEST_P(VolumeDataTest, DecreasingLevels) {
         ASSERT_NO_FATAL_FAILURE(
                 processAndWriteToOutput(mInput, output, mEffect, &mOpenEffectReturn));
 
-        outputMag = calculateMagnitude(output, mBinOffsets, kNPointFFT);
+        ASSERT_NO_FATAL_FAILURE(
+                calculateAndVerifyMagnitude(outputMag, mChannelLayout, output, mBinOffsets));
+
         diffs = calculatePercentageDiff(outputMag);
 
         // Decrease in volume level results in greater magnitude difference
@@ -298,25 +329,40 @@ TEST_P(VolumeDataTest, DecreasingLevels) {
 
 std::vector<std::pair<std::shared_ptr<IFactory>, Descriptor>> kDescPair;
 INSTANTIATE_TEST_SUITE_P(
-        VolumeTest, VolumeParamTest,
+        VolumeTest, VolumeLevelParamTest,
         ::testing::Combine(
                 testing::ValuesIn(kDescPair = EffectFactoryHelper::getAllEffectDescriptors(
                                           IFactory::descriptor, getEffectTypeUuidVolume())),
                 testing::ValuesIn(
                         EffectHelper::getTestValueSet<Volume, int, Range::volume, Volume::levelDb>(
-                                kDescPair, EffectHelper::expandTestValueBasic<int>)),
-                testing::Bool() /* mute */),
-        [](const testing::TestParamInfo<VolumeParamTest::ParamType>& info) {
+                                kDescPair, EffectHelper::expandTestValueBasic<int>))),
+        [](const testing::TestParamInfo<VolumeLevelParamTest::ParamType>& info) {
             auto descriptor = std::get<PARAM_INSTANCE_NAME>(info.param).second;
             std::string level = std::to_string(std::get<PARAM_LEVEL>(info.param));
-            std::string mute = std::to_string(std::get<PARAM_MUTE>(info.param));
-            std::string name = getPrefix(descriptor) + "_level" + level + "_mute" + mute;
+            std::string name = getPrefix(descriptor) + "_level" + level;
             std::replace_if(
                     name.begin(), name.end(), [](const char c) { return !std::isalnum(c); }, '_');
             return name;
         });
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(VolumeParamTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(VolumeLevelParamTest);
+
+INSTANTIATE_TEST_SUITE_P(
+        VolumeTest, VolumeMuteParamTest,
+        ::testing::Combine(
+                testing::ValuesIn(kDescPair = EffectFactoryHelper::getAllEffectDescriptors(
+                                          IFactory::descriptor, getEffectTypeUuidVolume())),
+                testing::Bool() /* mute */),
+        [](const testing::TestParamInfo<VolumeMuteParamTest::ParamType>& info) {
+            auto descriptor = std::get<MUTE_PARAM_INSTANCE_NAME>(info.param).second;
+            std::string mute = std::to_string(std::get<PARAM_MUTE>(info.param));
+            std::string name = getPrefix(descriptor) + "_mute" + mute;
+            std::replace_if(
+                    name.begin(), name.end(), [](const char c) { return !std::isalnum(c); }, '_');
+            return name;
+        });
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(VolumeMuteParamTest);
 
 INSTANTIATE_TEST_SUITE_P(VolumeTest, VolumeDataTest,
                          testing::ValuesIn(EffectFactoryHelper::getAllEffectDescriptors(

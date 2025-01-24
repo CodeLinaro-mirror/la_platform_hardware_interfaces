@@ -81,7 +81,6 @@ class PresetReverbHelper : public EffectHelper {
                                            << "\ngetParam:" << getParam.toString();
     }
 
-    static constexpr int kSamplingFrequency = 44100;
     static constexpr int kDurationMilliSec = 500;
     static constexpr int kBufferSize = kSamplingFrequency * kDurationMilliSec / 1000;
     int mStereoChannelCount =
@@ -133,23 +132,17 @@ class PresetReverbProcessTest : public ::testing::TestWithParam<PresetReverbProc
   public:
     PresetReverbProcessTest() {
         std::tie(mFactory, mDescriptor) = GetParam();
-        generateSineWaveInput();
+        mInput.resize(kBufferSize);
     }
 
     void SetUp() override {
         SKIP_TEST_IF_DATA_UNSUPPORTED(mDescriptor.common.flags);
+        ASSERT_NO_FATAL_FAILURE(generateSineWave(1000 /*Input Frequency*/, mInput));
         ASSERT_NO_FATAL_FAILURE(SetUpPresetReverb());
     }
     void TearDown() override {
         SKIP_TEST_IF_DATA_UNSUPPORTED(mDescriptor.common.flags);
         ASSERT_NO_FATAL_FAILURE(TearDownPresetReverb());
-    }
-
-    void generateSineWaveInput() {
-        int frequency = 1000;
-        for (size_t i = 0; i < kBufferSize; i++) {
-            mInput.push_back(sin(2 * M_PI * frequency * i / kSamplingFrequency));
-        }
     }
 
     bool isAuxiliary() {

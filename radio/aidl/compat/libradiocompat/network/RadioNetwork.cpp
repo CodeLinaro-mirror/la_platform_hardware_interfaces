@@ -402,4 +402,27 @@ ScopedAStatus RadioNetwork::setSecurityAlgorithmsUpdatedEnabled(int32_t serial, 
     return ok();
 }
 
+ScopedAStatus RadioNetwork::setSatellitePlmn(
+        int32_t serial, const std::vector<std::string>& /*carrierPlmnArray*/,
+        const std::vector<std::string>& /*allSatellitePlmnArray*/) {
+    LOG_CALL << serial;
+    LOG(ERROR) << " setSatellitePlmn is unsupported by HIDL HALs";
+    respond()->setSatellitePlmnResponse(notSupported(serial));
+    return ok();
+}
+
+ScopedAStatus RadioNetwork::setSatelliteEnabledForCarrier(int32_t serial, bool /*enable*/) {
+    LOG_CALL << serial;
+    LOG(ERROR) << " setSatelliteEnabledForCarrier is unsupported by HIDL HALs";
+    respond()->setSatelliteEnabledForCarrierResponse(notSupported(serial));
+    return ok();
+}
+
+ScopedAStatus RadioNetwork::isSatelliteEnabledForCarrier(int32_t serial) {
+    LOG_CALL << serial;
+    LOG(ERROR) << " isSatelliteEnabledForCarrier is unsupported by HIDL HALs";
+    respond()->isSatelliteEnabledForCarrierResponse(notSupported(serial), false);
+    return ok();
+}
+
 }  // namespace android::hardware::radio::compat
