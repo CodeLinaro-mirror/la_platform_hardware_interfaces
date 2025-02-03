@@ -45,6 +45,7 @@ class Bump(object):
         self.current_level = cmdline_args.current_level
         self.current_letter = cmdline_args.current_letter
         self.current_version = cmdline_args.platform_version
+        self.next_version = cmdline_args.next_platform_version
         self.current_module_name = f"framework_compatibility_matrix.{self.current_level}.xml"
         self.current_xml = self.interfaces_dir / f"compatibility_matrices/compatibility_matrix.{self.current_level}.xml"
         self.device_module_name = "framework_compatibility_matrix.device.xml"
@@ -110,14 +111,11 @@ class Bump(object):
             "kernel_configs", "-a", " ".join(next_kernel_configs), android_bp
         ])
 
-        # update the SYSTEM_MATRIX_DEPS variable and the phony module's
-        # product_variables entry.
+        # Replace the phony module's product_variables entry to add the new FCM
+        # to the development targets (trunk* configs).
         lines = []
         with open(android_bp) as f:
             for line in f:
-              if f"    \"{self.device_module_name}\",\n" in line:
-                  lines.append(f"    \"{self.current_module_name}\",\n")
-
               if f"                \"{self.current_module_name}\",\n" in line:
                   lines.append(f"                \"{self.next_module_name}\",\n")
               else:
@@ -132,27 +130,27 @@ class Bump(object):
             return
         try:
             check_call(["grep", "-h",
-                        f"{self.current_letter.upper()} = {self.current_level}",
-                        "system/libvintf/include/vintf/Level.h"])
+                        f"{self.next_letter.upper()} = {self.next_level}",
+                        f"{self.top}/system/libvintf/include/vintf/Level.h"])
         except subprocess.CalledProcessError:
             print("Adding new API level to libvintf")
-            add_lines_above("system/libvintf/analyze_matrix/analyze_matrix.cpp",
+            add_lines_above(f"{self.top}/system/libvintf/analyze_matrix/analyze_matrix.cpp",
                             "        case Level::UNSPECIFIED:",
                             textwrap.indent(textwrap.dedent(f"""\
-                                    case Level::{self.current_letter.upper()}:
-                                        return "Android {self.current_version} ({self.current_letter.upper()})";"""),
+                                    case Level::{self.next_letter.upper()}:
+                                        return "Android {self.next_version} ({self.next_letter.upper()})";"""),
                             "    "*2))
-            add_lines_above("system/libvintf/include/vintf/Level.h",
+            add_lines_above(f"{self.top}/system/libvintf/include/vintf/Level.h",
                             "    // To add new values:",
-                            f"    {self.current_letter.upper()} = {self.current_level},")
-            add_lines_above("system/libvintf/include/vintf/Level.h",
+                            f"    {self.next_letter.upper()} = {self.next_level},")
+            add_lines_above(f"{self.top}/system/libvintf/include/vintf/Level.h",
                             "        Level::UNSPECIFIED,",
-                            f"        Level::{self.current_letter.upper()},")
-            add_lines_above("system/libvintf/RuntimeInfo.cpp",
+                            f"        Level::{self.next_letter.upper()},")
+            add_lines_above(f"{self.top}/system/libvintf/RuntimeInfo.cpp",
                             "            // Add more levels above this line.",
                             textwrap.indent(textwrap.dedent(f"""\
-                                        case {self.current_version}: {{
-                                            ret = Level::{self.current_letter.upper()};
+                                        case {self.next_version}: {{
+                                            ret = Level::{self.next_letter.upper()};
                                         }} break;"""),
                             "    "*3))
 
@@ -181,14 +179,18 @@ def main():
                         help="VINTF level of the next version (e.g. 202504)")
     parser.add_argument("current_letter",
                         type=str,
-                        help="Letter of the API level of the current version (e.g. v)")
+                        help="Letter of the API level of the current version (e.g. b)")
     parser.add_argument("next_letter",
                         type=str,
-                        help="Letter of the API level of the next version (e.g. w)")
+                        help="Letter of the API level of the next version (e.g. c)")
     parser.add_argument("platform_version",
                         type=str,
                         nargs="?",
-                        help="Android release version number number (e.g. 15)")
+                        help="Current Android release version number (e.g. 16)")
+    parser.add_argument("next_platform_version",
+                        type=str,
+                        nargs="?",
+                        help="Next Android release version number number (e.g. 17)")
     cmdline_args = parser.parse_args()
 
     Bump(cmdline_args).run()

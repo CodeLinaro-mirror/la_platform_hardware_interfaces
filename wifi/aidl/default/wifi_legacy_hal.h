@@ -63,6 +63,7 @@ using ::NAN_DP_REQUEST_ACCEPT;
 using ::NAN_DP_REQUEST_CHANNEL_SETUP;
 using ::NAN_DP_REQUEST_REJECT;
 using ::NAN_DP_RESPONDER_RESPONSE;
+using ::NAN_ENABLE_RANGE_REPORT;
 using ::NAN_GET_CAPABILITIES;
 using ::NAN_MATCH_ALG_MATCH_CONTINUOUS;
 using ::NAN_MATCH_ALG_MATCH_NEVER;
@@ -212,10 +213,16 @@ using ::RTT_STATUS_INVALID_REQ;
 using ::RTT_STATUS_NAN_RANGING_CONCURRENCY_NOT_SUPPORTED;
 using ::RTT_STATUS_NAN_RANGING_PROTOCOL_FAILURE;
 using ::RTT_STATUS_NO_WIFI;
+using ::RTT_STATUS_SECURE_RANGING_FAILURE_INVALID_AKM;
+using ::RTT_STATUS_SECURE_RANGING_FAILURE_INVALID_CIPHER;
+using ::RTT_STATUS_SECURE_RANGING_FAILURE_INVALID_CONFIG;
+using ::RTT_STATUS_SECURE_RANGING_FAILURE_REJECTED;
+using ::RTT_STATUS_SECURE_RANGING_FAILURE_UNKNOWN;
 using ::RTT_STATUS_SUCCESS;
 using ::RTT_TYPE_1_SIDED;
 using ::RTT_TYPE_2_SIDED;
 using ::RTT_TYPE_2_SIDED_11AZ_NTB;
+using ::RTT_TYPE_2_SIDED_11AZ_NTB_SECURE;
 using ::RTT_TYPE_2_SIDED_11MC;
 using ::RX_PKT_FATE_DRV_DROP_FILTER;
 using ::RX_PKT_FATE_DRV_DROP_INVALID;
@@ -343,6 +350,7 @@ using ::wifi_request_id;
 using ::wifi_ring_buffer_status;
 using ::wifi_roaming_capabilities;
 using ::wifi_roaming_config;
+using ::wifi_rtt_akm;
 using ::wifi_rtt_bw;
 using ::WIFI_RTT_BW_10;
 using ::WIFI_RTT_BW_160;
@@ -354,8 +362,11 @@ using ::WIFI_RTT_BW_80;
 using ::WIFI_RTT_BW_UNSPECIFIED;
 using ::wifi_rtt_capabilities;
 using ::wifi_rtt_capabilities_v3;
+using ::wifi_rtt_capabilities_v4;
+using ::wifi_rtt_cipher_suite;
 using ::wifi_rtt_config;
 using ::wifi_rtt_config_v3;
+using ::wifi_rtt_config_v4;
 using ::wifi_rtt_preamble;
 using ::WIFI_RTT_PREAMBLE_EHT;
 using ::WIFI_RTT_PREAMBLE_HE;
@@ -367,6 +378,7 @@ using ::wifi_rtt_responder;
 using ::wifi_rtt_result;
 using ::wifi_rtt_result_v2;
 using ::wifi_rtt_result_v3;
+using ::wifi_rtt_result_v4;
 using ::wifi_rtt_status;
 using ::wifi_rtt_type;
 using ::wifi_rx_packet_fate;
@@ -392,6 +404,20 @@ using ::WLAN_MAC_2_4_BAND;
 using ::WLAN_MAC_5_0_BAND;
 using ::WLAN_MAC_60_0_BAND;
 using ::WLAN_MAC_6_0_BAND;
+using ::WPA_CIPHER_CCMP_128;
+using ::WPA_CIPHER_CCMP_256;
+using ::WPA_CIPHER_GCMP_128;
+using ::WPA_CIPHER_GCMP_256;
+using ::WPA_CIPHER_NONE;
+using ::WPA_KEY_MGMT_EAP_FILS_SHA256;
+using ::WPA_KEY_MGMT_EAP_FILS_SHA384;
+using ::WPA_KEY_MGMT_EAP_FT_SHA256;
+using ::WPA_KEY_MGMT_EAP_FT_SHA384;
+using ::WPA_KEY_MGMT_FT_PSK_SHA256;
+using ::WPA_KEY_MGMT_FT_PSK_SHA384;
+using ::WPA_KEY_MGMT_NONE;
+using ::WPA_KEY_MGMT_PASN;
+using ::WPA_KEY_MGMT_SAE;
 
 // APF capabilities supported by the iface.
 struct PacketFilterCapabilities {
@@ -482,6 +508,8 @@ struct NanCallbackHandlers {
     std::function<void(const NanBootstrappingRequestInd&)> on_event_bootstrapping_request;
     std::function<void(const NanBootstrappingConfirmInd&)> on_event_bootstrapping_confirm;
     std::function<void(const NanSuspensionModeChangeInd&)> on_event_suspension_mode_change;
+    std::function<void(wifi_rtt_result* rtt_results[], uint32_t num_results, uint16_t session_id)>
+            on_ranging_results;
 };
 
 // Full scan results contain IE info and are hence passed by reference, to
@@ -508,6 +536,8 @@ using on_rtt_results_callback_v2 =
         std::function<void(wifi_request_id, const std::vector<const wifi_rtt_result_v2*>&)>;
 using on_rtt_results_callback_v3 =
         std::function<void(wifi_request_id, const std::vector<const wifi_rtt_result_v3*>&)>;
+using on_rtt_results_callback_v4 =
+        std::function<void(wifi_request_id, const std::vector<const wifi_rtt_result_v4*>&)>;
 
 // Callback for ring buffer data.
 using on_ring_buffer_data_callback = std::function<void(
@@ -696,11 +726,16 @@ class WifiLegacyHal {
     wifi_error startRttRangeRequestV3(const std::string& iface_name, wifi_request_id id,
                                       const std::vector<wifi_rtt_config_v3>& rtt_configs,
                                       const on_rtt_results_callback_v3& on_results_callback);
+    wifi_error startRttRangeRequestV4(const std::string& iface_name, wifi_request_id id,
+                                      const std::vector<wifi_rtt_config_v4>& rtt_configs,
+                                      const on_rtt_results_callback_v4& on_results_callback);
 
     wifi_error cancelRttRangeRequest(const std::string& iface_name, wifi_request_id id,
                                      const std::vector<std::array<uint8_t, ETH_ALEN>>& mac_addrs);
     std::pair<wifi_error, wifi_rtt_capabilities> getRttCapabilities(const std::string& iface_name);
     std::pair<wifi_error, wifi_rtt_capabilities_v3> getRttCapabilitiesV3(
+            const std::string& iface_name);
+    std::pair<wifi_error, wifi_rtt_capabilities_v4> getRttCapabilitiesV4(
             const std::string& iface_name);
     std::pair<wifi_error, wifi_rtt_responder> getRttResponderInfo(const std::string& iface_name);
     wifi_error enableRttResponder(const std::string& iface_name, wifi_request_id id,

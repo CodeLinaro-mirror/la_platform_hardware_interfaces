@@ -48,7 +48,7 @@ static const std::vector<int32_t> kLayouts = {AudioChannelLayout::LAYOUT_STEREO,
 
 class BassBoostEffectHelper : public EffectHelper {
   public:
-    void SetUpBassBoost(int32_t layout = AudioChannelLayout::LAYOUT_STEREO) {
+    void SetUpBassBoost(int32_t layout = kDefaultChannelLayout) {
         ASSERT_NE(nullptr, mFactory);
         ASSERT_NO_FATAL_FAILURE(create(mFactory, mEffect, mDescriptor));
         setFrameCounts(layout);
@@ -113,8 +113,7 @@ class BassBoostEffectHelper : public EffectHelper {
         }
     }
 
-    static constexpr int kSamplingFrequency = 44100;
-    static constexpr int kDurationMilliSec = 720;
+    static constexpr int kDurationMilliSec = 1440;
     static constexpr int kInputSize = kSamplingFrequency * kDurationMilliSec / 1000;
     long mInputFrameCount, mOutputFrameCount;
     std::shared_ptr<IFactory> mFactory;
@@ -188,37 +187,6 @@ class BassBoostDataTest : public ::testing::TestWithParam<BassBoostDataTestParam
         }
     }
 
-    // Generate multitone input between -1 to +1 using testFrequencies
-    void generateMultiTone(const std::vector<int>& testFrequencies, std::vector<float>& input) {
-        for (auto i = 0; i < kInputSize; i++) {
-            input[i] = 0;
-
-            for (size_t j = 0; j < testFrequencies.size(); j++) {
-                input[i] += sin(2 * M_PI * testFrequencies[j] * i / kSamplingFrequency);
-            }
-            input[i] /= testFrequencies.size();
-        }
-    }
-
-    // Use FFT transform to convert the buffer to frequency domain
-    // Compute its magnitude at binOffsets
-    std::vector<float> calculateMagnitude(const std::vector<float>& buffer,
-                                          const std::vector<int>& binOffsets) {
-        std::vector<float> fftInput(kNPointFFT);
-        PFFFT_Setup* inputHandle = pffft_new_setup(kNPointFFT, PFFFT_REAL);
-        pffft_transform_ordered(inputHandle, buffer.data(), fftInput.data(), nullptr,
-                                PFFFT_FORWARD);
-        pffft_destroy_setup(inputHandle);
-        std::vector<float> bufferMag(binOffsets.size());
-        for (size_t i = 0; i < binOffsets.size(); i++) {
-            size_t k = binOffsets[i];
-            bufferMag[i] = sqrt((fftInput[k * 2] * fftInput[k * 2]) +
-                                (fftInput[k * 2 + 1] * fftInput[k * 2 + 1]));
-        }
-
-        return bufferMag;
-    }
-
     // Calculate gain difference between low frequency and high frequency magnitude
     float calculateGainDiff(const std::vector<float>& inputMag,
                             const std::vector<float>& outputMag) {
@@ -231,7 +199,6 @@ class BassBoostDataTest : public ::testing::TestWithParam<BassBoostDataTestParam
         return gains[0] - gains[1];
     }
 
-    static constexpr int kNPointFFT = 16384;
     static constexpr float kBinWidth = (float)kSamplingFrequency / kNPointFFT;
     std::set<int> mStrengthValues;
     int32_t mChannelLayout;
@@ -252,9 +219,12 @@ TEST_P(BassBoostDataTest, IncreasingStrength) {
 
     roundToFreqCenteredToFftBin(testFrequencies, binOffsets);
 
-    generateMultiTone(testFrequencies, input);
+    // Generate multitone input
+    ASSERT_NO_FATAL_FAILURE(
+            generateSineWave(testFrequencies, input, 1.0, kSamplingFrequency, mChannelLayout));
 
-    inputMag = calculateMagnitude(input, binOffsets);
+    ASSERT_NO_FATAL_FAILURE(
+            calculateAndVerifyMagnitude(inputMag, mChannelLayout, input, binOffsets));
 
     if (isStrengthValid(0)) {
         ASSERT_NO_FATAL_FAILURE(setAndVerifyParameters(0, EX_NONE));
@@ -266,7 +236,10 @@ TEST_P(BassBoostDataTest, IncreasingStrength) {
             processAndWriteToOutput(input, baseOutput, mEffect, &mOpenEffectReturn));
 
     std::vector<float> baseMag(testFrequencies.size());
-    baseMag = calculateMagnitude(baseOutput, binOffsets);
+
+    ASSERT_NO_FATAL_FAILURE(
+            calculateAndVerifyMagnitude(baseMag, mChannelLayout, baseOutput, binOffsets));
+
     float baseDiff = calculateGainDiff(inputMag, baseMag);
 
     for (int strength : mStrengthValues) {
@@ -283,7 +256,9 @@ TEST_P(BassBoostDataTest, IncreasingStrength) {
         ASSERT_NO_FATAL_FAILURE(
                 processAndWriteToOutput(input, output, mEffect, &mOpenEffectReturn));
 
-        outputMag = calculateMagnitude(output, binOffsets);
+        ASSERT_NO_FATAL_FAILURE(
+                calculateAndVerifyMagnitude(outputMag, mChannelLayout, output, binOffsets));
+
         float diff = calculateGainDiff(inputMag, outputMag);
 
         ASSERT_GT(diff, prevGain);
