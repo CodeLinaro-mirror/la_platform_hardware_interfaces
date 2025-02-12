@@ -50,7 +50,7 @@ constexpr uint32_t kMaxRingBufferFileAgeSeconds = 60 * 60 * 10;
 constexpr uint32_t kMaxRingBufferFileNum = 20;
 constexpr char kTombstoneFolderPath[] = "/data/vendor/tombstones/wifi/";
 constexpr char kActiveWlanIfaceNameProperty[] = "wifi.active.interface";
-constexpr char kNoActiveWlanIfaceNamePropertyValue[] = "";
+constexpr char kNoActiveWlanIfaceNamePropertyValue[] = "N/A";
 constexpr unsigned kMaxWlanIfaces = 5;
 constexpr char kApBridgeIfacePrefix[] = "ap_br_";
 constexpr char kCemSuffix[] = "_cem";
@@ -181,9 +181,9 @@ std::string getPredefinedNanIfaceName() {
 
 void setActiveWlanIfaceNameProperty(const std::string& ifname) {
     auto res = property_set(kActiveWlanIfaceNameProperty, ifname.data());
-    if (res != 0) {
-        ALOGE("Failed to set active wlan iface name property");
-    }
+//    if (res != 0) {
+//        ALOGE("Failed to set active wlan iface name property");
+//    }
 }
 
 // Delete files that meet either condition:

@@ -71,7 +71,7 @@ ndk::ScopedAStatus Wifi::isStarted(bool* _aidl_return) {
 }
 
 ndk::ScopedAStatus Wifi::start() {
-    return validateAndCall(this, WifiStatusCode::ERROR_UNKNOWN, &Wifi::startInternal);
+    return validateAndCallWithLock(this, WifiStatusCode::ERROR_UNKNOWN, &Wifi::startInternal);
 }
 
 ndk::ScopedAStatus Wifi::stop() {
@@ -96,9 +96,17 @@ ndk::ScopedAStatus Wifi::registerEventCallbackInternal(
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Wifi::startInternal() {
+ndk::ScopedAStatus Wifi::startInternal(
+        /* NONNULL */ std::unique_lock<std::recursive_mutex>* lock) {
     if (run_state_ == RunState::STARTED) {
-        return ndk::ScopedAStatus::ok();
+//        return ndk::ScopedAStatus::ok();
+        ALOGI("Wifihal already started. Stop and restart.");
+        ndk::ScopedAStatus wifi_status = stopInternal(lock);
+        if (!wifi_status.isOk()) {
+            ALOGE("Stopping failed.");
+            return createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE, "HAL restart fail");
+        }
+        ALOGE("Stopped. Restarting wifihal now.");
     } else if (run_state_ == RunState::STOPPING) {
         return createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE, "HAL is stopping");
     }

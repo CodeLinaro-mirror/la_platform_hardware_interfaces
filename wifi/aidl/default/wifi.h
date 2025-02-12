@@ -68,7 +68,7 @@ class Wifi : public BnWifi {
     // Corresponding worker functions for the AIDL methods.
     ndk::ScopedAStatus registerEventCallbackInternal(
             const std::shared_ptr<IWifiEventCallback>& event_callback __unused);
-    ndk::ScopedAStatus startInternal();
+    ndk::ScopedAStatus startInternal(std::unique_lock<std::recursive_mutex>* lock);
     ndk::ScopedAStatus stopInternal(std::unique_lock<std::recursive_mutex>* lock);
     std::pair<std::vector<int32_t>, ndk::ScopedAStatus> getChipIdsInternal();
     std::pair<std::shared_ptr<IWifiChip>, ndk::ScopedAStatus> getChipInternal(int32_t chip_id);
