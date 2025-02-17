@@ -1538,13 +1538,23 @@ WifiChip::getSupportedRadioCombinationsInternal() {
     if (legacy_status != legacy_hal::WIFI_SUCCESS) {
         ALOGE("Failed to get SupportedRadioCombinations matrix from legacy HAL: %s",
                    legacyErrorToString(legacy_status).c_str());
+        if (legacy_matrix != nullptr) {
+            free(legacy_matrix);
+        }
         return {aidl_combinations, createWifiStatusFromLegacyError(legacy_status)};
     }
 
     if (!aidl_struct_util::convertLegacyRadioCombinationsMatrixToAidl(legacy_matrix,
                                                                       &aidl_combinations)) {
         ALOGE("Failed convertLegacyRadioCombinationsMatrixToAidl()");
+        if (legacy_matrix != nullptr) {
+            free(legacy_matrix);
+        }
         return {aidl_combinations, createWifiStatus(WifiStatusCode::ERROR_INVALID_ARGS)};
+    }
+
+    if (legacy_matrix != nullptr) {
+        free(legacy_matrix);
     }
     return {aidl_combinations, ndk::ScopedAStatus::ok()};
 }
