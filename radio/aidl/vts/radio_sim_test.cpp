@@ -87,12 +87,7 @@ TEST_P(RadioSimTest, setSimCardPower) {
     EXPECT_EQ(serial, radioRsp_sim->rspInfo.serial);
     ASSERT_TRUE(CheckAnyOfErrors(radioRsp_sim->rspInfo.error,
                                  {RadioError::NONE, RadioError::INVALID_ARGUMENTS,
-                                  RadioError::RADIO_NOT_AVAILABLE, RadioError::SIM_ERR,
-                                  RadioError::REQUEST_NOT_SUPPORTED}));
-
-    if (radioRsp_sim->rspInfo.error == RadioError::REQUEST_NOT_SUPPORTED) {
-        GTEST_SKIP() << "Skipping setSimCardPower because it's not supported";
-    }
+                                  RadioError::RADIO_NOT_AVAILABLE, RadioError::SIM_ERR}));
 
     // setSimCardPower does not return  until the request is handled, and should not trigger
     // CardStatus::STATE_ABSENT when turning off power
@@ -672,8 +667,7 @@ TEST_P(RadioSimTest, supplyIccPukForApp) {
             EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_sim->rspInfo.type);
             ASSERT_TRUE(CheckAnyOfErrors(
                     radioRsp_sim->rspInfo.error,
-                    {RadioError::PASSWORD_INCORRECT, RadioError::INVALID_SIM_STATE,
-                     RadioError::REQUEST_NOT_SUPPORTED}));
+                    {RadioError::PASSWORD_INCORRECT, RadioError::INVALID_SIM_STATE}));
         }
     }
 }
@@ -734,8 +728,7 @@ TEST_P(RadioSimTest, supplyIccPuk2ForApp) {
             EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_sim->rspInfo.type);
             ASSERT_TRUE(CheckAnyOfErrors(
                     radioRsp_sim->rspInfo.error,
-                    {RadioError::PASSWORD_INCORRECT, RadioError::INVALID_SIM_STATE,
-                     RadioError::REQUEST_NOT_SUPPORTED}));
+                    {RadioError::PASSWORD_INCORRECT, RadioError::INVALID_SIM_STATE}));
         }
     }
 }

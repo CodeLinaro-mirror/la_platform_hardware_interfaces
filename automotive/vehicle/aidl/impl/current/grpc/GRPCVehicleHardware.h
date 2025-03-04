@@ -90,12 +90,6 @@ class GRPCVehicleHardware : public IVehicleHardware {
 
     aidlvhal::StatusCode unsubscribe(int32_t propId, int32_t areaId) override;
 
-    std::vector<aidlvhal::MinMaxSupportedValueResult> getMinMaxSupportedValues(
-            const std::vector<PropIdAreaId>& propIdAreaIds) override;
-
-    std::vector<aidlvhal::SupportedValuesListResult> getSupportedValuesLists(
-            const std::vector<PropIdAreaId>& propIdAreaIds) override;
-
     bool waitForConnected(std::chrono::milliseconds waitTime);
 
   protected:

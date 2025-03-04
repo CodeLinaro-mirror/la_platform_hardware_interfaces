@@ -29,45 +29,19 @@
 
 namespace android::hardware::automotive::vehicle::virtualization {
 
-using ::grpc::ChannelCredentials;
-using ::grpc::ClientContext;
-using ::grpc::CreateChannel;
-using ::grpc::InsecureChannelCredentials;
-using ::grpc::Status;
-
 namespace {
 
 constexpr size_t MAX_RETRY_COUNT = 5;
 
-std::shared_ptr<ChannelCredentials> getChannelCredentials() {
-    return InsecureChannelCredentials();
-}
-
-template <class ProtoRequestType>
-void fillPropIdAreaIdsToProtoRequest(const std::vector<PropIdAreaId>& propIdAreaIds,
-                                     ProtoRequestType* protoRequest) {
-    for (const auto& propIdAreaId : propIdAreaIds) {
-        proto_msg_converter::aidlToProto(propIdAreaId, protoRequest->add_prop_id_area_id());
-    }
-}
-
-template <class AidlResultType, class ProtoResultType>
-std::vector<AidlResultType> convertSupportedValueProtoResultToAidlResults(
-        const std::vector<PropIdAreaId>& propIdAreaIds, const ProtoResultType& protoResult) {
-    std::vector<AidlResultType> aidlResults;
-    for (const auto& protoResultPerRequest : protoResult.result()) {
-        AidlResultType aidlResult = {};
-        proto_msg_converter::protoToAidl(protoResultPerRequest, &aidlResult);
-        aidlResults.push_back(std::move(aidlResult));
-    }
-    return aidlResults;
+std::shared_ptr<::grpc::ChannelCredentials> getChannelCredentials() {
+    return ::grpc::InsecureChannelCredentials();
 }
 
 }  // namespace
 
 GRPCVehicleHardware::GRPCVehicleHardware(std::string service_addr)
     : mServiceAddr(std::move(service_addr)),
-      mGrpcChannel(CreateChannel(mServiceAddr, getChannelCredentials())),
+      mGrpcChannel(::grpc::CreateChannel(mServiceAddr, getChannelCredentials())),
       mGrpcStub(proto::VehicleServer::NewStub(mGrpcChannel)),
       mValuePollingThread([this] { ValuePollingLoop(); }) {}
 
@@ -93,7 +67,7 @@ GRPCVehicleHardware::~GRPCVehicleHardware() {
 
 std::vector<aidlvhal::VehiclePropConfig> GRPCVehicleHardware::getAllPropertyConfigs() const {
     std::vector<aidlvhal::VehiclePropConfig> configs;
-    ClientContext context;
+    ::grpc::ClientContext context;
     auto config_stream = mGrpcStub->GetAllPropertyConfig(&context, ::google::protobuf::Empty());
     proto::VehiclePropConfig protoConfig;
     while (config_stream->Read(&protoConfig)) {
@@ -123,7 +97,7 @@ std::optional<aidlvhal::VehiclePropConfig> GRPCVehicleHardware::getPropertyConfi
 aidlvhal::StatusCode GRPCVehicleHardware::setValues(
         std::shared_ptr<const SetValuesCallback> callback,
         const std::vector<aidlvhal::SetValueRequest>& requests) {
-    ClientContext context;
+    ::grpc::ClientContext context;
     proto::VehiclePropValueRequests protoRequests;
     proto::SetValueResults protoResults;
     for (const auto& request : requests) {
@@ -186,7 +160,7 @@ aidlvhal::StatusCode GRPCVehicleHardware::getValuesWithRetry(
     }
 
     // TODO(chenhaosjtuacm): Make it Async.
-    ClientContext context;
+    ::grpc::ClientContext context;
     proto::GetValueResults protoResults;
     auto grpc_status = mGrpcStub->GetValues(&context, protoRequests, &protoResults);
     if (!grpc_status.ok()) {
@@ -288,7 +262,7 @@ void GRPCVehicleHardware::registerOnPropertySetErrorEvent(
 }
 
 DumpResult GRPCVehicleHardware::dump(const std::vector<std::string>& options) {
-    ClientContext context;
+    ::grpc::ClientContext context;
     proto::DumpOptions protoDumpOptions;
     proto::DumpResult protoDumpResult;
     for (const auto& option : options) {
@@ -307,7 +281,7 @@ DumpResult GRPCVehicleHardware::dump(const std::vector<std::string>& options) {
 }
 
 aidlvhal::StatusCode GRPCVehicleHardware::checkHealth() {
-    ClientContext context;
+    ::grpc::ClientContext context;
     proto::VehicleHalCallStatus protoStatus;
     auto grpc_status = mGrpcStub->CheckHealth(&context, ::google::protobuf::Empty(), &protoStatus);
     if (!grpc_status.ok()) {
@@ -319,7 +293,7 @@ aidlvhal::StatusCode GRPCVehicleHardware::checkHealth() {
 
 aidlvhal::StatusCode GRPCVehicleHardware::subscribe(aidlvhal::SubscribeOptions options) {
     proto::SubscribeRequest request;
-    ClientContext context;
+    ::grpc::ClientContext context;
     proto::VehicleHalCallStatus protoStatus;
     proto_msg_converter::aidlToProto(options, request.mutable_options());
     auto grpc_status = mGrpcStub->Subscribe(&context, request, &protoStatus);
@@ -337,7 +311,7 @@ aidlvhal::StatusCode GRPCVehicleHardware::subscribe(aidlvhal::SubscribeOptions o
 
 aidlvhal::StatusCode GRPCVehicleHardware::unsubscribe(int32_t propId, int32_t areaId) {
     proto::UnsubscribeRequest request;
-    ClientContext context;
+    ::grpc::ClientContext context;
     proto::VehicleHalCallStatus protoStatus;
     request.set_prop_id(propId);
     request.set_area_id(areaId);
@@ -356,7 +330,7 @@ aidlvhal::StatusCode GRPCVehicleHardware::unsubscribe(int32_t propId, int32_t ar
 
 aidlvhal::StatusCode GRPCVehicleHardware::updateSampleRate(int32_t propId, int32_t areaId,
                                                            float sampleRate) {
-    ClientContext context;
+    ::grpc::ClientContext context;
     proto::UpdateSampleRateRequest request;
     proto::VehicleHalCallStatus protoStatus;
     request.set_prop(propId);
@@ -383,7 +357,7 @@ void GRPCVehicleHardware::ValuePollingLoop() {
 }
 
 void GRPCVehicleHardware::pollValue() {
-    ClientContext context;
+    ::grpc::ClientContext context;
 
     bool rpc_stopped{false};
     std::thread shuttingdown_watcher([this, &rpc_stopped, &context]() {
@@ -432,58 +406,6 @@ void GRPCVehicleHardware::pollValue() {
     auto grpc_status = value_stream->Finish();
     // never reach here until connection lost
     LOG(ERROR) << __func__ << ": GRPC Value Streaming Failed: " << grpc_status.error_message();
-}
-
-std::vector<aidlvhal::MinMaxSupportedValueResult> GRPCVehicleHardware::getMinMaxSupportedValues(
-        const std::vector<PropIdAreaId>& propIdAreaIds) {
-    ClientContext context;
-    proto::GetMinMaxSupportedValuesRequest protoRequest = {};
-    proto::GetMinMaxSupportedValuesResult protoResult = {};
-    fillPropIdAreaIdsToProtoRequest(propIdAreaIds, &protoRequest);
-
-    auto grpc_status = mGrpcStub->GetMinMaxSupportedValues(&context, protoRequest, &protoResult);
-    std::vector<aidlvhal::MinMaxSupportedValueResult> aidlResults;
-    if (!grpc_status.ok()) {
-        LOG(ERROR) << __func__
-                   << ": GRPC GetMinMaxSupportedValues Failed: " << grpc_status.error_message();
-        for (const auto& propIdAreaId : propIdAreaIds) {
-            aidlResults.push_back({
-                    .status = aidlvhal::StatusCode::INTERNAL_ERROR,
-            });
-        }
-        return aidlResults;
-    }
-    aidlResults =
-            convertSupportedValueProtoResultToAidlResults<aidlvhal::MinMaxSupportedValueResult,
-                                                          proto::GetMinMaxSupportedValuesResult>(
-                    propIdAreaIds, protoResult);
-    return aidlResults;
-}
-
-std::vector<aidlvhal::SupportedValuesListResult> GRPCVehicleHardware::getSupportedValuesLists(
-        const std::vector<PropIdAreaId>& propIdAreaIds) {
-    ClientContext context;
-    proto::GetSupportedValuesListsRequest protoRequest = {};
-    proto::GetSupportedValuesListsResult protoResult = {};
-    fillPropIdAreaIdsToProtoRequest(propIdAreaIds, &protoRequest);
-
-    auto grpc_status = mGrpcStub->GetSupportedValuesLists(&context, protoRequest, &protoResult);
-    std::vector<aidlvhal::SupportedValuesListResult> aidlResults;
-    if (!grpc_status.ok()) {
-        LOG(ERROR) << __func__
-                   << ": GRPC GetSupportedValuesLists Failed: " << grpc_status.error_message();
-        for (const auto& propIdAreaId : propIdAreaIds) {
-            aidlResults.push_back({
-                    .status = aidlvhal::StatusCode::INTERNAL_ERROR,
-            });
-        }
-        return aidlResults;
-    }
-    aidlResults =
-            convertSupportedValueProtoResultToAidlResults<aidlvhal::SupportedValuesListResult,
-                                                          proto::GetSupportedValuesListsResult>(
-                    propIdAreaIds, protoResult);
-    return aidlResults;
 }
 
 }  // namespace android::hardware::automotive::vehicle::virtualization

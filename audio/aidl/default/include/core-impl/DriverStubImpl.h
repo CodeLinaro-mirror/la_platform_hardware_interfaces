@@ -22,9 +22,7 @@ namespace aidl::android::hardware::audio::core {
 
 class DriverStubImpl : virtual public DriverInterface {
   public:
-    explicit DriverStubImpl(const StreamContext& context)
-        : DriverStubImpl(context, 500 /*asyncSleepTimeUs*/) {}
-    DriverStubImpl(const StreamContext& context, int asyncSleepTimeUs);
+    explicit DriverStubImpl(const StreamContext& context);
 
     ::android::status_t init(DriverCallbackInterface* callback) override;
     ::android::status_t drain(StreamDescriptor::DrainMode) override;
@@ -42,8 +40,6 @@ class DriverStubImpl : virtual public DriverInterface {
     const int mSampleRate;
     const bool mIsAsynchronous;
     const bool mIsInput;
-    const int32_t mMixPortHandle;
-    const int mAsyncSleepTimeUs;
     bool mIsInitialized = false;  // Used for validating the state machine logic.
     bool mIsStandby = true;       // Used for validating the state machine logic.
     int64_t mStartTimeNs = 0;
