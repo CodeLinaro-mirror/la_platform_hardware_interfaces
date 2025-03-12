@@ -24,6 +24,8 @@ package android.hardware.gnss.gnss_assistance;
  * For QZSS, this is defined in IS-QZSS-PNT section 4.1.2.6.
  * For Galileo, this is defined in Galileo-OS-SIS-ICD-v2.1 section 5.1.10.
  *
+ * If weekNumber is -1, the GnssAlmanac is not available.
+ *
  * @hide
  */
 @VintfStability
@@ -40,10 +42,11 @@ parcelable GnssAlmanac {
      * This is defined Galileo-OS-SIS-ICD-v2.1 section 5.1.10.
      * This is unused for GPS/QZSS/Baidou.
      */
-    int iod;
+    int ioda;
 
     /**
      * Almanac reference week number.
+     * If it is -1, the GnssAlmanac is not available.
      *
      * For GPS and QZSS, this is GPS week number (modulo 1024).
      * For Beidou, this is Baidou week number (modulo 8192).
@@ -55,6 +58,12 @@ parcelable GnssAlmanac {
     int toaSeconds;
 
     /**
+     * Flag to indicate if the satelliteAlmanacs contains complete GNSS
+     * constellation indicated by svid.
+     **/
+    boolean isCompleteAlmanacProvided;
+
+    /**
      * Contains almanac parameters for GPS, QZSS, Galileo, Beidou.
      *
      * For Beidou, this is defined in BDS-SIS-ICD-B1I-3.0 section 5.2.4.15.
@@ -64,7 +73,7 @@ parcelable GnssAlmanac {
      */
     @VintfStability
     parcelable GnssSatelliteAlmanac {
-        /** The PRN number of the GNSS satellite. */
+        /** PRN or satellite ID number for the satellite. */
         int svid;
 
         /**
@@ -124,5 +133,5 @@ parcelable GnssAlmanac {
     }
 
     /** Array of GnssSatelliteAlmanac. */
-    GnssSatelliteAlmanac[] satelliteAlmanac;
+    GnssSatelliteAlmanac[] satelliteAlmanacs;
 }

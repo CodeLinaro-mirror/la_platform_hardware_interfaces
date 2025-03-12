@@ -19,6 +19,7 @@
 #include <cmath>
 #include <condition_variable>
 #include <forward_list>
+#include <fstream>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -81,12 +82,15 @@ using aidl::android::hardware::audio::core::VendorParameter;
 using aidl::android::hardware::audio::core::sounddose::ISoundDose;
 using aidl::android::hardware::common::fmq::SynchronizedReadWrite;
 using aidl::android::media::audio::common::AudioChannelLayout;
+using aidl::android::media::audio::common::AudioConfigBase;
 using aidl::android::media::audio::common::AudioContentType;
 using aidl::android::media::audio::common::AudioDevice;
 using aidl::android::media::audio::common::AudioDeviceAddress;
 using aidl::android::media::audio::common::AudioDeviceDescription;
 using aidl::android::media::audio::common::AudioDeviceType;
 using aidl::android::media::audio::common::AudioDualMonoMode;
+using aidl::android::media::audio::common::AudioEncapsulationMode;
+using aidl::android::media::audio::common::AudioFormatDescription;
 using aidl::android::media::audio::common::AudioFormatType;
 using aidl::android::media::audio::common::AudioGainConfig;
 using aidl::android::media::audio::common::AudioInputFlags;
@@ -96,6 +100,7 @@ using aidl::android::media::audio::common::AudioMMapPolicy;
 using aidl::android::media::audio::common::AudioMMapPolicyInfo;
 using aidl::android::media::audio::common::AudioMMapPolicyType;
 using aidl::android::media::audio::common::AudioMode;
+using aidl::android::media::audio::common::AudioOffloadInfo;
 using aidl::android::media::audio::common::AudioOutputFlags;
 using aidl::android::media::audio::common::AudioPlaybackRate;
 using aidl::android::media::audio::common::AudioPort;
@@ -215,6 +220,59 @@ AudioPort GenerateUniqueDeviceAddress(const AudioPort& port) {
     AudioPort result = port;
     result.ext.get<AudioPortExt::Tag::device>().device.address = std::move(address);
     return result;
+}
+
+static const AudioFormatDescription kApeFileAudioFormat = {.encoding = "audio/x-ape"};
+static const AudioChannelLayout kApeFileChannelMask =
+        AudioChannelLayout::make<AudioChannelLayout::layoutMask>(AudioChannelLayout::LAYOUT_MONO);
+struct MediaFileInfo {
+    std::string path;
+    int32_t bps;
+    int32_t durationMs;
+};
+static const std::map<AudioConfigBase, MediaFileInfo> kMediaFileDataInfos = {
+        {{44100, kApeFileChannelMask, kApeFileAudioFormat},
+         {"/data/local/tmp/sine882hz_44100_3s.ape", 217704, 3000}},
+        {{48000, kApeFileChannelMask, kApeFileAudioFormat},
+         {"/data/local/tmp/sine960hz_48000_3s.ape", 236256, 3000}},
+};
+
+std::optional<MediaFileInfo> getMediaFileInfoForConfig(const AudioConfigBase& config) {
+    const auto it = kMediaFileDataInfos.find(config);
+    if (it != kMediaFileDataInfos.end()) return it->second;
+    return std::nullopt;
+}
+
+std::optional<MediaFileInfo> getMediaFileInfoForConfig(const AudioPortConfig& config) {
+    if (!config.sampleRate.has_value() || !config.format.has_value() ||
+        !config.channelMask.has_value()) {
+        return std::nullopt;
+    }
+    return getMediaFileInfoForConfig(AudioConfigBase{
+            config.sampleRate->value, config.channelMask.value(), config.format.value()});
+}
+
+std::optional<AudioOffloadInfo> generateOffloadInfoIfNeeded(const AudioPortConfig& portConfig) {
+    if (portConfig.flags.has_value() &&
+        portConfig.flags.value().getTag() == AudioIoFlags::Tag::output &&
+        isBitPositionFlagSet(portConfig.flags.value().get<AudioIoFlags::Tag::output>(),
+                             AudioOutputFlags::COMPRESS_OFFLOAD)) {
+        AudioOffloadInfo offloadInfo;
+        offloadInfo.base.sampleRate = portConfig.sampleRate.value().value;
+        offloadInfo.base.channelMask = portConfig.channelMask.value();
+        offloadInfo.base.format = portConfig.format.value();
+        if (auto info = getMediaFileInfoForConfig(portConfig); info.has_value()) {
+            offloadInfo.bitRatePerSecond = info->bps;
+            offloadInfo.durationUs = info->durationMs * 1000LL;
+        } else {
+            offloadInfo.bitRatePerSecond = 256000;                             // Arbitrary value.
+            offloadInfo.durationUs = std::chrono::microseconds(1min).count();  // Arbitrary value.
+        }
+        offloadInfo.usage = AudioUsage::MEDIA;
+        offloadInfo.encapsulationMode = AudioEncapsulationMode::NONE;
+        return offloadInfo;
+    }
+    return {};
 }
 
 // All 'With*' classes are move-only because they are associated with some
@@ -376,7 +434,8 @@ void GenerateTestArrays(size_t validElementCount, T validMin, T validMax,
 template <typename PropType, class Instance, typename Getter, typename Setter>
 void TestAccessors(Instance* inst, Getter getter, Setter setter,
                    const std::vector<PropType>& validValues,
-                   const std::vector<PropType>& invalidValues, bool* isSupported) {
+                   const std::vector<PropType>& invalidValues, bool* isSupported,
+                   const std::vector<PropType>* ambivalentValues = nullptr) {
     PropType initialValue{};
     ScopedAStatus status = (inst->*getter)(&initialValue);
     if (status.getExceptionCode() == EX_UNSUPPORTED_OPERATION) {
@@ -394,6 +453,15 @@ void TestAccessors(Instance* inst, Getter getter, Setter setter,
     for (const auto v : invalidValues) {
         EXPECT_STATUS(EX_ILLEGAL_ARGUMENT, (inst->*setter)(v))
                 << "for an invalid value: " << ::testing::PrintToString(v);
+    }
+    if (ambivalentValues != nullptr) {
+        for (const auto v : *ambivalentValues) {
+            const auto status = (inst->*setter)(v);
+            if (!status.isOk()) {
+                EXPECT_STATUS(EX_ILLEGAL_ARGUMENT, status)
+                        << "for an ambivalent value: " << ::testing::PrintToString(v);
+            }
+        }
     }
     EXPECT_IS_OK((inst->*setter)(initialValue)) << "Failed to restore the initial value";
 }
@@ -642,11 +710,14 @@ class StreamContext {
     typedef AidlMessageQueue<StreamDescriptor::Reply, SynchronizedReadWrite> ReplyMQ;
     typedef AidlMessageQueue<int8_t, SynchronizedReadWrite> DataMQ;
 
-    explicit StreamContext(const StreamDescriptor& descriptor)
+    explicit StreamContext(const StreamDescriptor& descriptor, const AudioConfigBase& config,
+                           AudioIoFlags flags)
         : mFrameSizeBytes(descriptor.frameSizeBytes),
+          mConfig(config),
           mCommandMQ(new CommandMQ(descriptor.command)),
           mReplyMQ(new ReplyMQ(descriptor.reply)),
           mBufferSizeFrames(descriptor.bufferSizeFrames),
+          mFlags(flags),
           mDataMQ(maybeCreateDataMQ(descriptor)),
           mIsMmapped(isMmapped(descriptor)),
           mSharedMemoryFd(maybeGetMmapFd(descriptor)) {
@@ -685,9 +756,12 @@ class StreamContext {
     size_t getBufferSizeBytes() const { return mFrameSizeBytes * mBufferSizeFrames; }
     size_t getBufferSizeFrames() const { return mBufferSizeFrames; }
     CommandMQ* getCommandMQ() const { return mCommandMQ.get(); }
+    const AudioConfigBase& getConfig() const { return mConfig; }
     DataMQ* getDataMQ() const { return mDataMQ.get(); }
+    AudioIoFlags getFlags() const { return mFlags; }
     size_t getFrameSizeBytes() const { return mFrameSizeBytes; }
     ReplyMQ* getReplyMQ() const { return mReplyMQ.get(); }
+    int getSampleRate() const { return mConfig.sampleRate; }
     bool isMmapped() const { return mIsMmapped; }
     int8_t* getMmapMemory() const { return mSharedMemory; }
 
@@ -712,9 +786,11 @@ class StreamContext {
     }
 
     const size_t mFrameSizeBytes;
+    const AudioConfigBase mConfig;
     std::unique_ptr<CommandMQ> mCommandMQ;
     std::unique_ptr<ReplyMQ> mReplyMQ;
     const size_t mBufferSizeFrames;
+    const AudioIoFlags mFlags;
     std::unique_ptr<DataMQ> mDataMQ;
     const bool mIsMmapped;
     const int32_t mSharedMemoryFd;
@@ -916,17 +992,30 @@ class StreamCommonLogic : public StreamLogic {
           mDriver(driver),
           mEventReceiver(eventReceiver),
           mIsMmapped(context.isMmapped()),
-          mSharedMemory(context.getMmapMemory()) {}
+          mSharedMemory(context.getMmapMemory()),
+          mIsCompressOffload(context.getFlags().getTag() == AudioIoFlags::output &&
+                             isBitPositionFlagSet(context.getFlags().get<AudioIoFlags::output>(),
+                                                  AudioOutputFlags::COMPRESS_OFFLOAD)),
+          mConfig(context.getConfig()) {}
     StreamContext::CommandMQ* getCommandMQ() const { return mCommandMQ; }
+    const AudioConfigBase& getConfig() const { return mConfig; }
     StreamContext::ReplyMQ* getReplyMQ() const { return mReplyMQ; }
     StreamContext::DataMQ* getDataMQ() const { return mDataMQ; }
     StreamLogicDriver* getDriver() const { return mDriver; }
     StreamEventReceiver* getEventReceiver() const { return mEventReceiver; }
+    int getSampleRate() const { return mConfig.sampleRate; }
+    bool isCompressOffload() const { return mIsCompressOffload; }
     bool isMmapped() const { return mIsMmapped; }
 
     std::string init() override {
         LOG(DEBUG) << __func__;
         return "";
+    }
+    const std::vector<int8_t>& getData() const { return mData; }
+    void fillData(int8_t filler) { std::fill(mData.begin(), mData.end(), filler); }
+    void loadData(std::ifstream& is, size_t* size) {
+        *size = std::min(*size, mData.size());
+        is.read(reinterpret_cast<char*>(mData.data()), *size);
     }
     std::optional<StreamDescriptor::Command> maybeGetNextCommand(int* actualSize = nullptr) {
         TransitionTrigger trigger = mDriver->getNextTrigger(mData.size(), actualSize);
@@ -990,6 +1079,8 @@ class StreamCommonLogic : public StreamLogic {
     int mLastEventSeq = StreamEventReceiver::kEventSeqInit;
     const bool mIsMmapped;
     int8_t* mSharedMemory = nullptr;
+    const bool mIsCompressOffload;
+    const AudioConfigBase mConfig;
 };
 
 class StreamReaderLogic : public StreamCommonLogic {
@@ -997,6 +1088,8 @@ class StreamReaderLogic : public StreamCommonLogic {
     StreamReaderLogic(const StreamContext& context, StreamLogicDriver* driver,
                       StreamEventReceiver* eventReceiver)
         : StreamCommonLogic(context, driver, eventReceiver) {}
+    // Should only be called after the worker has joined.
+    const std::vector<int8_t>& getData() const { return StreamCommonLogic::getData(); }
 
   protected:
     Status cycle() override {
@@ -1062,6 +1155,7 @@ class StreamReaderLogic : public StreamCommonLogic {
         if (const size_t readCount =
                     !isMmapped() ? getDataMQ()->availableToRead() : reply.fmqByteCount;
             readCount > 0) {
+            fillData(-1);
             if (isMmapped() ? readDataFromMmap(readCount) : readDataFromMQ(readCount)) {
                 goto checkAcceptedReply;
             }
@@ -1083,8 +1177,28 @@ class StreamWriterLogic : public StreamCommonLogic {
     StreamWriterLogic(const StreamContext& context, StreamLogicDriver* driver,
                       StreamEventReceiver* eventReceiver)
         : StreamCommonLogic(context, driver, eventReceiver) {}
+    // Should only be called after the worker has joined.
+    const std::vector<int8_t>& getData() const { return StreamCommonLogic::getData(); }
 
   protected:
+    std::string init() override {
+        if (auto status = StreamCommonLogic::init(); !status.empty()) return status;
+        if (isCompressOffload()) {
+            const auto info = getMediaFileInfoForConfig(getConfig());
+            if (info) {
+                mCompressedMedia.open(info->path, std::ios::in | std::ios::binary);
+                if (!mCompressedMedia.is_open()) {
+                    return std::string("failed to open media file \"") + info->path + "\"";
+                }
+                mCompressedMedia.seekg(0, mCompressedMedia.end);
+                mCompressedMediaSize = mCompressedMedia.tellg();
+                mCompressedMedia.seekg(0, mCompressedMedia.beg);
+                LOG(DEBUG) << __func__ << ": using media file \"" << info->path << "\", size "
+                           << mCompressedMediaSize << " bytes";
+            }
+        }
+        return "";
+    }
     Status cycle() override {
         if (getDriver()->done()) {
             LOG(DEBUG) << __func__ << ": clean exit";
@@ -1098,7 +1212,33 @@ class StreamWriterLogic : public StreamCommonLogic {
             LOG(ERROR) << __func__ << ": no next command";
             return Status::ABORT;
         }
-        if (actualSize != 0) {
+        if (actualSize > 0) {
+            if (command.getTag() == StreamDescriptor::Command::burst) {
+                if (!isCompressOffload()) {
+                    fillData(mBurstIteration);
+                    if (mBurstIteration < std::numeric_limits<int8_t>::max()) {
+                        mBurstIteration++;
+                    } else {
+                        mBurstIteration = 0;
+                    }
+                } else {
+                    fillData(0);
+                    size_t size = std::min(static_cast<size_t>(actualSize),
+                                           mCompressedMediaSize - mCompressedMediaPos);
+                    loadData(mCompressedMedia, &size);
+                    if (!mCompressedMedia.good()) {
+                        LOG(ERROR) << __func__ << ": read failed";
+                        return Status::ABORT;
+                    }
+                    LOG(DEBUG) << __func__ << ": read from file " << size << " bytes";
+                    mCompressedMediaPos += size;
+                    if (mCompressedMediaPos >= mCompressedMediaSize) {
+                        mCompressedMedia.seekg(0, mCompressedMedia.beg);
+                        mCompressedMediaPos = 0;
+                        LOG(DEBUG) << __func__ << ": rewound to the beginning of the file";
+                    }
+                }
+            }
             if (isMmapped() ? !writeDataToMmap() : !writeDataToMQ()) {
                 return Status::ABORT;
             }
@@ -1157,6 +1297,12 @@ class StreamWriterLogic : public StreamCommonLogic {
         LOG(ERROR) << __func__ << ": unacceptable reply: " << reply.toString();
         return Status::ABORT;
     }
+
+  private:
+    int8_t mBurstIteration = 1;
+    std::ifstream mCompressedMedia;
+    size_t mCompressedMediaSize = 0;
+    size_t mCompressedMediaPos = 0;
 };
 using StreamWriter = StreamWorker<StreamWriterLogic>;
 
@@ -1265,7 +1411,13 @@ class WithStream {
         ASSERT_NE(nullptr, mStream) << "port config id " << getPortId();
         EXPECT_GE(mDescriptor.bufferSizeFrames, bufferSizeFrames)
                 << "actual buffer size must be no less than requested";
-        mContext.emplace(mDescriptor);
+        const auto& config = mPortConfig.get();
+        ASSERT_TRUE(config.channelMask.has_value());
+        ASSERT_TRUE(config.format.has_value());
+        ASSERT_TRUE(config.sampleRate.has_value());
+        ASSERT_TRUE(config.flags.has_value());
+        const AudioConfigBase cfg{config.sampleRate->value, *config.channelMask, *config.format};
+        mContext.emplace(mDescriptor, cfg, config.flags.value());
         ASSERT_NO_FATAL_FAILURE(mContext.value().checkIsValid());
     }
     void SetUp(IModule* module, long bufferSizeFrames) {
@@ -1336,7 +1488,7 @@ ScopedAStatus WithStream<IStreamOut>::SetUpNoChecks(IModule* module,
     aidl::android::hardware::audio::core::IModule::OpenOutputStreamArguments args;
     args.portConfigId = portConfig.id;
     args.sourceMetadata = GenerateSourceMetadata(portConfig);
-    args.offloadInfo = ModuleConfig::generateOffloadInfoIfNeeded(portConfig);
+    args.offloadInfo = generateOffloadInfoIfNeeded(portConfig);
     args.bufferSizeFrames = bufferSizeFrames;
     auto callback = ndk::SharedRefBase::make<DefaultStreamCallback>();
     args.callback = callback;
@@ -2849,10 +3001,12 @@ class StreamFixture {
         ASSERT_NO_FATAL_FAILURE(mStream->SetUpStream(module, getMinimumStreamBufferSizeFrames()));
     }
 
-    void SetUpStreamForDevicePort(IModule* module, ModuleConfig* moduleConfig,
-                                  const AudioPort& devicePort, bool connectedOnly = false) {
-        ASSERT_NO_FATAL_FAILURE(
-                SetUpPortConfigForDevicePort(module, moduleConfig, devicePort, connectedOnly));
+    void SetUpStreamForDevicePort(
+            IModule* module, ModuleConfig* moduleConfig, const AudioPort& devicePort,
+            bool connectedOnly = false,
+            const std::optional<AudioDeviceAddress>& connectionAddress = std::nullopt) {
+        ASSERT_NO_FATAL_FAILURE(SetUpPortConfigForDevicePort(module, moduleConfig, devicePort,
+                                                             connectedOnly, connectionAddress));
         if (!mSkipTestReason.empty()) return;
         ASSERT_NO_FATAL_FAILURE(SetUpStream(module));
     }
@@ -2888,6 +3042,23 @@ class StreamFixture {
         if (!mSkipTestReason.empty()) return;
         ASSERT_NO_FATAL_FAILURE(SetUpStream(module));
     }
+    void SetUpStreamForNewMixPortConfig(IModule* module, ModuleConfig*,
+                                        const AudioPortConfig& existingMixPortConfig,
+                                        const AudioPortConfig& existingDevicePortConfig) {
+        auto mixPortConfig = existingMixPortConfig;
+        mixPortConfig.id = 0;
+        mMixPortConfig = std::make_unique<WithAudioPortConfig>(mixPortConfig);
+        ASSERT_NO_FATAL_FAILURE(mMixPortConfig->SetUp(module));
+        mDevicePortConfig = std::make_unique<WithAudioPortConfig>(existingDevicePortConfig);
+        ASSERT_NO_FATAL_FAILURE(mDevicePortConfig->SetUp(module));
+        mDevice = existingDevicePortConfig.ext.get<AudioPortExt::device>().device;
+        mPatch = std::make_unique<WithAudioPatch>(mIsInput, mMixPortConfig->get(),
+                                                  mDevicePortConfig->get());
+        ASSERT_NO_FATAL_FAILURE(mPatch->SetUp(module));
+        mStream = std::make_unique<WithStream<Stream>>(mMixPortConfig->get());
+        ASSERT_NO_FATAL_FAILURE(mStream->SetUpPortConfig(module));
+        ASSERT_NO_FATAL_FAILURE(SetUpStream(module));
+    }
     void SetUpPatchForMixPortConfig(IModule* module, ModuleConfig* moduleConfig,
                                     const AudioPortConfig& mixPortConfig) {
         constexpr bool connectedOnly = true;
@@ -2919,6 +3090,7 @@ class StreamFixture {
     }
 
     const AudioDevice& getDevice() const { return mDevice; }
+    const AudioPortConfig& getDevicePortConfig() const { return mDevicePortConfig->get(); }
     int32_t getMinimumStreamBufferSizeFrames() const {
         return mPatch->getMinimumStreamBufferSizeFrames();
     }
@@ -2934,7 +3106,8 @@ class StreamFixture {
   private:
     void SetUpDevicePort(IModule* module, ModuleConfig* moduleConfig,
                          const std::set<int32_t>& devicePortIds, bool connectedOnly,
-                         std::optional<AudioPort>* connectedDevicePort) {
+                         std::optional<AudioPort>* connectedDevicePort,
+                         const std::optional<AudioDeviceAddress>& connectionAddress) {
         const auto attachedDevicePorts = moduleConfig->getAttachedDevicePorts();
         if (auto it = findAny<AudioPort>(attachedDevicePorts, devicePortIds);
             it != attachedDevicePorts.end()) {
@@ -2951,7 +3124,12 @@ class StreamFixture {
             const auto externalDevicePorts = moduleConfig->getExternalDevicePorts();
             if (auto it = findAny<AudioPort>(externalDevicePorts, devicePortIds);
                 it != externalDevicePorts.end()) {
-                AudioPort portWithData = GenerateUniqueDeviceAddress(*it);
+                AudioPort portWithData = *it;
+                if (connectionAddress.has_value()) {
+                    portWithData.ext.get<AudioPortExt::Tag::device>().device.address =
+                            *connectionAddress;
+                }
+                portWithData = GenerateUniqueDeviceAddress(portWithData);
                 mPortConnected = std::make_unique<WithDevicePortConnectedState>(portWithData);
                 ASSERT_NO_FATAL_FAILURE(mPortConnected->SetUp(module, moduleConfig));
                 *connectedDevicePort = mPortConnected->get();
@@ -2970,9 +3148,9 @@ class StreamFixture {
             LOG(DEBUG) << __func__ << ": " << mSkipTestReason;
             return;
         };
-        ASSERT_NO_FATAL_FAILURE(SetUpDevicePort(module, moduleConfig,
-                                                extractIds<AudioPort>(devicePorts), connectedOnly,
-                                                connectedDevicePort));
+        ASSERT_NO_FATAL_FAILURE(SetUpDevicePort(
+                module, moduleConfig, extractIds<AudioPort>(devicePorts), connectedOnly,
+                connectedDevicePort, std::nullopt /*connectionAddress*/));
         if (!connectedDevicePort->has_value()) {
             mSkipTestReason = std::string("Unable to find a device port pair for mix port id ")
                                       .append(std::to_string(mixPort.id));
@@ -2980,11 +3158,14 @@ class StreamFixture {
             return;
         }
     }
-    void SetUpPortConfigForDevicePort(IModule* module, ModuleConfig* moduleConfig,
-                                      const AudioPort& devicePort, bool connectedOnly) {
+    void SetUpPortConfigForDevicePort(
+            IModule* module, ModuleConfig* moduleConfig, const AudioPort& devicePort,
+            bool connectedOnly,
+            const std::optional<AudioDeviceAddress>& connectionAddress = std::nullopt) {
         std::optional<AudioPort> connectedDevicePort;
         ASSERT_NO_FATAL_FAILURE(SetUpDevicePort(module, moduleConfig, {devicePort.id},
-                                                connectedOnly, &connectedDevicePort));
+                                                connectedOnly, &connectedDevicePort,
+                                                connectionAddress));
         if (!connectedDevicePort.has_value()) {
             mSkipTestReason = std::string("Device port id ")
                                       .append(std::to_string(devicePort.id))
@@ -3125,7 +3306,8 @@ class StreamLogicDefaultDriver : public StreamLogicDriver {
 };
 
 // Defined later together with state transition sequences.
-std::shared_ptr<StateSequence> makeBurstCommands(bool isSync);
+std::shared_ptr<StateSequence> makeBurstCommands(bool isSync, size_t burstCount = 10,
+                                                 bool standbyInputWhenDone = false);
 
 // Certain types of ports can not be used without special preconditions.
 static bool skipStreamIoTestForMixPortConfig(const AudioPortConfig& portConfig) {
@@ -3134,10 +3316,12 @@ static bool skipStreamIoTestForMixPortConfig(const AudioPortConfig& portConfig) 
                                     {AudioInputFlags::MMAP_NOIRQ, AudioInputFlags::VOIP_TX,
                                      AudioInputFlags::HW_HOTWORD, AudioInputFlags::HOTWORD_TAP})) ||
            (portConfig.flags.value().getTag() == AudioIoFlags::output &&
-            isAnyBitPositionFlagSet(
-                    portConfig.flags.value().template get<AudioIoFlags::output>(),
-                    {AudioOutputFlags::MMAP_NOIRQ, AudioOutputFlags::VOIP_RX,
-                     AudioOutputFlags::COMPRESS_OFFLOAD, AudioOutputFlags::INCALL_MUSIC}));
+            (isAnyBitPositionFlagSet(portConfig.flags.value().template get<AudioIoFlags::output>(),
+                                     {AudioOutputFlags::MMAP_NOIRQ, AudioOutputFlags::VOIP_RX,
+                                      AudioOutputFlags::INCALL_MUSIC}) ||
+             (isBitPositionFlagSet(portConfig.flags.value().template get<AudioIoFlags::output>(),
+                                   AudioOutputFlags::COMPRESS_OFFLOAD) &&
+              !getMediaFileInfoForConfig(portConfig))));
 }
 
 // Certain types of devices can not be used without special preconditions.
@@ -3150,10 +3334,11 @@ class StreamFixtureWithWorker {
   public:
     explicit StreamFixtureWithWorker(bool isSync) : mIsSync(isSync) {}
 
-    void SetUp(IModule* module, ModuleConfig* moduleConfig, const AudioPort& devicePort) {
+    void SetUp(IModule* module, ModuleConfig* moduleConfig, const AudioPort& devicePort,
+               const std::optional<AudioDeviceAddress>& connectionAddress = std::nullopt) {
         mStream = std::make_unique<StreamFixture<Stream>>();
-        ASSERT_NO_FATAL_FAILURE(
-                mStream->SetUpStreamForDevicePort(module, moduleConfig, devicePort));
+        ASSERT_NO_FATAL_FAILURE(mStream->SetUpStreamForDevicePort(
+                module, moduleConfig, devicePort, false /*connectedOnly*/, connectionAddress));
         MaybeSetSkipTestReason();
     }
 
@@ -3165,26 +3350,42 @@ class StreamFixtureWithWorker {
         MaybeSetSkipTestReason();
     }
 
-    void SendBurstCommands(bool validatePosition = true) {
-        ASSERT_NO_FATAL_FAILURE(StartWorkerToSendBurstCommands());
+    void SetUp(IModule* module, ModuleConfig* moduleConfig,
+               const AudioPortConfig& existingMixPortConfig,
+               const AudioPortConfig& existingDevicePortConfig) {
+        mStream = std::make_unique<StreamFixture<Stream>>();
+        ASSERT_NO_FATAL_FAILURE(mStream->SetUpStreamForNewMixPortConfig(
+                module, moduleConfig, existingMixPortConfig, existingDevicePortConfig));
+        MaybeSetSkipTestReason();
+    }
+
+    void SendBurstCommands(bool validatePosition = true, size_t burstCount = 10,
+                           bool standbyInputWhenDone = false) {
+        ASSERT_NO_FATAL_FAILURE(StartWorkerToSendBurstCommands(burstCount, standbyInputWhenDone));
         ASSERT_NO_FATAL_FAILURE(JoinWorkerAfterBurstCommands(validatePosition));
     }
 
-    void StartWorkerToSendBurstCommands() {
+    void StartWorkerToSendBurstCommands(size_t burstCount = 10, bool standbyInputWhenDone = false) {
+        if (!IOTraits<Stream>::is_input) {
+            ASSERT_FALSE(standbyInputWhenDone) << "Only supported for input";
+        }
         const StreamContext* context = mStream->getStreamContext();
         mWorkerDriver = std::make_unique<StreamLogicDefaultDriver>(
-                makeBurstCommands(mIsSync), context->getFrameSizeBytes(), context->isMmapped());
+                makeBurstCommands(mIsSync, burstCount, standbyInputWhenDone),
+                context->getFrameSizeBytes(), context->isMmapped());
         mWorker = std::make_unique<typename IOTraits<Stream>::Worker>(
                 *context, mWorkerDriver.get(), mStream->getStreamEventReceiver());
         LOG(DEBUG) << __func__ << ": starting " << IOTraits<Stream>::directionStr << " worker...";
         ASSERT_TRUE(mWorker->start());
     }
 
-    void JoinWorkerAfterBurstCommands(bool validatePosition = true) {
-        // Must call 'prepareToClose' before attempting to join because the stream may be stuck.
-        std::shared_ptr<IStreamCommon> common;
-        ASSERT_IS_OK(mStream->getStream()->getStreamCommon(&common));
-        ASSERT_IS_OK(common->prepareToClose());
+    void JoinWorkerAfterBurstCommands(bool validatePosition = true,
+                                      bool callPrepareToClose = true) {
+        if (callPrepareToClose) {
+            std::shared_ptr<IStreamCommon> common;
+            ASSERT_IS_OK(mStream->getStream()->getStreamCommon(&common));
+            ASSERT_IS_OK(common->prepareToClose());
+        }
         LOG(DEBUG) << __func__ << ": joining " << IOTraits<Stream>::directionStr << " worker...";
         mWorker->join();
         EXPECT_FALSE(mWorker->hasError()) << mWorker->getError();
@@ -3195,6 +3396,7 @@ class StreamFixtureWithWorker {
             EXPECT_FALSE(mWorkerDriver->hasObservableRetrogradePosition());
             EXPECT_FALSE(mWorkerDriver->hasHardwareRetrogradePosition());
         }
+        mLastData = mWorker->getData();
         mWorker.reset();
         mWorkerDriver.reset();
     }
@@ -3202,6 +3404,9 @@ class StreamFixtureWithWorker {
     void TeardownPatch() { mStream->TeardownPatch(); }
 
     const AudioDevice& getDevice() const { return mStream->getDevice(); }
+    const AudioPortConfig& getDevicePortConfig() const { return mStream->getDevicePortConfig(); }
+    const std::vector<int8_t>& getLastData() const { return mLastData; }
+    const AudioPortConfig& getPortConfig() const { return mStream->getPortConfig(); }
     Stream* getStream() const { return mStream->getStream(); }
     std::string skipTestReason() const {
         return !mSkipTestReason.empty() ? mSkipTestReason : mStream->skipTestReason();
@@ -3219,6 +3424,7 @@ class StreamFixtureWithWorker {
     std::unique_ptr<StreamFixture<Stream>> mStream;
     std::unique_ptr<StreamLogicDefaultDriver> mWorkerDriver;
     std::unique_ptr<typename IOTraits<Stream>::Worker> mWorker;
+    std::vector<int8_t> mLastData;
 };
 
 template <typename Stream>
@@ -3783,7 +3989,7 @@ TEST_P(AudioStreamOut, RequireAsyncCallback) {
     aidl::android::hardware::audio::core::IModule::OpenOutputStreamArguments args;
     args.portConfigId = portConfig.id;
     args.sourceMetadata = GenerateSourceMetadata(portConfig);
-    args.offloadInfo = ModuleConfig::generateOffloadInfoIfNeeded(portConfig);
+    args.offloadInfo = generateOffloadInfoIfNeeded(portConfig);
     args.bufferSizeFrames = stream.getPatch().minimumStreamBufferSizeFrames;
     aidl::android::hardware::audio::core::IModule::OpenOutputStreamReturn ret;
     EXPECT_STATUS(EX_ILLEGAL_ARGUMENT, module->openOutputStream(args, &ret))
@@ -3936,11 +4142,6 @@ TEST_P(AudioStreamOut, PlaybackRate) {
             AudioPlaybackRate{1.0f, 1.0f, tsVoice, fbFail},
             AudioPlaybackRate{factors.maxSpeed, factors.maxPitch, tsVoice, fbMute},
             AudioPlaybackRate{factors.minSpeed, factors.minPitch, tsVoice, fbMute},
-            // Out of range speed / pitch values must not be rejected if the fallback mode is "mute"
-            AudioPlaybackRate{factors.maxSpeed * 2, factors.maxPitch * 2, tsDefault, fbMute},
-            AudioPlaybackRate{factors.minSpeed / 2, factors.minPitch / 2, tsDefault, fbMute},
-            AudioPlaybackRate{factors.maxSpeed * 2, factors.maxPitch * 2, tsVoice, fbMute},
-            AudioPlaybackRate{factors.minSpeed / 2, factors.minPitch / 2, tsVoice, fbMute},
     };
     const std::vector<AudioPlaybackRate> invalidValues = {
             AudioPlaybackRate{factors.maxSpeed, factors.maxPitch * 2, tsDefault, fbFail},
@@ -3956,6 +4157,14 @@ TEST_P(AudioStreamOut, PlaybackRate) {
             AudioPlaybackRate{1.0f, 1.0f, tsDefault,
                               AudioPlaybackRate::TimestretchFallbackMode::SYS_RESERVED_DEFAULT},
     };
+    const std::vector<AudioPlaybackRate> ambivalentValues = {
+            // Out of range speed / pitch values may optionally be rejected if the fallback mode
+            // is "mute".
+            AudioPlaybackRate{factors.maxSpeed * 2, factors.maxPitch * 2, tsDefault, fbMute},
+            AudioPlaybackRate{factors.minSpeed / 2, factors.minPitch / 2, tsDefault, fbMute},
+            AudioPlaybackRate{factors.maxSpeed * 2, factors.maxPitch * 2, tsVoice, fbMute},
+            AudioPlaybackRate{factors.minSpeed / 2, factors.minPitch / 2, tsVoice, fbMute},
+    };
     bool atLeastOneSupports = false;
     for (const auto& port : offloadMixPorts) {
         const auto portConfig = moduleConfig->getSingleConfigForMixPort(false, port);
@@ -3965,7 +4174,8 @@ TEST_P(AudioStreamOut, PlaybackRate) {
         bool isSupported = false;
         EXPECT_NO_FATAL_FAILURE(TestAccessors<AudioPlaybackRate>(
                 stream.get(), &IStreamOut::getPlaybackRateParameters,
-                &IStreamOut::setPlaybackRateParameters, validValues, invalidValues, &isSupported));
+                &IStreamOut::setPlaybackRateParameters, validValues, invalidValues, &isSupported,
+                &ambivalentValues));
         if (isSupported) atLeastOneSupports = true;
     }
     if (!atLeastOneSupports) {
@@ -4101,18 +4311,6 @@ class AudioStreamIo : public AudioCoreModuleBase,
                     std::get<NAMED_CMD_DELAY_MS>(std::get<PARAM_CMD_SEQ>(GetParam()));
             ASSERT_NO_FATAL_FAILURE(delayTransientStates.SetUp(module.get()));
             ASSERT_NO_FATAL_FAILURE(runStreamIoCommands(portConfig));
-            if (aidlVersion >= kAidlVersion3 && isNonBlocking && !IOTraits<Stream>::is_input) {
-                // Also try running the same sequence with "aosp.forceDrainToDraining" set.
-                // This will only work with the default implementation. When it works, the stream
-                // tries always to move to the 'DRAINING' state after an "early notify" drain.
-                // This helps to check more paths for our test scenarios.
-                WithModuleParameter forceDrainToDraining("aosp.forceDrainToDraining",
-                                                         Boolean{true});
-                if (forceDrainToDraining.SetUpNoChecks(module.get(), true /*failureExpected*/)
-                            .isOk()) {
-                    ASSERT_NO_FATAL_FAILURE(runStreamIoCommands(portConfig));
-                }
-            }
             if (isNonBlocking) {
                 // Also try running the same sequence with "aosp.forceTransientBurst" set.
                 // This will only work with the default implementation. When it works, the stream
@@ -4562,15 +4760,20 @@ static const int kStreamTransientStateTransitionDelayMs = 3000;
 
 // TODO: Add async test cases for input once it is implemented.
 
-std::shared_ptr<StateSequence> makeBurstCommands(bool isSync) {
+std::shared_ptr<StateSequence> makeBurstCommands(bool isSync, size_t burstCount,
+                                                 bool standbyInputWhenDone) {
     using State = StreamDescriptor::State;
     auto d = std::make_unique<StateDag>();
-    StateDag::Node last = d->makeFinalNode(State::ACTIVE);
+    StateDag::Node active = d->makeFinalNode(State::ACTIVE);
+    StateDag::Node paused = d->makeNodes({std::make_pair(State::ACTIVE, kPauseCommand),
+                                          std::make_pair(State::PAUSED, kFlushCommand)},
+                                         State::STANDBY);
+    StateDag::Node& last = standbyInputWhenDone ? paused : active;
     if (isSync) {
         StateDag::Node idle = d->makeNode(
                 State::IDLE, kBurstCommand,
                 // Use several bursts to ensure that the driver starts reporting the position.
-                d->makeNodes(State::ACTIVE, kBurstCommand, 10, last));
+                d->makeNodes(State::ACTIVE, kBurstCommand, burstCount, last));
         d->makeNode(State::STANDBY, kStartCommand, idle);
     } else {
         StateDag::Node active2 = d->makeNode(State::ACTIVE, kBurstCommand, last);
@@ -4655,9 +4858,14 @@ static const NamedCommandSequence kDrainOutAsyncSeq =
 std::shared_ptr<StateSequence> makeDrainEarlyOutCommands() {
     using State = StreamDescriptor::State;
     auto d = std::make_unique<StateDag>();
-    StateDag::Node last = d->makeFinalNode(State::IDLE);
-    StateDag::Node draining = d->makeNode(State::DRAINING, kDrainReadyEvent, last);
-    draining.children().push_back(d->makeNode(State::DRAINING, kGetStatusCommand, last));
+    // In the "early notify" case, the transition to the `IDLE` state following
+    // the 'onDrainReady' event can take some time. Waiting for an arbitrary amount
+    // of time may make the test fragile. Instead, for successful completion
+    // is registered if the stream has entered `IDLE` or `DRAINING` state.
+    StateDag::Node lastIdle = d->makeFinalNode(State::IDLE);
+    StateDag::Node lastDraining = d->makeFinalNode(State::DRAINING);
+    StateDag::Node draining =
+            d->makeNode(State::DRAINING, kDrainReadyEvent, lastIdle, lastDraining);
     StateDag::Node active = d->makeNode(State::ACTIVE, kDrainOutEarlyCommand, draining);
     StateDag::Node idle = d->makeNode(State::IDLE, kBurstCommand, active);
     idle.children().push_back(d->makeNode(State::TRANSFERRING, kTransferReadyEvent, active));
@@ -4935,49 +5143,69 @@ class WithRemoteSubmix {
   public:
     WithRemoteSubmix() : mStream(true /*isSync*/) {}
     explicit WithRemoteSubmix(AudioDeviceAddress address)
-        : mStream(true /*isSync*/), mAddress(address) {}
+        : mStream(true /*isSync*/), mAddress(address) {
+        LOG(DEBUG) << __func__ << ": Creating " << IOTraits<Stream>::directionStr
+                   << " stream for: " << mAddress.value_or(AudioDeviceAddress{}).toString();
+    }
     WithRemoteSubmix(const WithRemoteSubmix&) = delete;
     WithRemoteSubmix& operator=(const WithRemoteSubmix&) = delete;
+    ~WithRemoteSubmix() {
+        LOG(DEBUG) << __func__ << ": Deleting " << IOTraits<Stream>::directionStr
+                   << " stream for: " << mAddress.value_or(AudioDeviceAddress{}).toString();
+    }
 
-    static std::optional<AudioPort> getRemoteSubmixAudioPort(
-            ModuleConfig* moduleConfig,
-            const std::optional<AudioDeviceAddress>& address = std::nullopt) {
+    static std::optional<AudioPort> getRemoteSubmixAudioPort(ModuleConfig* moduleConfig) {
         auto ports =
                 moduleConfig->getRemoteSubmixPorts(IOTraits<Stream>::is_input, true /*singlePort*/);
         if (ports.empty()) return {};
-        AudioPort port = ports.front();
-        if (address) {
-            port.ext.template get<AudioPortExt::Tag::device>().device.address = address.value();
-        }
-        return port;
+        return ports.front();
     }
 
     void SetUp(IModule* module, ModuleConfig* moduleConfig) {
-        auto devicePort = getRemoteSubmixAudioPort(moduleConfig, mAddress);
+        auto devicePort = getRemoteSubmixAudioPort(moduleConfig);
         ASSERT_TRUE(devicePort.has_value()) << "Device port for remote submix device not found";
-        ASSERT_NO_FATAL_FAILURE(mStream.SetUp(module, moduleConfig, *devicePort));
+        ASSERT_NO_FATAL_FAILURE(mStream.SetUp(module, moduleConfig, *devicePort, mAddress));
         mAddress = mStream.getDevice().address;
     }
-
-    void StartWorkerToSendBurstCommands() {
-        ASSERT_NO_FATAL_FAILURE(mStream.StartWorkerToSendBurstCommands());
+    void SetUp(IModule* module, ModuleConfig* moduleConfig,
+               const AudioPortConfig& existingMixPortConfig,
+               const AudioPortConfig& existingDevicePortConfig) {
+        ASSERT_NO_FATAL_FAILURE(mStream.SetUp(module, moduleConfig, existingMixPortConfig,
+                                              existingDevicePortConfig));
+        mAddress = mStream.getDevice().address;
+    }
+    void StartWorkerToSendBurstCommands(size_t burstCount = 10, bool standbyInputWhenDone = false) {
+        ASSERT_NO_FATAL_FAILURE(
+                mStream.StartWorkerToSendBurstCommands(burstCount, standbyInputWhenDone));
     }
 
-    void JoinWorkerAfterBurstCommands() {
-        ASSERT_NO_FATAL_FAILURE(mStream.JoinWorkerAfterBurstCommands());
+    void JoinWorkerAfterBurstCommands(bool callPrepareToCloseBeforeJoin) {
+        ASSERT_NO_FATAL_FAILURE(mStream.JoinWorkerAfterBurstCommands(
+                true /*validatePositionIncrease*/, callPrepareToCloseBeforeJoin));
     }
 
-    void SendBurstCommands() {
-        ASSERT_NO_FATAL_FAILURE(mStream.StartWorkerToSendBurstCommands());
-        ASSERT_NO_FATAL_FAILURE(mStream.JoinWorkerAfterBurstCommands());
+    void JoinWorkerAfterBurstCommands(bool validatePositionIncrease,
+                                      bool callPrepareToCloseBeforeJoin) {
+        ASSERT_NO_FATAL_FAILURE(mStream.JoinWorkerAfterBurstCommands(validatePositionIncrease,
+                                                                     callPrepareToCloseBeforeJoin));
+    }
+
+    void SendBurstCommands(bool callPrepareToCloseBeforeJoin, size_t burstCount = 10,
+                           bool standbyInputWhenDone = false) {
+        ASSERT_NO_FATAL_FAILURE(StartWorkerToSendBurstCommands(burstCount, standbyInputWhenDone));
+        // When 'burstCount == 0', there is no "previous" frame count, thus the check for
+        // the position increase fails.
+        ASSERT_NO_FATAL_FAILURE(JoinWorkerAfterBurstCommands(
+                burstCount > 0 /*validatePositionIncrease*/, callPrepareToCloseBeforeJoin));
     }
 
     std::optional<AudioDeviceAddress> getAudioDeviceAddress() const { return mAddress; }
+    const AudioPortConfig& getDevicePortConfig() const { return mStream.getDevicePortConfig(); }
+    int8_t getLastBurstIteration() const { return mStream.getLastData()[0]; }
+    const AudioPortConfig& getPortConfig() const { return mStream.getPortConfig(); }
     std::string skipTestReason() const { return mStream.skipTestReason(); }
 
   private:
-    void SetUp(IModule* module, ModuleConfig* moduleConfig, const AudioPort& devicePort) {}
-
     StreamFixtureWithWorker<Stream> mStream;
     std::optional<AudioDeviceAddress> mAddress;
 };
@@ -4993,77 +5221,130 @@ class AudioModuleRemoteSubmix : public AudioCoreModule {
         }
         ASSERT_NO_FATAL_FAILURE(SetUpModuleConfig());
     }
+
+    void TearDown() override {
+        streamIn.reset();
+        streamOut.reset();
+    }
+
+    void CreateOutputStream() {
+        streamOut = std::make_unique<WithRemoteSubmix<IStreamOut>>();
+        ASSERT_NO_FATAL_FAILURE(streamOut->SetUp(module.get(), moduleConfig.get()));
+        // Note: any issue with connection attempts is considered as a problem.
+        ASSERT_EQ("", streamOut->skipTestReason());
+        ASSERT_TRUE(streamOut->getAudioDeviceAddress().has_value());
+    }
+
+    void CreateInputStream(const std::optional<AudioDeviceAddress>& address = std::nullopt) {
+        if (address.has_value()) {
+            streamIn = std::make_unique<WithRemoteSubmix<IStreamIn>>(address.value());
+        } else {
+            ASSERT_TRUE(streamOut->getAudioDeviceAddress().has_value());
+            streamIn = std::make_unique<WithRemoteSubmix<IStreamIn>>(
+                    streamOut->getAudioDeviceAddress().value());
+        }
+        ASSERT_NO_FATAL_FAILURE(streamIn->SetUp(module.get(), moduleConfig.get()));
+        ASSERT_EQ("", streamIn->skipTestReason());
+        auto inAddress = streamIn->getAudioDeviceAddress();
+        ASSERT_TRUE(inAddress.has_value());
+        if (address.has_value()) {
+            if (address.value() != AudioDeviceAddress{}) {
+                ASSERT_EQ(address.value(), inAddress.value());
+            }
+        } else {
+            ASSERT_EQ(streamOut->getAudioDeviceAddress().value(), inAddress.value());
+        }
+    }
+
+    std::unique_ptr<WithRemoteSubmix<IStreamOut>> streamOut;
+    std::unique_ptr<WithRemoteSubmix<IStreamIn>> streamIn;
 };
 
 TEST_P(AudioModuleRemoteSubmix, OutputDoesNotBlockWhenNoInput) {
-    WithRemoteSubmix<IStreamOut> streamOut;
-    ASSERT_NO_FATAL_FAILURE(streamOut.SetUp(module.get(), moduleConfig.get()));
-    // Note: here and in other tests any issue with connection attempts is considered as a problem.
-    ASSERT_EQ("", streamOut.skipTestReason());
-    ASSERT_NO_FATAL_FAILURE(streamOut.SendBurstCommands());
+    ASSERT_NO_FATAL_FAILURE(CreateOutputStream());
+    ASSERT_NO_FATAL_FAILURE(streamOut->SendBurstCommands(false /*callPrepareToCloseBeforeJoin*/));
 }
 
-TEST_P(AudioModuleRemoteSubmix, OutputDoesNotBlockWhenInputStuck) {
-    WithRemoteSubmix<IStreamOut> streamOut;
-    ASSERT_NO_FATAL_FAILURE(streamOut.SetUp(module.get(), moduleConfig.get()));
-    ASSERT_EQ("", streamOut.skipTestReason());
-    auto address = streamOut.getAudioDeviceAddress();
-    ASSERT_TRUE(address.has_value());
+TEST_P(AudioModuleRemoteSubmix, OutputDoesNotBlockWhenInputInStandby) {
+    if (int32_t version; module->getInterfaceVersion(&version).isOk() && version < 3) {
+        GTEST_SKIP() << "Default remote submix implementation <V3 could not pass this test";
+    }
+    ASSERT_NO_FATAL_FAILURE(CreateOutputStream());
+    ASSERT_NO_FATAL_FAILURE(CreateInputStream());
+    ASSERT_NO_FATAL_FAILURE(streamOut->StartWorkerToSendBurstCommands());
+    // Send just 1 burst command. This triggers the condition "input is in standby after
+    // being active." The output must flush the fifo before writing to avoid being blocked.
+    ASSERT_NO_FATAL_FAILURE(
+            streamIn->StartWorkerToSendBurstCommands(1, true /*stanbyInputWhenDone*/));
+    // The output must be able to close without shutting down the pipe first (due to a call
+    // to 'prepareToClose').
+    ASSERT_NO_FATAL_FAILURE(
+            streamOut->JoinWorkerAfterBurstCommands(false /*callPrepareToCloseBeforeJoin*/));
+    ASSERT_NO_FATAL_FAILURE(
+            streamIn->JoinWorkerAfterBurstCommands(false /*callPrepareToCloseBeforeJoin*/));
+}
 
-    WithRemoteSubmix<IStreamIn> streamIn(address.value());
-    ASSERT_NO_FATAL_FAILURE(streamIn.SetUp(module.get(), moduleConfig.get()));
-    ASSERT_EQ("", streamIn.skipTestReason());
+TEST_P(AudioModuleRemoteSubmix, BlockedOutputUnblocksOnClose) {
+    ASSERT_NO_FATAL_FAILURE(CreateOutputStream());
+    ASSERT_NO_FATAL_FAILURE(CreateInputStream());
+    ASSERT_NO_FATAL_FAILURE(streamOut->StartWorkerToSendBurstCommands());
+    // Send just 3 burst command, but do not enter standby. This is a stalled input.
+    ASSERT_NO_FATAL_FAILURE(streamIn->StartWorkerToSendBurstCommands(3));
+    ASSERT_NO_FATAL_FAILURE(
+            streamOut->JoinWorkerAfterBurstCommands(true /*callPrepareToCloseBeforeJoin*/));
+    ASSERT_NO_FATAL_FAILURE(
+            streamIn->JoinWorkerAfterBurstCommands(false /*callPrepareToCloseBeforeJoin*/));
+}
 
-    ASSERT_NO_FATAL_FAILURE(streamOut.SendBurstCommands());
+TEST_P(AudioModuleRemoteSubmix, OutputBlocksUntilInputStarts) {
+    ASSERT_NO_FATAL_FAILURE(CreateOutputStream());
+    ASSERT_NO_FATAL_FAILURE(CreateInputStream());
+    ASSERT_NO_FATAL_FAILURE(streamOut->StartWorkerToSendBurstCommands());
+    // Read the head of the pipe and check that it starts with the first output burst, that is,
+    // the contents of the very first write has not been superseded due to pipe overflow.
+    // The burstCount is '0' because the very first burst is used to exit from the 'IDLE' state,
+    // see 'makeBurstCommands'.
+    ASSERT_NO_FATAL_FAILURE(streamIn->SendBurstCommands(false /*callPrepareToCloseBeforeJoin*/, 0,
+                                                        true /*standbyInputWhenDone*/));
+    EXPECT_EQ(1, streamIn->getLastBurstIteration());
+    ASSERT_NO_FATAL_FAILURE(
+            streamOut->JoinWorkerAfterBurstCommands(true /*callPrepareToCloseBeforeJoin*/));
 }
 
 TEST_P(AudioModuleRemoteSubmix, OutputAndInput) {
-    WithRemoteSubmix<IStreamOut> streamOut;
-    ASSERT_NO_FATAL_FAILURE(streamOut.SetUp(module.get(), moduleConfig.get()));
-    ASSERT_EQ("", streamOut.skipTestReason());
-    auto address = streamOut.getAudioDeviceAddress();
-    ASSERT_TRUE(address.has_value());
-
-    WithRemoteSubmix<IStreamIn> streamIn(address.value());
-    ASSERT_NO_FATAL_FAILURE(streamIn.SetUp(module.get(), moduleConfig.get()));
-    ASSERT_EQ("", streamIn.skipTestReason());
-
+    ASSERT_NO_FATAL_FAILURE(CreateOutputStream());
+    ASSERT_NO_FATAL_FAILURE(CreateInputStream());
     // Start writing into the output stream.
-    ASSERT_NO_FATAL_FAILURE(streamOut.StartWorkerToSendBurstCommands());
+    ASSERT_NO_FATAL_FAILURE(streamOut->StartWorkerToSendBurstCommands());
     // Simultaneously, read from the input stream.
-    ASSERT_NO_FATAL_FAILURE(streamIn.SendBurstCommands());
-    ASSERT_NO_FATAL_FAILURE(streamOut.JoinWorkerAfterBurstCommands());
+    ASSERT_NO_FATAL_FAILURE(streamIn->SendBurstCommands(false /*callPrepareToCloseBeforeJoin*/));
+    ASSERT_NO_FATAL_FAILURE(
+            streamOut->JoinWorkerAfterBurstCommands(false /*callPrepareToCloseBeforeJoin*/));
 }
 
 TEST_P(AudioModuleRemoteSubmix, OpenInputMultipleTimes) {
-    WithRemoteSubmix<IStreamOut> streamOut;
-    ASSERT_NO_FATAL_FAILURE(streamOut.SetUp(module.get(), moduleConfig.get()));
-    ASSERT_EQ("", streamOut.skipTestReason());
-    auto address = streamOut.getAudioDeviceAddress();
-    ASSERT_TRUE(address.has_value());
-
-    const size_t streamInCount = 3;
-    std::vector<std::unique_ptr<WithRemoteSubmix<IStreamIn>>> streamIns(streamInCount);
-    for (size_t i = 0; i < streamInCount; i++) {
-        streamIns[i] = std::make_unique<WithRemoteSubmix<IStreamIn>>(address.value());
-        ASSERT_NO_FATAL_FAILURE(streamIns[i]->SetUp(module.get(), moduleConfig.get()));
+    ASSERT_NO_FATAL_FAILURE(CreateOutputStream());
+    ASSERT_NO_FATAL_FAILURE(CreateInputStream());
+    ASSERT_NO_FATAL_FAILURE(streamOut->StartWorkerToSendBurstCommands());
+    ASSERT_NO_FATAL_FAILURE(streamIn->SendBurstCommands(false /*callPrepareToCloseBeforeJoin*/, 1,
+                                                        true /*standbyInputWhenDone*/));
+    // For the new stream, only create a new mix port config and a new patch.
+    const size_t extraStreamInCount = 2;
+    std::vector<std::unique_ptr<WithRemoteSubmix<IStreamIn>>> streamIns(extraStreamInCount);
+    for (size_t i = 0; i < extraStreamInCount; i++) {
+        streamIns[i] = std::make_unique<WithRemoteSubmix<IStreamIn>>();
+        ASSERT_NO_FATAL_FAILURE(streamIns[i]->SetUp(module.get(), moduleConfig.get(),
+                                                    streamIn->getPortConfig(),
+                                                    streamIn->getDevicePortConfig()));
         ASSERT_EQ("", streamIns[i]->skipTestReason());
+        const auto inAddress = streamIns[i]->getAudioDeviceAddress();
+        ASSERT_TRUE(inAddress.has_value());
+        ASSERT_EQ(streamOut->getAudioDeviceAddress().value(), inAddress.value());
+        ASSERT_NO_FATAL_FAILURE(streamIns[i]->SendBurstCommands(
+                false /*callPrepareToCloseBeforeJoin*/, 1, true /*standbyInputWhenDone*/));
     }
-    // Start writing into the output stream.
-    ASSERT_NO_FATAL_FAILURE(streamOut.StartWorkerToSendBurstCommands());
-    // Simultaneously, read from input streams.
-    for (size_t i = 0; i < streamInCount; i++) {
-        ASSERT_NO_FATAL_FAILURE(streamIns[i]->StartWorkerToSendBurstCommands());
-    }
-    for (size_t i = 0; i < streamInCount; i++) {
-        ASSERT_NO_FATAL_FAILURE(streamIns[i]->JoinWorkerAfterBurstCommands());
-    }
-    ASSERT_NO_FATAL_FAILURE(streamOut.JoinWorkerAfterBurstCommands());
-    // Clean up input streams in the reverse order because the device connection is owned
-    // by the first one.
-    for (size_t i = streamInCount; i != 0; --i) {
-        streamIns[i - 1].reset();
-    }
+    ASSERT_NO_FATAL_FAILURE(
+            streamOut->JoinWorkerAfterBurstCommands(false /*callPrepareToCloseBeforeJoin*/));
 }
 
 INSTANTIATE_TEST_SUITE_P(AudioModuleRemoteSubmixTest, AudioModuleRemoteSubmix,
