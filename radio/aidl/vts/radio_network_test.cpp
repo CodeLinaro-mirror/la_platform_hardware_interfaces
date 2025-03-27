@@ -78,6 +78,15 @@ void RadioNetworkTest::SetUp() {
     ASSERT_NE(nullptr, radio_config.get());
 }
 
+bool RadioNetworkTest::shouldTestCdma() {
+    int32_t aidl_version = 0;
+    ndk::ScopedAStatus aidl_status = radio_network->getInterfaceVersion(&aidl_version);
+    EXPECT_TRUE(aidl_status.isOk());
+    if (aidl_version < 4) return true;  // < RADIO_HAL_VERSION_2_3
+
+    return !telephony_flags::cleanup_cdma();
+}
+
 void RadioNetworkTest::stopNetworkScan() {
     serial = GetRandomSerialNumber();
     radio_network->stopNetworkScan(serial);
@@ -89,11 +98,9 @@ void RadioNetworkTest::stopNetworkScan() {
  * for the response returned.
  */
 TEST_P(RadioNetworkTest, setGetAllowedNetworkTypesBitmap) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setGetAllowedNetworkTypesBitmap "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setGetAllowedNetworkTypesBitmap "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -158,11 +165,9 @@ TEST_P(RadioNetworkTest, setGetAllowedNetworkTypesBitmap) {
  * Test IRadioNetwork.setNrDualConnectivityState() for the response returned.
  */
 TEST_P(RadioNetworkTest, setNrDualConnectivityState) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setNrDualConnectivityState "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setNrDualConnectivityState "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -189,11 +194,9 @@ TEST_P(RadioNetworkTest, setNrDualConnectivityState) {
  * Test IRadioNetwork.isNrDualConnectivityEnabled() for the response returned.
  */
 TEST_P(RadioNetworkTest, isNrDualConnectivityEnabled) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping isNrDualConnectivityEnabled "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping isNrDualConnectivityEnabled "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -234,11 +237,9 @@ void RadioNetworkTest::invokeAndExpectResponse(
  * Verify that the usage setting can be retrieved.
  */
 TEST_P(RadioNetworkTest, getUsageSetting) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY)) {
-            GTEST_SKIP() << "Skipping getUsageSetting "
-                            "due to undefined FEATURE_TELEPHONY";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY)) {
+        GTEST_SKIP() << "Skipping getUsageSetting "
+                        "due to undefined FEATURE_TELEPHONY";
     }
 
     invokeAndExpectResponse([&](int serial) { return radio_network->getUsageSetting(serial); },
@@ -280,11 +281,9 @@ void RadioNetworkTest::testSetUsageSetting_InvalidValues(std::vector<RadioError>
  * -That the usage setting cannot be set to invalid values.
  */
 TEST_P(RadioNetworkTest, setUsageSetting) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY)) {
-            GTEST_SKIP() << "Skipping setUsageSetting "
-                            "due to undefined FEATURE_TELEPHONY";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY)) {
+        GTEST_SKIP() << "Skipping setUsageSetting "
+                        "due to undefined FEATURE_TELEPHONY";
     }
 
     invokeAndExpectResponse([&](int serial) { return radio_network->getUsageSetting(serial); },
@@ -349,11 +348,9 @@ TEST_P(RadioNetworkTest, setUsageSetting) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() with invalid hysteresisDb
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_invalidHysteresisDb) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_invalidHysteresisDb "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_invalidHysteresisDb "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -382,11 +379,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_invalidHysteresisDb)
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() with empty thresholds
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_EmptyThresholds) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_EmptyThresholds "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_EmptyThresholds "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -414,11 +409,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_EmptyThresholds) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for GERAN
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Geran) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Geran "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Geran "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -448,11 +441,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Geran) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for UTRAN
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Utran_Rscp) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Utran_Rscp "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Utran_Rscp "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -481,11 +472,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Utran_Rscp) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for UTRAN
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Utran_Ecno) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Utran_Ecno "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Utran_Ecno "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -515,11 +504,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Utran_Ecno) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for EUTRAN
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Eutran_RSRP) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Eutran_RSRP "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Eutran_RSRP "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -548,11 +535,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Eutran_RSRP) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for EUTRAN
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Eutran_RSRQ) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Eutran_RSRQ "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Eutran_RSRQ "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -581,11 +566,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Eutran_RSRQ) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for EUTRAN
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Eutran_RSSNR) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Eutran_RSSNR "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Eutran_RSSNR "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -610,11 +593,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Eutran_RSSNR) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for CDMA2000
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Cdma2000) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Cdma2000 "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Cdma2000 "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     if (!deviceSupportsFeature(FEATURE_TELEPHONY_CDMA)) {
@@ -648,11 +629,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Cdma2000) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for NGRAN_SSRSRP
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_NGRAN_SSRSRP) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_NGRAN_SSRSRP "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_NGRAN_SSRSRP "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -685,11 +664,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_NGRAN_SSRSRP) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for NGRAN_SSRSRQ
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_NGRAN_SSRSRQ) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_NGRAN_SSRSRQ "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_NGRAN_SSRSRQ "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -722,11 +699,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_NGRAN_SSRSRQ) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for EUTRAN
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Disable_RSSNR) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Disable_RSSNR "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_Disable_RSSNR "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -751,11 +726,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_Disable_RSSNR) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for NGRAN_SSSINR
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_NGRAN_SSSINR) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_NGRAN_SSSINR "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_NGRAN_SSSINR "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -788,11 +761,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_NGRAN_SSSINR) {
  * Test IRadioNetwork.setSignalStrengthReportingCriteria() for multi-RANs per request
  */
 TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_multiRansPerRequest) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_multiRansPerRequest "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSignalStrengthReportingCriteria_multiRansPerRequest "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     SignalThresholdInfo signalThresholdInfoGeran;
@@ -881,11 +852,9 @@ TEST_P(RadioNetworkTest, setSignalStrengthReportingCriteria_multiRansPerRequest)
  * Test IRadioNetwork.setLinkCapacityReportingCriteria() invalid hysteresisDlKbps
  */
 TEST_P(RadioNetworkTest, setLinkCapacityReportingCriteria_invalidHysteresisDlKbps) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setLinkCapacityReportingCriteria_invalidHysteresisDlKbps "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setLinkCapacityReportingCriteria_invalidHysteresisDlKbps "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -908,11 +877,9 @@ TEST_P(RadioNetworkTest, setLinkCapacityReportingCriteria_invalidHysteresisDlKbp
  * Test IRadioNetwork.setLinkCapacityReportingCriteria() invalid hysteresisUlKbps
  */
 TEST_P(RadioNetworkTest, setLinkCapacityReportingCriteria_invalidHysteresisUlKbps) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setLinkCapacityReportingCriteria_invalidHysteresisUlKbps "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setLinkCapacityReportingCriteria_invalidHysteresisUlKbps "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -934,11 +901,9 @@ TEST_P(RadioNetworkTest, setLinkCapacityReportingCriteria_invalidHysteresisUlKbp
  * Test IRadioNetwork.setLinkCapacityReportingCriteria() empty params
  */
 TEST_P(RadioNetworkTest, setLinkCapacityReportingCriteria_emptyParams) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setLinkCapacityReportingCriteria_emptyParams "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setLinkCapacityReportingCriteria_emptyParams "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -959,11 +924,9 @@ TEST_P(RadioNetworkTest, setLinkCapacityReportingCriteria_emptyParams) {
  * Test IRadioNetwork.setLinkCapacityReportingCriteria() for GERAN
  */
 TEST_P(RadioNetworkTest, setLinkCapacityReportingCriteria_Geran) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setLinkCapacityReportingCriteria_Geran "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setLinkCapacityReportingCriteria_Geran "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -988,11 +951,9 @@ TEST_P(RadioNetworkTest, setLinkCapacityReportingCriteria_Geran) {
  * Test IRadioNetwork.setSystemSelectionChannels() for the response returned.
  */
 TEST_P(RadioNetworkTest, setSystemSelectionChannels) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setSystemSelectionChannels "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setSystemSelectionChannels "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1038,11 +999,9 @@ TEST_P(RadioNetworkTest, setSystemSelectionChannels) {
  * Test IRadioNetwork.startNetworkScan() for the response returned.
  */
 TEST_P(RadioNetworkTest, startNetworkScan) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping startNetworkScan "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping startNetworkScan "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1065,7 +1024,7 @@ TEST_P(RadioNetworkTest, startNetworkScan) {
     if (cardStatus.cardState == CardStatus::STATE_ABSENT) {
         ASSERT_TRUE(CheckAnyOfErrors(radioRsp_network->rspInfo.error, {RadioError::SIM_ABSENT}));
     } else if (cardStatus.cardState == CardStatus::STATE_PRESENT) {
-        if (deviceSupportsFeature(FEATURE_TELEPHONY_GSM) && isLteConnected()) {
+        if (isLteConnected()) {
             // Modems support 3GPP RAT family need to
             // support scanning requests combined with some parameters.
             ASSERT_TRUE(CheckAnyOfErrors(radioRsp_network->rspInfo.error,
@@ -1087,11 +1046,9 @@ TEST_P(RadioNetworkTest, startNetworkScan) {
  * Test IRadioNetwork.startNetworkScan() with invalid specifier.
  */
 TEST_P(RadioNetworkTest, startNetworkScan_InvalidArgument) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping startNetworkScan_InvalidArgument "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping startNetworkScan_InvalidArgument "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     // get aidl version
@@ -1160,11 +1117,9 @@ TEST_P(RadioNetworkTest, startNetworkScan_InvalidArgument) {
  * Test IRadioNetwork.startNetworkScan() with invalid interval (lower boundary).
  */
 TEST_P(RadioNetworkTest, startNetworkScan_InvalidInterval1) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping startNetworkScan_InvalidInterval1 "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping startNetworkScan_InvalidInterval1 "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1196,11 +1151,9 @@ TEST_P(RadioNetworkTest, startNetworkScan_InvalidInterval1) {
  * Test IRadioNetwork.startNetworkScan() with invalid interval (upper boundary).
  */
 TEST_P(RadioNetworkTest, startNetworkScan_InvalidInterval2) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping startNetworkScan_InvalidInterval2 "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping startNetworkScan_InvalidInterval2 "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1232,11 +1185,9 @@ TEST_P(RadioNetworkTest, startNetworkScan_InvalidInterval2) {
  * Test IRadioNetwork.startNetworkScan() with invalid max search time (lower boundary).
  */
 TEST_P(RadioNetworkTest, startNetworkScan_InvalidMaxSearchTime1) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping startNetworkScan_InvalidMaxSearchTime1 "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping startNetworkScan_InvalidMaxSearchTime1 "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1268,11 +1219,9 @@ TEST_P(RadioNetworkTest, startNetworkScan_InvalidMaxSearchTime1) {
  * Test IRadioNetwork.startNetworkScan() with invalid max search time (upper boundary).
  */
 TEST_P(RadioNetworkTest, startNetworkScan_InvalidMaxSearchTime2) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping startNetworkScan_InvalidMaxSearchTime2 "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping startNetworkScan_InvalidMaxSearchTime2 "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1304,11 +1253,9 @@ TEST_P(RadioNetworkTest, startNetworkScan_InvalidMaxSearchTime2) {
  * Test IRadioNetwork.startNetworkScan() with invalid periodicity (lower boundary).
  */
 TEST_P(RadioNetworkTest, startNetworkScan_InvalidPeriodicity1) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping startNetworkScan_InvalidPeriodicity1 "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping startNetworkScan_InvalidPeriodicity1 "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1340,11 +1287,9 @@ TEST_P(RadioNetworkTest, startNetworkScan_InvalidPeriodicity1) {
  * Test IRadioNetwork.startNetworkScan() with invalid periodicity (upper boundary).
  */
 TEST_P(RadioNetworkTest, startNetworkScan_InvalidPeriodicity2) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping startNetworkScan_InvalidPeriodicity2 "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping startNetworkScan_InvalidPeriodicity2 "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1376,11 +1321,9 @@ TEST_P(RadioNetworkTest, startNetworkScan_InvalidPeriodicity2) {
  * Test IRadioNetwork.startNetworkScan() with valid periodicity
  */
 TEST_P(RadioNetworkTest, startNetworkScan_GoodRequest1) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping startNetworkScan_GoodRequest1 "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping startNetworkScan_GoodRequest1 "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1417,11 +1360,9 @@ TEST_P(RadioNetworkTest, startNetworkScan_GoodRequest1) {
  * Test IRadioNetwork.startNetworkScan() with valid periodicity and plmns
  */
 TEST_P(RadioNetworkTest, startNetworkScan_GoodRequest2) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping startNetworkScan_GoodRequest2 "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping startNetworkScan_GoodRequest2 "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1459,11 +1400,9 @@ TEST_P(RadioNetworkTest, startNetworkScan_GoodRequest2) {
  * Test IRadioNetwork.setNetworkSelectionModeManual() for the response returned.
  */
 TEST_P(RadioNetworkTest, setNetworkSelectionModeManual) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setNetworkSelectionModeManual "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setNetworkSelectionModeManual "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1486,11 +1425,9 @@ TEST_P(RadioNetworkTest, setNetworkSelectionModeManual) {
  * Test IRadioNetwork.getBarringInfo() for the response returned.
  */
 TEST_P(RadioNetworkTest, getBarringInfo) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping getBarringInfo "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping getBarringInfo "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1597,11 +1534,9 @@ TEST_P(RadioNetworkTest, getBarringInfo) {
  * Test IRadioNetwork.getSignalStrength() for the response returned.
  */
 TEST_P(RadioNetworkTest, getSignalStrength) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping getSignalStrength "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping getSignalStrength "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1623,11 +1558,9 @@ TEST_P(RadioNetworkTest, getSignalStrength) {
  * Test IRadioNetwork.getCellInfoList() for the response returned.
  */
 TEST_P(RadioNetworkTest, getCellInfoList) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping getCellInfoList "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping getCellInfoList "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1648,11 +1581,9 @@ TEST_P(RadioNetworkTest, getCellInfoList) {
  * Test IRadioNetwork.getVoiceRegistrationState() for the response returned.
  */
 TEST_P(RadioNetworkTest, getVoiceRegistrationState) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping getVoiceRegistrationState "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping getVoiceRegistrationState "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1673,11 +1604,9 @@ TEST_P(RadioNetworkTest, getVoiceRegistrationState) {
  * Test IRadioNetwork.getDataRegistrationState() for the response returned.
  */
 TEST_P(RadioNetworkTest, getDataRegistrationState) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping getDataRegistrationState "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping getDataRegistrationState "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1775,11 +1704,12 @@ TEST_P(RadioNetworkTest, getDataRegistrationState) {
  * Test IRadioNetwork.getAvailableBandModes() for the response returned.
  */
 TEST_P(RadioNetworkTest, getAvailableBandModes) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping getAvailableBandModes "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!shouldTestCdma()) {
+        GTEST_SKIP() << "Skipping CDMA testing (deprecated)";
+    }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping getAvailableBandModes "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1811,11 +1741,9 @@ TEST_P(RadioNetworkTest, getAvailableBandModes) {
  * Test IRadioNetwork.setIndicationFilter()
  */
 TEST_P(RadioNetworkTest, setIndicationFilter) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setIndicationFilter "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setIndicationFilter "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1836,11 +1764,9 @@ TEST_P(RadioNetworkTest, setIndicationFilter) {
  * Test IRadioNetwork.setBarringPassword() for the response returned.
  */
 TEST_P(RadioNetworkTest, setBarringPassword) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setBarringPassword "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setBarringPassword "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1866,11 +1792,9 @@ TEST_P(RadioNetworkTest, setBarringPassword) {
  * Test IRadioNetwork.setSuppServiceNotifications() for the response returned.
  */
 TEST_P(RadioNetworkTest, setSuppServiceNotifications) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_CALLING)) {
-            GTEST_SKIP() << "Skipping setSuppServiceNotifications "
-                            "due to undefined FEATURE_TELEPHONY_CALLING";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_CALLING)) {
+        GTEST_SKIP() << "Skipping setSuppServiceNotifications "
+                        "due to undefined FEATURE_TELEPHONY_CALLING";
     }
 
     serial = GetRandomSerialNumber();
@@ -1892,11 +1816,9 @@ TEST_P(RadioNetworkTest, setSuppServiceNotifications) {
  * Test IRadioNetwork.getImsRegistrationState() for the response returned.
  */
 TEST_P(RadioNetworkTest, getImsRegistrationState) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_IMS)) {
-            GTEST_SKIP() << "Skipping getImsRegistrationState "
-                            "due to undefined FEATURE_TELEPHONY_IMS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_IMS)) {
+        GTEST_SKIP() << "Skipping getImsRegistrationState "
+                        "due to undefined FEATURE_TELEPHONY_IMS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1919,11 +1841,9 @@ TEST_P(RadioNetworkTest, getImsRegistrationState) {
  * Test IRadioNetwork.getOperator() for the response returned.
  */
 TEST_P(RadioNetworkTest, getOperator) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping getOperator "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping getOperator "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1942,11 +1862,9 @@ TEST_P(RadioNetworkTest, getOperator) {
  * Test IRadioNetwork.getNetworkSelectionMode() for the response returned.
  */
 TEST_P(RadioNetworkTest, getNetworkSelectionMode) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping getNetworkSelectionMode "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping getNetworkSelectionMode "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1965,11 +1883,9 @@ TEST_P(RadioNetworkTest, getNetworkSelectionMode) {
  * Test IRadioNetwork.setNetworkSelectionModeAutomatic() for the response returned.
  */
 TEST_P(RadioNetworkTest, setNetworkSelectionModeAutomatic) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setNetworkSelectionModeAutomatic "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setNetworkSelectionModeAutomatic "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -1991,11 +1907,9 @@ TEST_P(RadioNetworkTest, setNetworkSelectionModeAutomatic) {
  * Test IRadioNetwork.getAvailableNetworks() for the response returned.
  */
 TEST_P(RadioNetworkTest, getAvailableNetworks) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping getAvailableNetworks "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping getAvailableNetworks "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -2019,11 +1933,12 @@ TEST_P(RadioNetworkTest, getAvailableNetworks) {
  * Test IRadioNetwork.setBandMode() for the response returned.
  */
 TEST_P(RadioNetworkTest, setBandMode) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setBandMode "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!shouldTestCdma()) {
+        GTEST_SKIP() << "Skipping CDMA testing (deprecated)";
+    }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setBandMode "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -2043,11 +1958,13 @@ TEST_P(RadioNetworkTest, setBandMode) {
  * Test IRadioNetwork.setLocationUpdates() for the response returned.
  */
 TEST_P(RadioNetworkTest, setLocationUpdates) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setLocationUpdates "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    // While setLocationUpdates is not CDMA-related, it's guarded by the same release flag.
+    if (!shouldTestCdma()) {
+        GTEST_SKIP() << "Skipping testing of deprecated setLocationUpdates method";
+    }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setLocationUpdates "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -2067,11 +1984,9 @@ TEST_P(RadioNetworkTest, setLocationUpdates) {
  * Test IRadioNetwork.setCdmaRoamingPreference() for the response returned.
  */
 TEST_P(RadioNetworkTest, setCdmaRoamingPreference) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_CDMA)) {
-            GTEST_SKIP() << "Skipping setCdmaRoamingPreference "
-                            "due to undefined FEATURE_TELEPHONY_CDMA";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_CDMA)) {
+        GTEST_SKIP() << "Skipping setCdmaRoamingPreference "
+                        "due to undefined FEATURE_TELEPHONY_CDMA";
     }
 
     serial = GetRandomSerialNumber();
@@ -2092,11 +2007,9 @@ TEST_P(RadioNetworkTest, setCdmaRoamingPreference) {
  * Test IRadioNetwork.getCdmaRoamingPreference() for the response returned.
  */
 TEST_P(RadioNetworkTest, getCdmaRoamingPreference) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_CDMA)) {
-            GTEST_SKIP() << "Skipping getCdmaRoamingPreference "
-                            "due to undefined FEATURE_TELEPHONY_CDMA";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_CDMA)) {
+        GTEST_SKIP() << "Skipping getCdmaRoamingPreference "
+                        "due to undefined FEATURE_TELEPHONY_CDMA";
     }
 
     serial = GetRandomSerialNumber();
@@ -2118,11 +2031,9 @@ TEST_P(RadioNetworkTest, getCdmaRoamingPreference) {
  * Test IRadioNetwork.getVoiceRadioTechnology() for the response returned.
  */
 TEST_P(RadioNetworkTest, getVoiceRadioTechnology) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping getVoiceRadioTechnology "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping getVoiceRadioTechnology "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -2141,11 +2052,9 @@ TEST_P(RadioNetworkTest, getVoiceRadioTechnology) {
  * Test IRadioNetwork.setCellInfoListRate() for the response returned.
  */
 TEST_P(RadioNetworkTest, setCellInfoListRate) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setCellInfoListRate "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setCellInfoListRate "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -2165,11 +2074,9 @@ TEST_P(RadioNetworkTest, setCellInfoListRate) {
  * Test IRadioNetwork.supplyNetworkDepersonalization() for the response returned.
  */
 TEST_P(RadioNetworkTest, supplyNetworkDepersonalization) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping supplyNetworkDepersonalization "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping supplyNetworkDepersonalization "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     serial = GetRandomSerialNumber();
@@ -2192,11 +2099,9 @@ TEST_P(RadioNetworkTest, supplyNetworkDepersonalization) {
  * Test IRadioNetwork.setEmergencyMode() for the response returned.
  */
 TEST_P(RadioNetworkTest, setEmergencyMode) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setEmergencyMode "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setEmergencyMode "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     int32_t aidl_version;
@@ -2236,11 +2141,9 @@ TEST_P(RadioNetworkTest, setEmergencyMode) {
  * Test IRadioNetwork.triggerEmergencyNetworkScan() for the response returned.
  */
 TEST_P(RadioNetworkTest, triggerEmergencyNetworkScan) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping triggerEmergencyNetworkScan "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping triggerEmergencyNetworkScan "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     int32_t aidl_version;
@@ -2298,11 +2201,9 @@ TEST_P(RadioNetworkTest, triggerEmergencyNetworkScan) {
  * Test IRadioNetwork.cancelEmergencyNetworkScan() for the response returned.
  */
 TEST_P(RadioNetworkTest, cancelEmergencyNetworkScan) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping cancelEmergencyNetworkScan "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping cancelEmergencyNetworkScan "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     int32_t aidl_version;
@@ -2329,11 +2230,9 @@ TEST_P(RadioNetworkTest, cancelEmergencyNetworkScan) {
  * Test IRadioNetwork.exitEmergencyMode() for the response returned.
  */
 TEST_P(RadioNetworkTest, exitEmergencyMode) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping exitEmergencyMode "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping exitEmergencyMode "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     int32_t aidl_version;
@@ -2360,11 +2259,9 @@ TEST_P(RadioNetworkTest, exitEmergencyMode) {
  * Test IRadioNetwork.setN1ModeEnabled() for the response returned.
  */
 TEST_P(RadioNetworkTest, setN1ModeEnabled) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setN1ModeEnabled "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setN1ModeEnabled "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     int32_t aidl_version;
@@ -2399,11 +2296,9 @@ TEST_P(RadioNetworkTest, setN1ModeEnabled) {
  * Test IRadioNetwork.isN1ModeEnabled() for the response returned.
  */
 TEST_P(RadioNetworkTest, isN1ModeEnabled) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping isN1ModeEnabled "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping isN1ModeEnabled "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     int32_t aidl_version;
@@ -2437,11 +2332,9 @@ TEST_P(RadioNetworkTest, isN1ModeEnabled) {
  * Test IRadioNetwork.setNullCipherAndIntegrityEnabled() for the response returned.
  */
 TEST_P(RadioNetworkTest, setNullCipherAndIntegrityEnabled) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping setNullCipherAndIntegrityEnabled "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping setNullCipherAndIntegrityEnabled "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     int32_t aidl_version;
@@ -2469,11 +2362,9 @@ TEST_P(RadioNetworkTest, setNullCipherAndIntegrityEnabled) {
  * Test IRadioNetwork.isNullCipherAndIntegrityEnabled() for the response returned.
  */
 TEST_P(RadioNetworkTest, isNullCipherAndIntegrityEnabled) {
-    if (telephony_flags::enforce_telephony_feature_mapping()) {
-        if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
-            GTEST_SKIP() << "Skipping isNullCipherAndIntegrityEnabled "
-                            "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
-        }
+    if (!deviceSupportsFeature(FEATURE_TELEPHONY_RADIO_ACCESS)) {
+        GTEST_SKIP() << "Skipping isNullCipherAndIntegrityEnabled "
+                        "due to undefined FEATURE_TELEPHONY_RADIO_ACCESS";
     }
 
     int32_t aidl_version;
@@ -2552,28 +2443,28 @@ TEST_P(RadioNetworkTest, setCellularIdentifierTransparencyEnabled) {
     ASSERT_TRUE(CheckAnyOfErrors(radioRsp_network->rspInfo.error,
                                  {RadioError::NONE, RadioError::RADIO_NOT_AVAILABLE,
                                   RadioError::MODEM_ERR, RadioError::REQUEST_NOT_SUPPORTED}));
+    if (radioRsp_network->rspInfo.error != RadioError::NONE) return;
 
+    // Assert the value has changed
+    serial = GetRandomSerialNumber();
+    ndk::ScopedAStatus res = radio_network->isCellularIdentifierTransparencyEnabled(serial);
+
+    ASSERT_OK(res);
+    EXPECT_EQ(std::cv_status::no_timeout, wait());
+    EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_network->rspInfo.type);
+    EXPECT_EQ(serial, radioRsp_network->rspInfo.serial);
+    ASSERT_TRUE(CheckAnyOfErrors(radioRsp_network->rspInfo.error,
+                                 {RadioError::NONE, RadioError::RADIO_NOT_AVAILABLE,
+                                  RadioError::MODEM_ERR, RadioError::REQUEST_NOT_SUPPORTED}));
     if (radioRsp_network->rspInfo.error == RadioError::NONE) {
-        // Assert the value has changed
-        serial = GetRandomSerialNumber();
-        ndk::ScopedAStatus res = radio_network->isCellularIdentifierTransparencyEnabled(serial);
-
-        ASSERT_OK(res);
-        EXPECT_EQ(std::cv_status::no_timeout, wait());
-        EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_network->rspInfo.type);
-        EXPECT_EQ(serial, radioRsp_network->rspInfo.serial);
-        ASSERT_TRUE(CheckAnyOfErrors(radioRsp_network->rspInfo.error,
-                                     {RadioError::NONE, RadioError::RADIO_NOT_AVAILABLE,
-                                      RadioError::MODEM_ERR, RadioError::REQUEST_NOT_SUPPORTED}));
         EXPECT_EQ(valueToSet, radioRsp_network->isCellularIdentifierTransparencyEnabled);
-
-        // Reset original state
-        radio_network->setCellularIdentifierTransparencyEnabled(serial,
-                                                                originalTransparencySetting);
-        EXPECT_EQ(std::cv_status::no_timeout, wait());
-        EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_network->rspInfo.type);
-        EXPECT_EQ(serial, radioRsp_network->rspInfo.serial);
     }
+
+    // Reset original state
+    radio_network->setCellularIdentifierTransparencyEnabled(serial, originalTransparencySetting);
+    EXPECT_EQ(std::cv_status::no_timeout, wait());
+    EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_network->rspInfo.type);
+    EXPECT_EQ(serial, radioRsp_network->rspInfo.serial);
 }
 
 /*
