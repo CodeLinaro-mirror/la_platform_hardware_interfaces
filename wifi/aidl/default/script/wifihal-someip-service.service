@@ -12,7 +12,7 @@ Type=simple
 ExecStartPre=/bin/sh /usr/bin/ip_config_wlan.sh vlan
 ExecStart=/usr/bin/wifihal-someip-service
 ExecStop=/bin/kill -INT $MAINPID
-Restart=on-failure
+Restart=on-abort
 
 [Install]
 WantedBy=multi-user.target
