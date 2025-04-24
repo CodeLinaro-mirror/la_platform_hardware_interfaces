@@ -66,6 +66,8 @@ IWifiChip::FeatureSetMask convertLegacyChipFeatureToAidl(uint64_t feature) {
             return IWifiChip::FeatureSetMask::SET_VOIP_MODE;
         case WIFI_FEATURE_MLO_SAP:
             return IWifiChip::FeatureSetMask::MLO_SAP;
+        case WIFI_FEATURE_MULTIPLE_MLD_ON_SAP:
+            return IWifiChip::FeatureSetMask::MULTIPLE_MLD_ON_SAP;
     };
     CHECK(false) << "Unknown legacy feature: " << feature;
     return {};
@@ -122,7 +124,8 @@ bool convertLegacyChipFeaturesToAidl(uint64_t legacy_feature_set, uint32_t* aidl
                                       WIFI_FEATURE_P2P_RAND_MAC,
                                       WIFI_FEATURE_AFC_CHANNEL,
                                       WIFI_FEATURE_SET_VOIP_MODE,
-                                      WIFI_FEATURE_MLO_SAP};
+                                      WIFI_FEATURE_MLO_SAP,
+                                      WIFI_FEATURE_MULTIPLE_MLD_ON_SAP};
     for (const auto feature : features) {
         if (feature & legacy_feature_set) {
             *aidl_feature_set |= static_cast<uint32_t>(convertLegacyChipFeatureToAidl(feature));
@@ -3895,12 +3898,13 @@ bool convertCachedScanResultToAidl(const legacy_hal::wifi_cached_scan_result& le
         return false;
     }
     *aidl_scan_result = {};
-    aidl_scan_result->timeStampInUs =
-            ts_us - (static_cast<uint64_t>(legacy_scan_result.age_ms) * 1000);
-    if (aidl_scan_result->timeStampInUs < 0) {
+    // Ensure that subtracting does not result in a negative value
+    uint64_t age_us = static_cast<uint64_t>(legacy_scan_result.age_ms) * 1000;
+    if (ts_us < age_us) {
         aidl_scan_result->timeStampInUs = 0;
         return false;
     }
+    aidl_scan_result->timeStampInUs = ts_us - age_us;
     size_t max_len_excluding_null = sizeof(legacy_scan_result.ssid) - 1;
     size_t ssid_len = strnlen((const char*)legacy_scan_result.ssid, max_len_excluding_null);
     aidl_scan_result->ssid =
