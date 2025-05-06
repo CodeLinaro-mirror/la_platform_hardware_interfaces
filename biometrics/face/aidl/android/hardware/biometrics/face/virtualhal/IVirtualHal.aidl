@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-package android.hardware.biometrics.fingerprint;
+package android.hardware.biometrics.face.virtualhal;
 
 import android.hardware.biometrics.common.SensorStrength;
-import android.hardware.biometrics.fingerprint.AcquiredInfoAndVendorCode;
-import android.hardware.biometrics.fingerprint.FingerprintSensorType;
-import android.hardware.biometrics.fingerprint.NextEnrollment;
-import android.hardware.biometrics.fingerprint.SensorLocation;
+import android.hardware.biometrics.face.FaceSensorType;
+import android.hardware.biometrics.face.IFace;
+import android.hardware.biometrics.face.virtualhal.AcquiredInfoAndVendorCode;
+import android.hardware.biometrics.face.virtualhal.NextEnrollment;
 
 /**
  * @hide
  */
-@VintfStability
-oneway interface IVirtualHal {
+interface IVirtualHal {
     /**
      * The operation failed due to invalid input parameters, the error messages should
      * gives more details
@@ -34,13 +33,13 @@ oneway interface IVirtualHal {
     const int STATUS_INVALID_PARAMETER = 1;
 
     /**
-     * Set Fingerprint Virtual HAL behavior parameters
+     * Set Face Virtual HAL behavior parameters
      */
 
     /**
      * setEnrollments
      *
-     * Set the ids of the fingerprints that were currently enrolled in the Virtual HAL,
+     * Set the ids of the faces that were currently enrolled in the Virtual HAL,
      *
      * @param ids ids can contain 1 or more ids, each must be larger than 0
      */
@@ -49,7 +48,7 @@ oneway interface IVirtualHal {
     /**
      * setEnrollmentHit
      *
-     * Set current fingerprint enrollment ids in Fingerprint Virtual HAL,
+     * Set current face enrollment ids in Face Virtual HAL,
      *
      * @param ids ids can contain 1 or more ids, each must be larger than 0
      */
@@ -67,7 +66,7 @@ oneway interface IVirtualHal {
     /**
      * setAuthenticatorId
      *
-     * Set authenticator id in virtual HAL, the id is returned in ISession#getAuthenticatorId() call
+     * Set authenticator id in virtual HAL, the id is returned in ISession#AuthenticatorId() call
      *
      * @param id authenticator id value, only applied to the sensor with SensorStrength::STRONG.
      */
@@ -116,7 +115,7 @@ oneway interface IVirtualHal {
      * setOperationAuthenticateDuration
      *
      * Set authentication duration covering the HAL authetication from start to end, including
-     * fingerprint capturing, and matching, acquired info reporting. In case a sequence of acquired
+     * face capturing, and matching, acquired info reporting. In case a sequence of acquired
      * info code are specified via setOperationAuthenticateAcquired(), the reporting is evenly
      * distributed over the duration.
      *
@@ -130,7 +129,9 @@ oneway interface IVirtualHal {
      * setOperationAuthenticateError
      *
      * Force authentication to error out for non-zero error
-     * Check hardware/interfaces/biometrics/fingerprint/aidl/default/README.md for valid error codes
+     * Check
+     * hardware/interfaces/biometrics/face/aidl/default/aidl/android/hardware/biometrics/face/Error.aidl
+     * for valid error codes
      *
      * @param error if error < 1000
      *                  non-vendor error
@@ -143,25 +144,13 @@ oneway interface IVirtualHal {
      * setOperationAuthenticateAcquired
      *
      * Set one of more acquired info codes for the virtual hal to report during authentication
-     * Check hardware/interfaces/biometrics/fingerprint/aidl/default/README.md for valid acquired
-     * info codes
+     * Check
+     * hardware/interfaces/biometrics/face/aidl/aidl/android/hardware/biometrics/face/AcquiredInfo.aidl
+     * for valid acquired info codes
      *
      * @param acquired[], one or more acquired info codes
      */
     void setOperationAuthenticateAcquired(in AcquiredInfoAndVendorCode[] acquired);
-
-    /**
-     * setOperationEnrollError
-     *
-     * Force enrollment operation to error out for non-zero error
-     * Check hardware/interfaces/biometrics/fingerprint/aidl/default/README.md for valid error codes
-     *
-     * @param error if error < 1000
-     *                  non-vendor error
-     *              else
-     *                  vendor error
-     */
-    void setOperationEnrollError(in int error);
 
     /**
      * setOperationEnrollLatency
@@ -202,42 +191,11 @@ oneway interface IVirtualHal {
     void setOperationDetectInteractionLatency(in int[] latencyMs);
 
     /**
-     * setOperationDetectInteractionError
+     * setOperationDetectInteractionFails
      *
-     * Force detect interaction operation to error out for non-zero error
-     * Check hardware/interfaces/biometrics/fingerprint/aidl/default/README.md for valid error codes
-     *
-     * @param error if error < 1000
-     *                  non-vendor error
-     *              else
-     *                  vendor error
+     * Force detect interaction operation to fail
      */
-    void setOperationDetectInteractionError(in int error);
-
-    /**
-     * setOperationDetectInteractionDuration
-     *
-     * Set detect interaction duration covering the HAL authetication from start to end, including
-     * fingerprint detect and acquired info reporting. In case a sequence of acquired info code are
-     * specified via setOperationDetectInteractionAcquired(), the reporting is evenly distributed
-     * over the duration.
-     *
-     * This method fails with STATUS_INVALID_PARAMETERS if the passed-in value is negative
-     *
-     * @param duration  value is in milli-seconds
-     */
-    void setOperationDetectInteractionDuration(in int durationMs);
-
-    /**
-     * setOperationDetectInteractionAcquired
-     *
-     * Set one of more acquired info codes for the virtual hal to report during detect interaction
-     * Check hardware/interfaces/biometrics/fingerprint/aidl/default/README.md for valid acquired
-     * info codes
-     *
-     * @param acquired[], one or more acquired info codes
-     */
-    void setOperationDetectInteractionAcquired(in AcquiredInfoAndVendorCode[] acquired);
+    void setOperationDetectInteractionFails(in boolean error);
 
     /**
      * setLockout
@@ -259,6 +217,15 @@ oneway interface IVirtualHal {
      * @param enable, set true to enable the lockout tracking
      */
     void setLockoutEnable(in boolean enable);
+
+    /**
+     * setLockoutTimedEnable
+     *
+     * Whether to enable authentication-fail-based time-based-lockout tracking or not.
+     *
+     * @param enable, set true to enable the time-basedlockout tracking
+     */
+    void setLockoutTimedEnable(in boolean enable);
 
     /**
      * setLockoutTimedThreshold
@@ -303,16 +270,28 @@ oneway interface IVirtualHal {
     void resetConfigurations();
 
     /**
-     * The following functions are used to configure Fingerprint Virtual HAL sensor properties
-     *  refer to SensorProps.aidl and CommonProps.aidl for details of each property
+     * setType
+     *
+     * Configure virtual face sensor type
+     *
+     * @param type, sensor type as specified in FaceSensorType.aidl
+     *
      */
-    void setType(in FingerprintSensorType type);
-    void setSensorId(in int id);
+    void setType(in FaceSensorType type);
+
+    /**
+     *  setSensorStrength
+     *
+     *  Configure virtual face sensor strength
+     *
+     * @param sensor strength as specified in common/SensorStrength.aidl
+     */
     void setSensorStrength(in SensorStrength strength);
-    void setMaxEnrollmentPerUser(in int max);
-    void setSensorLocation(in SensorLocation loc);
-    void setNavigationGuesture(in boolean v);
-    void setDetectInteraction(in boolean v);
-    void setDisplayTouch(in boolean v);
-    void setControlIllumination(in boolean v);
+
+    /**
+     * getFaceHal
+     *
+     * @return IFace interface associated with IVirtualHal instance
+     */
+    IFace getFaceHal();
 }
