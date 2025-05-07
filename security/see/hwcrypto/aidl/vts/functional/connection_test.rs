@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The Android Open Source Project
+ * Copyright (C) 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,10 @@
  * limitations under the License.
  */
 
-#include <fuzzbinder/libbinder_ndk_driver.h>
-#include <fuzzer/FuzzedDataProvider.h>
+//! HwCrypto Connection tests.
 
-#include "BluetoothHci.h"
-
-using aidl::android::hardware::bluetooth::impl::BluetoothHci;
-using android::fuzzService;
-using ndk::SharedRefBase;
-
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
-  auto service = SharedRefBase::make<BluetoothHci>();
-
-  fuzzService(service->asBinder().get(), FuzzedDataProvider(data, size));
-
-  return 0;
+#[test]
+fn test_hwcrypto_key_connection() {
+    let hw_crypto_key = hwcryptohal_vts_test::get_hwcryptokey();
+    assert!(hw_crypto_key.is_ok(), "Couldn't get back a hwcryptokey binder object");
 }

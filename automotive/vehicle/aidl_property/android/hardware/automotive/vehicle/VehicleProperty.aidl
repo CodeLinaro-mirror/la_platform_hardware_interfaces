@@ -432,9 +432,17 @@ enum VehicleProperty {
     /**
      * Engine oil level
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleOilLevel are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleOilLevel
+     * @require_supported_values_list
      * @version 2
      */
     ENGINE_OIL_LEVEL = 0x0303 + 0x10000000 + 0x01000000
@@ -1046,9 +1054,17 @@ enum VehicleProperty {
     /**
      * Represents ignition state
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleIgnitionState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleIgnitionState
+     * @require_supported_values_list
      * @version 2
      */
     IGNITION_STATE = 0x0409 + 0x10000000 + 0x01000000
@@ -1174,10 +1190,19 @@ enum VehicleProperty {
      *
      * This property is a replacement to the TURN_SIGNAL_STATE property, which is now deprecated.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * to list all supported combinations of VehicleTurnSignal unless all combinations are
+     * supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleTurnSignal
      * @data_enum_bit_flags
+     * @require_supported_values_list
      * @version 4
      */
     TURN_SIGNAL_LIGHT_STATE =
@@ -1196,10 +1221,18 @@ enum VehicleProperty {
      * This property is defined as VehiclePropertyAccess.READ_WRITE, but OEMs have the option to
      * implement it as VehiclePropertyAccess.READ only.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleTurnSignal are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ_WRITE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleTurnSignal
+     * @require_supported_values_list
      * @version 4
      */
     TURN_SIGNAL_SWITCH =
@@ -1284,7 +1317,7 @@ enum VehicleProperty {
     HVAC_FAN_SPEED = 0x0500 + 0x10000000 + 0x05000000
             + 0x00400000, // VehiclePropertyGroup:SYSTEM,VehicleArea:SEAT,VehiclePropertyType:INT32
     /**
-     * Fan direction setting
+     * The current HVAC fan direction setting
      *
      * This property is defined as VehiclePropertyAccess.READ_WRITE, but OEMs have the option to
      * implement it as VehiclePropertyAccess.READ only.
@@ -1292,6 +1325,9 @@ enum VehicleProperty {
      * The supported hvac fan direction is exposed through {@code HVAC_FAN_DIRECTION_AVAILABLE}
      * property. Caller should not call {@code getSupportedValuesList}, or use
      * {@code VehicleAreaConfig#supportedEnumValues}.
+     *
+     * This property must be supported if {@code HVAC_FAN_DIRECTION_AVAILABLE} is implemented
+     * on the vehicle, and vice versa.
      *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ_WRITE
@@ -1737,10 +1773,10 @@ enum VehicleProperty {
     HVAC_POWER_ON = 0x0510 + 0x10000000 + 0x05000000
             + 0x00200000, // VehiclePropertyGroup:SYSTEM,VehicleArea:SEAT,VehiclePropertyType:BOOLEAN
     /**
-     * Fan Positions Available
+     * List of supported fan directions in the vehicle.
      *
-     * This is a bit mask of fan positions available for the zone.  Each
-     * available fan direction is denoted by a separate entry in the vector.  A
+     * This is a bit mask of the supported fan positions available each area ID.  Each
+     * supported fan direction is denoted by a separate entry in the vector.  A
      * fan direction may have multiple bits from vehicle_hvac_fan_direction set.
      * For instance, a typical car may have the following fan positions:
      *   - FAN_DIRECTION_FACE (0x1)
@@ -1748,6 +1784,9 @@ enum VehicleProperty {
      *   - FAN_DIRECTION_FACE | FAN_DIRECTION_FLOOR (0x3)
      *   - FAN_DIRECTION_DEFROST (0x4)
      *   - FAN_DIRECTION_FLOOR | FAN_DIRECTION_DEFROST (0x6)
+     *
+     * This property must be supported if {@code #HVAC_FAN_DIRECTION} is implemented on the vehicle,
+     * and vice versa.
      *
      * @change_mode VehiclePropertyChangeMode.STATIC
      * @access VehiclePropertyAccess.READ
@@ -4171,9 +4210,17 @@ enum VehicleProperty {
      * Indicates whether a particular seat is occupied or not, to the best of the car's ability
      * to determine. Valid values are from the VehicleSeatOccupancyState enum.
      *
+     * For each supported area ID, the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleSeatOccupancyState (including UNKNOWN) are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for a specifc area ID:
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleSeatOccupancyState
+     * @require_supported_values_list
      * @version 2
      */
     SEAT_OCCUPANCY = 0x0BB0 + 0x10000000 + 0x05000000
@@ -4977,9 +5024,17 @@ enum VehicleProperty {
      *
      * Return the current state of headlights.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightState
+     * @require_supported_values_list
      * @version 2
      */
     HEADLIGHTS_STATE = 0x0E00 + 0x10000000 + 0x01000000
@@ -4989,9 +5044,17 @@ enum VehicleProperty {
      *
      * Return the current state of high beam lights.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightState
+     * @require_supported_values_list
      * @version 2
      */
     HIGH_BEAM_LIGHTS_STATE = 0x0E01 + 0x10000000 + 0x01000000
@@ -5017,9 +5080,17 @@ enum VehicleProperty {
      * Only one of FOG_LIGHTS_STATE or REAR_FOG_LIGHTS_STATE must be implemented and not both.
      * FRONT_FOG_LIGHTS_STATE must not be implemented.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightState
+     * @require_supported_values_list
      * @version 2
      */
     FOG_LIGHTS_STATE = 0x0E02 + 0x10000000 + 0x01000000
@@ -5029,9 +5100,17 @@ enum VehicleProperty {
      *
      * Return the current status of hazard lights.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightState
+     * @require_supported_values_list
      * @version 2
      */
     HAZARD_LIGHTS_STATE = 0x0E03 + 0x10000000 + 0x01000000
@@ -5041,6 +5120,13 @@ enum VehicleProperty {
      *
      * The setting that the user wants.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightSwitch are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * This property is defined as VehiclePropertyAccess.READ_WRITE, but OEMs have the option to
      * implement it as VehiclePropertyAccess.READ only.
      *
@@ -5048,6 +5134,7 @@ enum VehicleProperty {
      * @access VehiclePropertyAccess.READ_WRITE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightSwitch
+     * @require_supported_values_list
      * @version 2
      */
     HEADLIGHTS_SWITCH = 0x0E10 + 0x10000000 + 0x01000000
@@ -5057,6 +5144,13 @@ enum VehicleProperty {
      *
      * The setting that the user wants.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightSwitch are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * This property is defined as VehiclePropertyAccess.READ_WRITE, but OEMs have the option to
      * implement it as VehiclePropertyAccess.READ only.
      *
@@ -5064,6 +5158,7 @@ enum VehicleProperty {
      * @access VehiclePropertyAccess.READ_WRITE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightSwitch
+     * @require_supported_values_list
      * @version 2
      */
     HIGH_BEAM_LIGHTS_SWITCH = 0x0E11 + 0x10000000 + 0x01000000
@@ -5089,6 +5184,13 @@ enum VehicleProperty {
      * Only one of FOG_LIGHTS_SWITCH or REAR_FOG_LIGHTS_SWITCH must be implemented and not both.
      * FRONT_FOG_LIGHTS_SWITCH must not be implemented.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightSwitch are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * This property is defined as VehiclePropertyAccess.READ_WRITE, but OEMs have the option to
      * implement it as VehiclePropertyAccess.READ only.
      *
@@ -5096,6 +5198,7 @@ enum VehicleProperty {
      * @access VehiclePropertyAccess.READ_WRITE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightSwitch
+     * @require_supported_values_list
      * @version 2
      */
     FOG_LIGHTS_SWITCH = 0x0E12 + 0x10000000 + 0x01000000
@@ -5105,6 +5208,13 @@ enum VehicleProperty {
      *
      * The setting that the user wants.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightSwitch are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * This property is defined as VehiclePropertyAccess.READ_WRITE, but OEMs have the option to
      * implement it as VehiclePropertyAccess.READ only.
      *
@@ -5112,6 +5222,7 @@ enum VehicleProperty {
      * @access VehiclePropertyAccess.READ_WRITE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightSwitch
+     * @require_supported_values_list
      * @version 2
      */
     HAZARD_LIGHTS_SWITCH = 0x0E13 + 0x10000000 + 0x01000000
@@ -5121,9 +5232,17 @@ enum VehicleProperty {
      *
      * Return current status of cabin lights.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightState
+     * @require_supported_values_list
      * @version 2
      */
     CABIN_LIGHTS_STATE = 0x0F01 + 0x10000000 + 0x01000000
@@ -5136,6 +5255,13 @@ enum VehicleProperty {
      * is open or because of a voice command.
      * For example, while the switch is in the "off" or "automatic" position.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightSwitch are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * This property is defined as VehiclePropertyAccess.READ_WRITE, but OEMs have the option to
      * implement it as VehiclePropertyAccess.READ only.
      *
@@ -5143,6 +5269,7 @@ enum VehicleProperty {
      * @access VehiclePropertyAccess.READ_WRITE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightSwitch
+     * @require_supported_values_list
      * @version 2
      */
     CABIN_LIGHTS_SWITCH = 0x0F02 + 0x10000000 + 0x01000000
@@ -5152,9 +5279,17 @@ enum VehicleProperty {
      *
      * Return current status of reading lights.
      *
+     * For each supported area ID, the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for a specifc area ID:
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightState
+     * @require_supported_values_list
      * @version 2
      */
     READING_LIGHTS_STATE = 0x0F03 + 0x10000000 + 0x05000000
@@ -5167,6 +5302,13 @@ enum VehicleProperty {
      * is open or because of a voice command.
      * For example, while the switch is in the "off" or "automatic" position.
      *
+     * For each supported area ID, the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightSwitch are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for a specifc area ID:
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * This property is defined as VehiclePropertyAccess.READ_WRITE, but OEMs have the option to
      * implement it as VehiclePropertyAccess.READ only.
      *
@@ -5174,6 +5316,7 @@ enum VehicleProperty {
      * @access VehiclePropertyAccess.READ_WRITE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightSwitch
+     * @require_supported_values_list
      * @version 2
      */
     READING_LIGHTS_SWITCH = 0x0F04 + 0x10000000 + 0x05000000
@@ -5874,9 +6017,17 @@ enum VehicleProperty {
      * If the head unit is aware of an ETC card attached to the vehicle, this property should
      * return the type of card attached; otherwise, this property should be UNAVAILABLE.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in ElectronicTollCollectionCardType are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum ElectronicTollCollectionCardType
+     * @require_supported_values_list
      * @version 2
      */
     ELECTRONIC_TOLL_COLLECTION_CARD_TYPE = 0x0F39 + 0x10000000 + 0x01000000
@@ -5889,9 +6040,17 @@ enum VehicleProperty {
      * ELECTRONIC_TOLL_COLLECTION_CARD_TYPE gives that status of the card; otherwise,
      * this property should be UNAVAILABLE.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in ElectronicTollCollectionCardStatus are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum ElectronicTollCollectionCardStatus
+     * @require_supported_values_list
      * @version 2
      */
     ELECTRONIC_TOLL_COLLECTION_CARD_STATUS = 0x0F3A + 0x10000000 + 0x01000000
@@ -5903,9 +6062,17 @@ enum VehicleProperty {
      * Only one of FOG_LIGHTS_STATE or FRONT_FOG_LIGHTS_STATE must be implemented. Please refer to
      * the documentation on FOG_LIGHTS_STATE for more information.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightState
+     * @require_supported_values_list
      * @version 2
      */
     FRONT_FOG_LIGHTS_STATE = 0x0F3B + 0x10000000 + 0x01000000
@@ -5918,6 +6085,13 @@ enum VehicleProperty {
      * Only one of FOG_LIGHTS_SWITCH or FRONT_FOG_LIGHTS_SWITCH must be implemented. Please refer to
      * the documentation on FOG_LIGHTS_SWITCH for more information.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightSwitch are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * This property is defined as VehiclePropertyAccess.READ_WRITE, but OEMs have the option to
      * implement it as VehiclePropertyAccess.READ only.
      *
@@ -5925,6 +6099,7 @@ enum VehicleProperty {
      * @access VehiclePropertyAccess.READ_WRITE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightSwitch
+     * @require_supported_values_list
      * @version 2
      */
     FRONT_FOG_LIGHTS_SWITCH = 0x0F3C + 0x10000000 + 0x01000000
@@ -5937,9 +6112,17 @@ enum VehicleProperty {
      * Only one of FOG_LIGHTS_STATE or REAR_FOG_LIGHTS_STATE must be implemented. Please refer to
      * the documentation on FOG_LIGHTS_STATE for more information.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightState
+     * @require_supported_values_list
      * @version 2
      */
     REAR_FOG_LIGHTS_STATE = 0x0F3D + 0x10000000 + 0x01000000
@@ -5952,6 +6135,13 @@ enum VehicleProperty {
      * Only one of FOG_LIGHTS_SWITCH or REAR_FOG_LIGHTS_SWITCH must be implemented. Please refer to
      * the documentation on FOG_LIGHTS_SWITCH for more information.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in VehicleLightSwitch are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * This property is defined as VehiclePropertyAccess.READ_WRITE, but OEMs have the option to
      * implement it as VehiclePropertyAccess.READ only.
      *
@@ -5959,13 +6149,14 @@ enum VehicleProperty {
      * @access VehiclePropertyAccess.READ_WRITE
      * @access VehiclePropertyAccess.READ
      * @data_enum VehicleLightSwitch
+     * @require_supported_values_list
      * @version 2
      */
     REAR_FOG_LIGHTS_SWITCH = 0x0F3E + 0x10000000 + 0x01000000
             + 0x00400000, // VehiclePropertyGroup:SYSTEM,VehicleArea:GLOBAL,VehiclePropertyType:INT32
 
     /**
-     * Indicates the maximum current draw threshold for charging set by the user
+     * The vehicle's selected alternating current (AC) EV charging draw limit in Amperes.
      *
      * configArray[0] is used to specify the max current draw allowed by the vehicle in Amperes at
      * boot time.
@@ -6037,9 +6228,17 @@ enum VehicleProperty {
      * EvChargeState::STATE_FULLY_CHARGED when the battery charge level has reached the target
      * level. See EV_CHARGE_PERCENT_LIMIT for more context.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in EvChargeState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum EvChargeState
+     * @require_supported_values_list
      * @version 2
      */
     EV_CHARGE_STATE = 0x0F41 + 0x10000000 + 0x01000000
@@ -6084,9 +6283,17 @@ enum VehicleProperty {
      * EV_BRAKE_REGENERATION_LEVEL property can be used instead, which provides a more granular
      * way of providing the same information.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in EvRegenerativeBrakingState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum EvRegenerativeBrakingState
+     * @require_supported_values_list
      * @version 2
      */
     EV_REGENERATIVE_BRAKING_STATE = 0x0F44 + 0x10000000 + 0x01000000
@@ -6097,9 +6304,17 @@ enum VehicleProperty {
      *
      * Returns the trailer state of the car.
      *
+     * For the global area ID (0), the VehicleAreaConfig#supportedEnumValues array must be defined
+     * unless all states in TrailerState are supported.
+     *
+     * If {@code HasSupportedValueInfo} is not {@code null} for the global area ID (0):
+     * {@code HasSupportedValueInfo#hasSupportedValuesList} must be {@code true}.
+     * At boot, supportedEnumValues (if defined) is equal to the supported values list.
+     *
      * @change_mode VehiclePropertyChangeMode.ON_CHANGE
      * @access VehiclePropertyAccess.READ
      * @data_enum TrailerState
+     * @require_supported_values_list
      * @version 2
      */
     TRAILER_PRESENT = 0x0F45 + 0x10000000 + 0x01000000

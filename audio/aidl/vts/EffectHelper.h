@@ -88,6 +88,7 @@ static constexpr float kMaxAudioSampleValue = 1;
 static constexpr int kNPointFFT = 16384;
 static constexpr int kSamplingFrequency = 44100;
 static constexpr int kDefaultChannelLayout = AudioChannelLayout::LAYOUT_STEREO;
+static constexpr float kLn10Div20 = -0.11512925f;  // -ln(10)/20
 
 class EffectHelper {
   public:
@@ -520,9 +521,10 @@ class EffectHelper {
                 << "The input(buffer) size must be greater than or equal to nPointFFT";
         bufferMag.resize(binOffsets.size());
         std::vector<float> fftInput(nPointFFT);
-        PFFFT_Setup* inputHandle = pffft_new_setup(nPointFFT, PFFFT_REAL);
+        pffft::detail::PFFFT_Setup* inputHandle =
+                pffft_new_setup(nPointFFT, pffft::detail::PFFFT_REAL);
         pffft_transform_ordered(inputHandle, buffer.data(), fftInput.data(), nullptr,
-                                PFFFT_FORWARD);
+                                pffft::detail::PFFFT_FORWARD);
         pffft_destroy_setup(inputHandle);
         for (size_t i = 0; i < binOffsets.size(); i++) {
             size_t k = binOffsets[i];
@@ -593,6 +595,8 @@ class EffectHelper {
             input[i] = sin(2 * M_PI * inputFrequency * i / samplingFrequency);
         }
     }
+
+    constexpr float dBToAmplitude(float dB) { return std::exp(dB * kLn10Div20); }
 
     static int getHalVersion(const std::shared_ptr<IEffect>& effect) {
         int version = 0;
