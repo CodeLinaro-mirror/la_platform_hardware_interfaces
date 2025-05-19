@@ -14,10 +14,21 @@
  * limitations under the License.
  */
 
-//! HwCrypto Connection tests.
+#include <libminradio/RadioSlotBase.h>
 
-#[test]
-fn test_hwcrypto_key_connection() {
-    let hw_crypto_key = hwcryptohal_vts_test::get_hwcryptokey();
-    assert!(hw_crypto_key.is_ok(), "Couldn't get back a hwcryptokey binder object");
+namespace android::hardware::radio::minimal {
+
+RadioSlotBase::RadioSlotBase(std::shared_ptr<SlotContext> context) : mContext(context) {}
+
+void RadioSlotBase::setResponseFunctionsBase() {
+    mHasResponseFunctions = true;
+    if (mContext->isConnected()) onUpdatedResponseFunctions();
 }
+
+void RadioSlotBase::onUpdatedResponseFunctions() {}
+
+void RadioSlotBase::onConnected() {
+    if (mHasResponseFunctions) setResponseFunctionsBase();
+}
+
+}  // namespace android::hardware::radio::minimal
