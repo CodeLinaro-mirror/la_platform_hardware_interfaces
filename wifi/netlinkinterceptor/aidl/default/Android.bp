@@ -34,6 +34,8 @@ cc_binary {
         "android.hardware.net.nlinterceptor-V1-ndk",
         "libbase",
         "libbinder_ndk",
+        "libcutils",
+        "libqti_nlinterceptor_rpc_impl",
     ],
     static_libs: [
         "libnlinterceptor",
