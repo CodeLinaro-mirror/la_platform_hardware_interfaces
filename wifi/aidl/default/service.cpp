@@ -12,6 +12,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under
+ * the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <android-base/logging.h>
@@ -27,7 +33,9 @@
 #include "wifi_legacy_hal_factory.h"
 #include "wifi_mode_controller.h"
 
+#ifdef WIFI_RPC
 #include "wifi_api.h"
+#endif
 
 using aidl::android::hardware::wifi::feature_flags::WifiFeatureFlags;
 using aidl::android::hardware::wifi::legacy_hal::WifiLegacyHal;
@@ -41,32 +49,6 @@ const bool kLazyService = true;
 const bool kLazyService = false;
 #endif
 
-static std::shared_ptr<BnWifi> create_wifi_service()
-{
-
-    if (property_get_bool("persist.vendor.wlan.hal.rpc", false)){
-        return createWifiRpc();
-    }
-
-    const auto iface_tool = std::make_shared<::android::wifi_system::InterfaceTool>();
-    const auto legacy_hal_factory = std::make_shared<WifiLegacyHalFactory>(iface_tool);
-    const auto mode_controller = std::make_shared<WifiModeController>();
-    const auto feature_flags = std::make_shared<WifiFeatureFlags>();
-
-    return ndk::SharedRefBase::make<aidl::android::hardware::wifi::Wifi>(
-            iface_tool, legacy_hal_factory, mode_controller, feature_flags);
-
-}
-
-static void  waitConnectionAvailableBeforeRegisterService()
-{
-   if (property_get_bool("persist.vendor.wlan.hal.rpc", false)) {
-       while (!isWifiSomeIPConnectionAvailable()) {
-            //do nothing, just wait if SOME/IP connection is unavailable
-       }
-   }
-}
-
 int main(int /*argc*/, char** argv) {
     signal(SIGPIPE, SIG_IGN);
     android::base::InitLogging(argv, android::base::LogdLogger(android::base::SYSTEM));
@@ -76,12 +58,26 @@ int main(int /*argc*/, char** argv) {
     // which our main thread will join below.
     ABinderProcess_setThreadPoolMaxThreadCount(1);
 
-    std::shared_ptr<aidl::android::hardware::wifi::BnWifi> service = create_wifi_service();
+    const auto iface_tool = std::make_shared<::android::wifi_system::InterfaceTool>();
+    const auto legacy_hal_factory = std::make_shared<WifiLegacyHalFactory>(iface_tool);
 
+    // Setup binder service
+    std::shared_ptr<aidl::android::hardware::wifi::Wifi> service =
+            ndk::SharedRefBase::make<aidl::android::hardware::wifi::Wifi>(
+                    iface_tool, legacy_hal_factory, std::make_shared<WifiModeController>(),
+                    std::make_shared<WifiFeatureFlags>());
     std::string instance =
             std::string() + aidl::android::hardware::wifi::Wifi::descriptor + "/default";
 
-    waitConnectionAvailableBeforeRegisterService();
+#ifdef WIFI_RPC
+    if (property_get_bool("persist.vendor.wlan.hal.rpc", false)) {
+        if (!wifiRpcServiceStart()) {
+            LOG(ERROR) << "Wifi Hal RPC service fail to start";
+            return 0;
+        }
+        goto Loop;
+    }
+#endif
 
     if (kLazyService) {
         auto result =
@@ -92,6 +88,7 @@ int main(int /*argc*/, char** argv) {
         CHECK_EQ(result, STATUS_OK) << "Failed to register wifi HAL";
     }
 
+Loop:
     ABinderProcess_startThreadPool();
     LOG(INFO) << "Joining RPC thread pool";
     ABinderProcess_joinThreadPool();
