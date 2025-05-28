@@ -26,7 +26,9 @@
 #include <cutils/properties.h>
 
 #include "NetlinkInterceptor.h"
+#ifdef WIFI_RPC
 #include "NetlinkInterceptorRpc.h"
+#endif
 
 namespace android::nlinterceptor {
 using namespace std::string_literals;
@@ -38,9 +40,12 @@ static void service() {
     LOG(DEBUG) << "Netlink Interceptor service starting...";
     std::shared_ptr<BnInterceptor> interceptor;
 
+#ifdef WIFI_RPC
     if (property_get_bool("persist.vendor.wlan.hal.rpc", false)) {
         interceptor = ndk::SharedRefBase::make<NetlinkInterceptorRpc>();
-    } else {
+    } else
+#endif
+    {
         // TODO(202549296): Sometimes this causes an Address Sanitizer error.
         interceptor = ndk::SharedRefBase::make<NetlinkInterceptor>();
     }
