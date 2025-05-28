@@ -133,6 +133,7 @@ cc_binary {
         "libwifi-system-iface",
         "libxml2",
         "android.hardware.wifi-V1-ndk",
+        "libqti_wifihal_rpc_impl",
     ],
     static_libs: ["android.hardware.wifi-service-lib"],
     init_rc: ["android.hardware.wifi-service.rc"],
@@ -162,6 +163,7 @@ cc_binary {
         "libwifi-system-iface",
         "libxml2",
         "android.hardware.wifi-V1-ndk",
+        "libqti_wifihal_rpc_impl",
     ],
     static_libs: ["android.hardware.wifi-service-lib"],
     init_rc: ["android.hardware.wifi-service-lazy.rc"],
@@ -204,6 +206,7 @@ cc_test {
         "libutils",
         "libwifi-hal",
         "libwifi-system-iface",
+        "libqti_wifihal_rpc_impl",
     ],
 }
 
