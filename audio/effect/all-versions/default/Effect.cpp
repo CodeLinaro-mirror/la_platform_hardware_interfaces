@@ -917,6 +917,7 @@ Return<void> Effect::getDescriptor(getDescriptor_cb _hidl_cb) {
 
 Return<void> Effect::command(uint32_t commandId, const hidl_vec<uint8_t>& data,
                              uint32_t resultMaxSize, command_cb _hidl_cb) {
+    std::lock_guard<std::mutex> lock(mLock);
     if (mHandle == kInvalidEffectHandle) {
         _hidl_cb(-ENODATA, hidl_vec<uint8_t>());
         return Void();
@@ -941,7 +942,6 @@ Return<void> Effect::command(uint32_t commandId, const hidl_vec<uint8_t>& data,
             [[fallthrough]];  // allow 'gtid' overload (checked halDataSize and resultMaxSize).
         default:
             {
-                std::lock_guard<std::mutex> lock(mLock);
                 if (mHandle == kInvalidEffectHandle) {
                     _hidl_cb(-ENODATA, hidl_vec<uint8_t>());
                     return Void();
