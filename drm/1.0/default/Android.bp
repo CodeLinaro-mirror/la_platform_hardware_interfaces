@@ -64,6 +64,16 @@ android_hardware_drm_1_0_multilib {
     },
 }
 
+soong_config_module_type {
+    name: "drm_service_cc_binary",
+    module_type: "cc_binary",
+    config_namespace: "qcomfeatureconfig",
+    bool_variables: ["iotlowram"],
+    properties: [
+        "init_rc",
+    ],
+}
+
 android_hardware_drm_1_0_multilib {
     name: "android.hardware.drm@1.0-multilib-exe",
     compile_multilib: "prefer32",
@@ -95,13 +105,20 @@ cc_defaults {
 
 //############ Build legacy drm service ############
 
-cc_binary {
+drm_service_cc_binary {
     name: "android.hardware.drm@1.0-service",
     defaults: [
         "android.hardware.drm@1.0-multilib-exe",
         "android.hardware.drm@1.0-service-defaults",
     ],
-    init_rc: ["android.hardware.drm@1.0-service.rc"],
+    soong_config_variables: {
+        iotlowram: {
+            init_rc: ["android.hardware.drm@1.0-service-disabled.rc"],
+            conditions_default: {
+                init_rc: ["android.hardware.drm@1.0-service.rc"],
+            },
+        },
+    },
     srcs: ["service.cpp"],
 }
 
