@@ -19,21 +19,26 @@
 #include <mutex>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "core-impl/DriverStubImpl.h"
 #include "core-impl/Stream.h"
 
 namespace aidl::android::hardware::audio::core {
 
+namespace offload {
+
 struct DspSimulatorState {
+    static constexpr int64_t kSkipBufferNotifyFrames = -1;
+
     const std::string formatEncoding;
     const int sampleRate;
     const int64_t earlyNotifyFrames;
-    const int64_t bufferNotifyFrames;
     DriverCallbackInterface* callback = nullptr;  // set before starting DSP worker
     std::mutex lock;
     std::vector<int64_t> clipFramesLeft GUARDED_BY(lock);
-    int64_t bufferFramesLeft GUARDED_BY(lock);
+    int64_t bufferFramesLeft GUARDED_BY(lock) = 0;
+    int64_t bufferNotifyFrames GUARDED_BY(lock) = kSkipBufferNotifyFrames;
 };
 
 class DspSimulatorLogic : public ::android::hardware::audio::common::StreamLogic {
@@ -53,20 +58,26 @@ class DspSimulatorWorker
         : ::android::hardware::audio::common::StreamWorker<DspSimulatorLogic>(sharedState) {}
 };
 
+}  // namespace offload
+
 class DriverOffloadStubImpl : public DriverStubImpl {
   public:
-    DriverOffloadStubImpl(const StreamContext& context);
+    explicit DriverOffloadStubImpl(const StreamContext& context);
     ::android::status_t init(DriverCallbackInterface* callback) override;
     ::android::status_t drain(StreamDescriptor::DrainMode drainMode) override;
     ::android::status_t flush() override;
     ::android::status_t pause() override;
+    ::android::status_t start() override;
     ::android::status_t transfer(void* buffer, size_t frameCount, size_t* actualFrameCount,
                                  int32_t* latencyMs) override;
     void shutdown() override;
 
   private:
-    DspSimulatorState mState;
-    DspSimulatorWorker mDspWorker;
+    ::android::status_t startWorkerIfNeeded();
+
+    const int64_t mBufferNotifyFrames;
+    offload::DspSimulatorState mState;
+    offload::DspSimulatorWorker mDspWorker;
     bool mDspWorkerStarted = false;
 };
 
