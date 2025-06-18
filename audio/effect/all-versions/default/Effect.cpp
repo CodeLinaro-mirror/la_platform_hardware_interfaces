@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <memory.h>
@@ -909,6 +913,11 @@ Return<void> Effect::getDescriptor(getDescriptor_cb _hidl_cb) {
 
 Return<void> Effect::command(uint32_t commandId, const hidl_vec<uint8_t>& data,
                              uint32_t resultMaxSize, command_cb _hidl_cb) {
+    std::lock_guard<std::mutex> lock(mLock);
+    if (mHandle == kInvalidEffectHandle) {
+        _hidl_cb(-ENODATA, hidl_vec<uint8_t>());
+        return Void();
+    }
     uint32_t halDataSize;
     std::unique_ptr<uint8_t[]> halData = hidlVecToHal(data, &halDataSize);
     uint32_t halResultSize = resultMaxSize;
@@ -929,7 +938,6 @@ Return<void> Effect::command(uint32_t commandId, const hidl_vec<uint8_t>& data,
             [[fallthrough]];  // allow 'gtid' overload (checked halDataSize and resultMaxSize).
         default:
             {
-                std::lock_guard<std::mutex> lock(mLock);
                 if (mHandle == kInvalidEffectHandle) {
                     _hidl_cb(-ENODATA, hidl_vec<uint8_t>());
                     return Void();
