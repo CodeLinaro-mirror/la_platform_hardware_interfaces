@@ -25,6 +25,7 @@
 
 #include "Utils.h"
 #include "core-impl/utils.h"
+#include <cutils/properties.h>
 
 using aidl::android::hardware::audio::common::getChannelCount;
 using aidl::android::media::audio::common::AudioChannelLayout;
@@ -309,11 +310,29 @@ DeviceProxy openProxyForExternalDevice(const DeviceProfile& deviceProfile,
     if (proxy.get() == nullptr) {
         return proxy;
     }
-    if (int err = proxy_prepare(proxy.get(), proxy.getProfile(), pcmConfig, requireExactMatch);
+    if (property_get_bool("vendor.audio.gaming.enabled", false /* default_value */)) {
+        // build this to hand to the alsa_device_proxy
+        struct pcm_config proxy_config = {};
+        proxy_config.format = pcmConfig->format;
+        proxy_config.rate = pcmConfig->rate;
+        proxy_config.channels = pcmConfig->channels;;
+        // Validate the "logical" channel count against support in the "actual" profile.
+        // if they differ, choose the "actual" number of channels *closest* to the "logical".
+        // and store THAT in proxy_config.channels
+        proxy_config.channels = profile_get_closest_channel_count(proxy.getProfile(), proxy_config.channels);
+        if (int err = proxy_prepare(proxy.get(), proxy.getProfile(), &proxy_config, requireExactMatch);
         err != 0) {
-        LOG(ERROR) << __func__ << ": fail to prepare for device address=" << deviceProfile
-                   << " error=" << err;
-        return DeviceProxy();
+            LOG(ERROR) << __func__ << ": fail to prepare for device address=" << deviceProfile
+                       << " error=" << err;
+            return DeviceProxy();
+        }
+    } else {
+        if (int err = proxy_prepare(proxy.get(), proxy.getProfile(), pcmConfig, requireExactMatch);
+        err != 0) {
+             LOG(ERROR) << __func__ << ": fail to prepare for device address=" << deviceProfile
+                       << " error=" << err;
+            return DeviceProxy();
+        }
     }
     if (int err = proxy_open(proxy.get()); err != 0) {
         LOG(ERROR) << __func__ << ": failed to open device, address=" << deviceProfile

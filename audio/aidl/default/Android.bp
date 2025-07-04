@@ -114,6 +114,9 @@ cc_library {
         "-Wthread-safety",
         "-DBACKEND_NDK",
     ],
+    header_libs: [
+        "libhardware_headers",
+    ],
 }
 
 cc_binary {

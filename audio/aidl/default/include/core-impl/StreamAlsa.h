@@ -56,6 +56,10 @@ class StreamAlsa : public StreamCommonImpl {
     const int mReadWriteRetries;
     // All fields below are only used on the worker thread.
     std::vector<alsa::DeviceProxy> mAlsaDeviceProxies;
+    size_t split_audio_haptic_data(void* buffer, size_t bytesToTransfer);
+    void* mHaptic_Buffer = NULL;
+    int mHaptic_Buffer_Size = 0;
+    enum USB_DEVICE_TYPE : int { HAPTIC=1, AUDIO };
 };
 
 }  // namespace aidl::android::hardware::audio::core
