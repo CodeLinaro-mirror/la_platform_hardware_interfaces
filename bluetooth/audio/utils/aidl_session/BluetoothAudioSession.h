@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #pragma once
@@ -24,6 +29,7 @@
 #include <aidl/android/hardware/bluetooth/audio/SessionType.h>
 #include <fmq/AidlMessageQueue.h>
 
+#include <functional>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
@@ -109,7 +115,7 @@ struct PortStatusCallbacks {
 
 class BluetoothAudioSession {
  public:
-  BluetoothAudioSession(const SessionType& session_type);
+  BluetoothAudioSession(const SessionType& session_type, uint8_t index = 0);
 
   /***
    * The function helps to check if this session is ready or not
@@ -159,7 +165,7 @@ class BluetoothAudioSession {
    * The control function is for the bluetooth_audio module to get the current
    * AudioConfiguration
    ***/
-  const AudioConfiguration GetAudioConfig();
+  const AudioConfiguration GetAudioConfig(bool is_dual = false);
 
   /***
    * The report function is used to report that the Bluetooth stack has notified
@@ -199,7 +205,10 @@ class BluetoothAudioSession {
   size_t InReadPcmData(void* buffer, size_t bytes);
 
   // Return if IBluetoothAudioProviderFactory implementation existed
-  static bool IsAidlAvailable();
+  bool IsAidlAvailableInternal();
+  static bool IsAidlAvailable(uint8_t index = 0);
+
+  SessionType getSessionType() const;
 
  private:
   // using recursive_mutex to allow hwbinder to re-enter again.
@@ -219,26 +228,39 @@ class BluetoothAudioSession {
   std::unordered_map<uint16_t, std::shared_ptr<struct PortStatusCallbacks>>
       observers_;
 
+  uint8_t index_;
+
   bool UpdateDataPath(const DataMQDesc* mq_desc);
   bool UpdateAudioConfig(const AudioConfiguration& audio_config);
   // invoking the registered session_changed_cb_
   void ReportSessionStatus();
 
-  static inline std::atomic<bool> is_aidl_checked = false;
-  static inline std::atomic<bool> is_aidl_available = false;
-  static inline const std::string kDefaultAudioProviderFactoryInterface =
-      std::string() + IBluetoothAudioProviderFactory::descriptor + "/default";
+  std::atomic<bool> is_aidl_checked_ = false;
+  std::atomic<bool> is_aidl_available_ = false;
+  static inline const std::string kAudioProviderFactoryInterfaces[2] = {
+      std::string() + IBluetoothAudioProviderFactory::descriptor + "/default",
+      std::string() + IBluetoothAudioProviderFactory::descriptor + "/new",
+  };
+};
+
+struct SessionKey {
+  SessionType session_type;
+  uint8_t index;
+
+  bool operator==(const SessionKey& other) const {
+    return session_type == other.session_type && index == other.index;
+  }
 };
 
 class BluetoothAudioSessionInstance {
  public:
   // The API is to fetch the specified session of A2DP / Hearing Aid
   static std::shared_ptr<BluetoothAudioSession> GetSessionInstance(
-      const SessionType& session_type);
+      const SessionType& session_type, uint8_t index);
 
  private:
   static std::mutex mutex_;
-  static std::unordered_map<SessionType, std::shared_ptr<BluetoothAudioSession>>
+  static std::unordered_map<SessionKey, std::shared_ptr<BluetoothAudioSession>>
       sessions_map_;
 };
 
@@ -247,3 +269,13 @@ class BluetoothAudioSessionInstance {
 }  // namespace hardware
 }  // namespace android
 }  // namespace aidl
+
+namespace std {
+using aidl::android::hardware::bluetooth::audio::SessionKey;
+template <>
+struct hash<SessionKey> {
+  std::size_t operator()(const SessionKey& k) const {
+    return std::hash<int>()(static_cast<int>(k.session_type)) ^ std::hash<uint8_t>()(k.index);
+  }
+};
+}

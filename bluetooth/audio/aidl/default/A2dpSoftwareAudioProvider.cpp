@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "BTAudioProviderA2dpSW"
@@ -40,18 +45,20 @@ static constexpr uint32_t kBufferSize = kRtpFrameSize * kRtpFrameCount;
 static constexpr uint32_t kBufferCount = 2;  // double buffer
 static constexpr uint32_t kDataMqSize = kBufferSize * kBufferCount;
 
-A2dpSoftwareEncodingAudioProvider::A2dpSoftwareEncodingAudioProvider()
-    : A2dpSoftwareAudioProvider() {
+A2dpSoftwareEncodingAudioProvider::A2dpSoftwareEncodingAudioProvider(uint8_t index)
+    : A2dpSoftwareAudioProvider(index) {
+  LOG(INFO) << __func__ << ": index(" << index << ")";
   session_type_ = SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH;
 }
 
-A2dpSoftwareDecodingAudioProvider::A2dpSoftwareDecodingAudioProvider()
-    : A2dpSoftwareAudioProvider() {
+A2dpSoftwareDecodingAudioProvider::A2dpSoftwareDecodingAudioProvider(uint8_t index)
+    : A2dpSoftwareAudioProvider(index) {
+  LOG(INFO) << __func__ << ": index(" << index << ")";
   session_type_ = SessionType::A2DP_SOFTWARE_DECODING_DATAPATH;
 }
 
-A2dpSoftwareAudioProvider::A2dpSoftwareAudioProvider()
-    : BluetoothAudioProvider(), data_mq_(nullptr) {
+A2dpSoftwareAudioProvider::A2dpSoftwareAudioProvider(uint8_t index)
+    : BluetoothAudioProvider(index), data_mq_(nullptr) {
   LOG(INFO) << __func__ << " - size of audio buffer " << kDataMqSize
             << " byte(s)";
   std::unique_ptr<DataMQ> data_mq(
@@ -100,7 +107,7 @@ ndk::ScopedAStatus A2dpSoftwareAudioProvider::onSessionReady(
   *_aidl_return = data_mq_->dupeDesc();
   auto desc = data_mq_->dupeDesc();
   BluetoothAudioSessionReport::OnSessionStarted(
-      session_type_, stack_iface_, &desc, *audio_config_, latency_modes_);
+      session_type_, stack_iface_, &desc, *audio_config_, latency_modes_, index_);
   return ndk::ScopedAStatus::ok();
 }
 

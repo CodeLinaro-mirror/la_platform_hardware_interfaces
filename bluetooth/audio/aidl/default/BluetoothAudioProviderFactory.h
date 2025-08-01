@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #pragma once
@@ -30,7 +35,7 @@ class BluetoothAudioProviderFactory : public BnBluetoothAudioProviderFactory {
   const A2dpOffloadCodecFactory a2dp_offload_codec_factory_;
 
  public:
-  BluetoothAudioProviderFactory();
+  BluetoothAudioProviderFactory(uint8_t index);
 
   ndk::ScopedAStatus openProvider(
       const SessionType session_type,
@@ -43,6 +48,11 @@ class BluetoothAudioProviderFactory : public BnBluetoothAudioProviderFactory {
   ndk::ScopedAStatus getProviderInfo(
       SessionType in_sessionType,
       std::optional<ProviderInfo>* _aidl_return) override;
+
+  uint8_t getIndex() const;
+
+ private:
+  uint8_t index_;
 };
 
 }  // namespace audio
