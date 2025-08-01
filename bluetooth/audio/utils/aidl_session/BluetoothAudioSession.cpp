@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <sys/types.h>
@@ -63,8 +68,8 @@ static std::string toString(const std::vector<LatencyMode>& latencies) {
     return latencyModesStr.str();
 }
 
-BluetoothAudioSession::BluetoothAudioSession(const SessionType& session_type)
-    : session_type_(session_type), stack_iface_(nullptr), data_mq_(nullptr) {}
+BluetoothAudioSession::BluetoothAudioSession(const SessionType& session_type, uint8_t index)
+    : session_type_(session_type), stack_iface_(nullptr), data_mq_(nullptr), index_(index) {}
 
 /***
  *
@@ -77,6 +82,7 @@ void BluetoothAudioSession::OnSessionStarted(const std::shared_ptr<IBluetoothAud
                                              const AudioConfiguration& audio_config,
                                              const std::vector<LatencyMode>& latency_modes) {
     std::lock_guard<std::recursive_mutex> guard(mutex_);
+    LOG(INFO) << __func__;
     if (stack_iface == nullptr) {
         LOG(ERROR) << __func__ << " - SessionType=" << toString(session_type_)
                    << ", IBluetoothAudioPort Invalid";
@@ -341,8 +347,14 @@ std::optional<PcmConfiguration> SetSoftwareOffloaderConfiguration(
     }
 }
 
-const AudioConfiguration BluetoothAudioSession::GetAudioConfig() {
+const AudioConfiguration BluetoothAudioSession::GetAudioConfig(bool is_dual) {
     std::lock_guard<std::recursive_mutex> guard(mutex_);
+    // In dual A2DP mode, Audio's multizone logic may call this before BT is ready.
+    // Since the session isn't initialized yet, return a hardcoded configuration.
+    if (is_dual) {
+        return AudioConfiguration(PcmConfiguration{48000, ChannelMode::STEREO, 16, 23000});
+    }
+
     if (!IsSessionReadyInternal()) {
         switch (session_type_) {
             case SessionType::A2DP_HARDWARE_OFFLOAD_ENCODING_DATAPATH:
@@ -366,6 +378,7 @@ const AudioConfiguration BluetoothAudioSession::GetAudioConfig() {
 }
 
 void BluetoothAudioSession::ReportAudioConfigChanged(const AudioConfiguration& audio_config) {
+    LOG(INFO) << __func__;
     std::lock_guard<std::recursive_mutex> guard(mutex_);
     if (session_type_ == SessionType::LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH ||
         session_type_ == SessionType::LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH) {
@@ -519,6 +532,7 @@ bool BluetoothAudioSession::IsSessionReadyInternal() {
 
 uint16_t BluetoothAudioSession::RegisterStatusCback(const PortStatusCallbacks& callbacks) {
     std::lock_guard<std::recursive_mutex> guard(mutex_);
+    LOG(INFO) << __func__;
     uint16_t cookie = ObserversCookieGetInitValue(session_type_);
     uint16_t cookie_upper_bound = ObserversCookieGetUpperBound(session_type_);
 
@@ -541,6 +555,7 @@ uint16_t BluetoothAudioSession::RegisterStatusCback(const PortStatusCallbacks& c
 
 void BluetoothAudioSession::UnregisterStatusCback(uint16_t cookie) {
     std::lock_guard<std::recursive_mutex> guard(mutex_);
+    LOG(INFO) << __func__;
     if (observers_.erase(cookie) != 1) {
         LOG(WARNING) << __func__ << " - SessionType=" << toString(session_type_)
                      << " no such provider=0x" << ::android::base::StringPrintf("%04x", cookie);
@@ -1030,12 +1045,21 @@ void BluetoothAudioSession::UpdateSinkLatency(int64_t latency_ms) {
     }
 }
 
-bool BluetoothAudioSession::IsAidlAvailable() {
-    if (is_aidl_checked) return is_aidl_available;
-    is_aidl_available = (AServiceManager_checkService(
-                                 kDefaultAudioProviderFactoryInterface.c_str()) != nullptr);
-    is_aidl_checked = true;
-    return is_aidl_available;
+bool BluetoothAudioSession::IsAidlAvailableInternal() {
+    if (is_aidl_checked_) return is_aidl_available_;
+    is_aidl_available_ =
+            (AServiceManager_checkService(kAudioProviderFactoryInterfaces[index_].c_str()) !=
+             nullptr);
+    is_aidl_checked_ = true;
+    return is_aidl_available_;
+}
+
+bool BluetoothAudioSession::IsAidlAvailable(uint8_t index) {
+    return AServiceManager_checkService(kAudioProviderFactoryInterfaces[index].c_str()) != nullptr;
+}
+
+SessionType BluetoothAudioSession::getSessionType() const {
+    return session_type_;
 }
 
 /***
@@ -1044,22 +1068,26 @@ bool BluetoothAudioSession::IsAidlAvailable() {
  *
  ***/
 std::mutex BluetoothAudioSessionInstance::mutex_;
-std::unordered_map<SessionType, std::shared_ptr<BluetoothAudioSession>>
+std::unordered_map<SessionKey, std::shared_ptr<BluetoothAudioSession>>
         BluetoothAudioSessionInstance::sessions_map_;
 
 std::shared_ptr<BluetoothAudioSession> BluetoothAudioSessionInstance::GetSessionInstance(
-        const SessionType& session_type) {
+        const SessionType& session_type, uint8_t index) {
+    LOG(INFO) << __func__ << " session_type: " << static_cast<int>(session_type)
+              << ", index: " << static_cast<int>(index);
+
     std::lock_guard<std::mutex> guard(mutex_);
 
-    if (!sessions_map_.empty()) {
-        auto entry = sessions_map_.find(session_type);
-        if (entry != sessions_map_.end()) {
-            return entry->second;
-        }
+    SessionKey key{session_type, index};
+    auto entry = sessions_map_.find(key);
+    if (entry != sessions_map_.end()) {
+        return entry->second;
     }
+
     std::shared_ptr<BluetoothAudioSession> session_ptr =
-            std::make_shared<BluetoothAudioSession>(session_type);
-    sessions_map_[session_type] = session_ptr;
+            std::make_shared<BluetoothAudioSession>(session_type, index);
+    sessions_map_[key] = session_ptr;
+    LOG(INFO) << __func__ << " created new session_ptr: " << session_ptr;
     return session_ptr;
 }
 
