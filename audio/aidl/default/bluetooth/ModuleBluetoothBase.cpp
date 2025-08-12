@@ -340,9 +340,10 @@ ndk::ScopedAStatus ModuleBluetoothBase::createProxy(const AudioPort& audioPort,
     proxy.ptr = createProxyInstance(audioPort.flags.getTag() == AudioIoFlags::input);
     const auto& devicePort = audioPort.ext.get<AudioPortExt::device>();
     const auto device = devicePort.device.type;
+    const auto address = devicePort.device.address;
     bool registrationSuccess = false;
     for (int i = 0; i < kCreateProxyRetries && !registrationSuccess; ++i) {
-        registrationSuccess = proxy.ptr->registerPort(device);
+        registrationSuccess = proxy.ptr->registerPort(device, address);
         usleep(kCreateProxyRetrySleepMs * 1000);
     }
     if (!registrationSuccess) {

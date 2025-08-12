@@ -24,6 +24,7 @@
 
 #include <aidl/android/hardware/bluetooth/audio/BluetoothAudioStatus.h>
 #include <aidl/android/hardware/bluetooth/audio/SessionType.h>
+#include <aidl/android/media/audio/common/AudioDeviceAddress.h>
 #include <aidl/android/media/audio/common/AudioDeviceDescription.h>
 
 #include "BluetoothAudioPort.h"
@@ -39,6 +40,10 @@ class BluetoothAudioPortAidl : public BluetoothAudioPort {
 
     bool registerPort(const ::aidl::android::media::audio::common::AudioDeviceDescription&
                               description) override EXCLUDES(mCvMutex);
+    bool registerPort(const ::aidl::android::media::audio::common::AudioDeviceDescription&
+                              description,
+                      const ::aidl::android::media::audio::common::AudioDeviceAddress&
+                              address) override EXCLUDES(mCvMutex);
 
     void unregisterPort() override;
 
@@ -115,7 +120,8 @@ class BluetoothAudioPortAidl : public BluetoothAudioPort {
     // Check and initialize session type for |devices| If failed, this
     // BluetoothAudioPortAidl is not initialized and must be deleted.
     bool initSession(
-            const ::aidl::android::media::audio::common::AudioDeviceDescription& description);
+            const ::aidl::android::media::audio::common::AudioDeviceDescription& description,
+            const ::aidl::android::media::audio::common::AudioDeviceAddress& address);
 
     bool condWaitState(std::unique_lock<std::mutex>* lock) REQUIRES(mCvMutex);
 

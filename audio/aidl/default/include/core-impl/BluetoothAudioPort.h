@@ -26,6 +26,7 @@
 #include <aidl/android/hardware/bluetooth/audio/LatencyMode.h>
 #include <aidl/android/hardware/bluetooth/audio/PcmConfiguration.h>
 #include <aidl/android/hardware/bluetooth/audio/PresentationPosition.h>
+#include <aidl/android/media/audio/common/AudioDeviceAddress.h>
 #include <aidl/android/media/audio/common/AudioDeviceDescription.h>
 
 namespace android::bluetooth::audio::aidl {
@@ -82,6 +83,11 @@ class BluetoothAudioPort {
      */
     virtual bool registerPort(
             const ::aidl::android::media::audio::common::AudioDeviceDescription&) = 0;
+    virtual bool registerPort(
+            const ::aidl::android::media::audio::common::AudioDeviceDescription& description,
+            const ::aidl::android::media::audio::common::AudioDeviceAddress&) {
+        return registerPort(description);
+    }
 
     /**
      * Unregister this BluetoothAudioPort from BluetoothAudioSessionControl.
