@@ -16,6 +16,7 @@
 
 #include <android-base/logging.h>
 #include <utils/SystemClock.h>
+#include <cutils/properties.h>
 
 #include "aidl_struct_util.h"
 
@@ -25,6 +26,7 @@ namespace hardware {
 namespace wifi {
 namespace aidl_struct_util {
 
+static const char DUAL_WLAN_PROP_NAME[] = "ro.vendor.wlan.dual_wlan_enabled";
 WifiChannelWidthInMhz convertLegacyWifiChannelWidthToAidl(legacy_hal::wifi_channel_width type);
 bool convertAidlWifiChannelInfoToLegacy(const WifiChannelInfo& aidl_info,
                                         legacy_hal::wifi_channel_info* legacy_info);
@@ -3818,6 +3820,14 @@ bool convertLegacyIfaceCombinationsMatrixToChipMode(
         return false;
     }
 
+    //second wifi chip support combo:  AP + AP
+    IWifiChip::ChipConcurrencyCombinationLimit secondChipLimit;
+    std::vector<IfaceConcurrencyType> secondChipTypes = {IfaceConcurrencyType::AP};
+    secondChipLimit.types = secondChipTypes;
+    secondChipLimit.maxIfaces =2;
+
+    char dual_wlan_status[PROPERTY_VALUE_MAX];
+
     for (int i = 0; i < num_combinations; i++) {
         IWifiChip::ChipConcurrencyCombination chipComb;
         std::vector<IWifiChip::ChipConcurrencyCombinationLimit> limits;
@@ -3836,6 +3846,12 @@ bool convertLegacyIfaceCombinationsMatrixToChipMode(
             chipLimit.types = types;
             limits.push_back(chipLimit);
         }
+
+        //if target detect two wlan chip, then add {[AP] <=2} into limits
+        if (property_get(DUAL_WLAN_PROP_NAME, dual_wlan_status, NULL)) {
+            limits.push_back(secondChipLimit);
+        }
+
         chipComb.limits = limits;
         driver_Combinations_vec.push_back(chipComb);
     }
