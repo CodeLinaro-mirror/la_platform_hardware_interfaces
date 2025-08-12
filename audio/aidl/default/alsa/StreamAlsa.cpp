@@ -38,6 +38,7 @@ StreamAlsa::StreamAlsa(StreamContext* context, const Metadata& metadata, int rea
       mSampleRate(getContext().getSampleRate()),
       mIsInput(isInput(metadata)),
       mConfig(alsa::getPcmConfig(getContext(), mIsInput)),
+      mHapticsChannelCount(alsa::getHapticsChannelCount(getContext())),
       mReadWriteRetries(readWriteRetries) {}
 
 ::android::status_t StreamAlsa::init() {
@@ -95,40 +96,62 @@ StreamAlsa::StreamAlsa(StreamContext* context, const Metadata& metadata, int rea
     return ::android::OK;
 }
 
-size_t StreamAlsa::split_audio_haptic_data(void* buffer, size_t bytesToTransfer)
+::android::status_t StreamAlsa::splitAndWriteAudioHapticsStream(void* buffer, size_t frameCount, int32_t* latencyMs)
 {
-    size_t bytes_per_sample = audio_bytes_per_sample(audio_format_from_pcm_format(mConfig->format));
-    size_t frame_size = mConfig->channels * bytes_per_sample;
-    size_t frame_count = bytesToTransfer / frame_size;
-    // To be removed the haptic channel hardcoding
-    int    haptic_channel_count = 2;
+    bool allocHapticsBuffer = false;
 
-    size_t haptic_frame_size = bytes_per_sample * haptic_channel_count;
-    size_t audio_frame_size = frame_size - haptic_frame_size;
-    size_t total_haptic_buffer_size = frame_count * haptic_frame_size;
-    if (mHaptic_Buffer == NULL) {
-        mHaptic_Buffer = (uint8_t *)calloc(1, total_haptic_buffer_size);
-        if(mHaptic_Buffer == NULL) {
-           LOG(ERROR) << __func__ << ": mHaptic_Buffer is null";
-           return -1;
+    uint8_t bytesPerSample = audio_bytes_per_sample(audio_format_from_pcm_format(mConfig->format));
+    size_t frameSize = mConfig->channels * bytesPerSample;
+
+    uint32_t hapticsFrameSize = bytesPerSample * mHapticsChannelCount;
+    uint32_t audioFrameSize = frameSize - hapticsFrameSize;
+    uint32_t totalHapticsBufferSize = frameCount * hapticsFrameSize;
+
+    if (!mHapticsBuffer) {
+        allocHapticsBuffer = true;
+    } else if (mHapticsBufSize < totalHapticsBufferSize) {
+        allocHapticsBuffer = true;
+        mHapticsBufSize = 0;
+    }
+
+    if (allocHapticsBuffer) {
+        mHapticsBuffer = std::make_unique<uint8_t[]>(totalHapticsBufferSize);
+        if(!mHapticsBuffer) {
+            LOG(ERROR) << __func__ << ": Failed to allocate haptic buffer";
+            return -ENOMEM;
         }
+        mHapticsBufSize = totalHapticsBufferSize;
     }
 
-    size_t src_index = 0, aud_index = 0, hap_index = 0;
-    uint8_t *audio_buffer = (uint8_t *)buffer;
-    uint8_t *haptic_buffer  = (uint8_t *)mHaptic_Buffer;
-    for (size_t i = 0; i < frame_count; i++) {
-        memcpy(audio_buffer + aud_index, audio_buffer + src_index,
-               audio_frame_size);
-        aud_index += audio_frame_size;
-        src_index += audio_frame_size;
-        memcpy(haptic_buffer + hap_index, audio_buffer + src_index,
-                haptic_frame_size);
-        hap_index += haptic_frame_size;
-        src_index += haptic_frame_size;
+    size_t srcIndex = 0, audIndex = 0, hapIndex = 0;
+    uint8_t *audioBuffer = (uint8_t *)buffer;
+    uint8_t *hapticsBuffer  = reinterpret_cast<uint8_t*>(mHapticsBuffer.get());;
+
+    for (size_t i = 0; i < frameCount; i++) {
+        memcpy((uint8_t *)(audioBuffer) + audIndex, (uint8_t *)(audioBuffer) + srcIndex,
+            audioFrameSize);
+        audIndex += audioFrameSize;
+        srcIndex += audioFrameSize;
+
+        memcpy((uint8_t *)(hapticsBuffer) + hapIndex, (uint8_t *)(audioBuffer) + srcIndex,
+            hapticsFrameSize);
+        hapIndex += hapticsFrameSize;
+        srcIndex += hapticsFrameSize;
     }
-    mHaptic_Buffer_Size = frame_count * haptic_frame_size;
-    return frame_count * audio_frame_size;
+
+    for( auto& proxy : mAlsaDeviceProxies) {
+        size_t bytesToTransfer  =  0;
+        unsigned maxLatency = 0;
+        if (proxy.get()->profile->card == USB_DEVICE_TYPE::HAPTIC) {
+            bytesToTransfer = frameCount * hapticsFrameSize;
+            proxy_write_with_retries(proxy.get(), hapticsBuffer, bytesToTransfer, mReadWriteRetries);
+        } else if (proxy.get()->profile->card == USB_DEVICE_TYPE::AUDIO) {
+            bytesToTransfer = frameCount * audioFrameSize;
+            proxy_write_with_retries(proxy.get(), audioBuffer, bytesToTransfer, mReadWriteRetries);
+        }
+        *latencyMs = std::max(maxLatency, proxy_get_latency(proxy.get()));
+    }
+    return ::android::OK;
 }
 
 ::android::status_t StreamAlsa::transfer(void* buffer, size_t frameCount, size_t* actualFrameCount,
@@ -146,21 +169,15 @@ size_t StreamAlsa::split_audio_haptic_data(void* buffer, size_t bytesToTransfer)
         maxLatency = proxy_get_latency(mAlsaDeviceProxies[0].get());
     } else {
         if (property_get_bool("vendor.audio.gaming.enabled", false /* default_value */)) {
-            size_t contracted_audio_bytes = 0;
-            int num_write_buff_bytes = 0;
-            contracted_audio_bytes = split_audio_haptic_data(buffer, bytesToTransfer);
-            for( auto& proxy : mAlsaDeviceProxies) {
-                void * write_buff = buffer;
-                size_t writeBytes =  bytesToTransfer;
-                if (proxy.get()->profile->card == USB_DEVICE_TYPE::HAPTIC) {
-                    num_write_buff_bytes = mHaptic_Buffer_Size;
-                    write_buff = mHaptic_Buffer;
-                } else if (proxy.get()->profile->card == USB_DEVICE_TYPE::AUDIO) {
-                    num_write_buff_bytes = contracted_audio_bytes;
-                }
-                proxy_write_with_retries(proxy.get(), write_buff, num_write_buff_bytes, mReadWriteRetries);
-                maxLatency = std::max(maxLatency, proxy_get_latency(proxy.get()));
+            size_t bytesWritten = splitAndWriteAudioHapticsStream(buffer, frameCount, latencyMs);
+            if (bytesWritten <= 0) {
+                LOG(ERROR) << __func__ << ": write failed, ret: " << bytesWritten;
+                std::this_thread::sleep_for(std::chrono::milliseconds((frameCount * 1000) / 48000/* hardcoded device sample rate*/));
             }
+            else if (bytesWritten < bytesToTransfer) {
+                 LOG(WARNING) << __func__ << ": underrun, wrote " << bytesWritten << " of " <<  bytesToTransfer << " bytes"; // handle underrun
+            }
+            maxLatency = *latencyMs;
         } else {
             for( auto& proxy : mAlsaDeviceProxies) {
                 proxy_write_with_retries(proxy.get(), buffer, bytesToTransfer, mReadWriteRetries);
@@ -253,9 +270,10 @@ size_t StreamAlsa::split_audio_haptic_data(void* buffer, size_t bytesToTransfer)
 
 void StreamAlsa::shutdown() {
     mAlsaDeviceProxies.clear();
-    free(mHaptic_Buffer);
-    mHaptic_Buffer = NULL;
-    mHaptic_Buffer_Size = 0;
+    if (mHapticsBuffer) {
+        mHapticsBuffer = nullptr;
+    }
+    mHapticsBufSize = 0;
 }
 
 }  // namespace aidl::android::hardware::audio::core

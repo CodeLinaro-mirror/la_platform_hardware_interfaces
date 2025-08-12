@@ -279,6 +279,13 @@ std::vector<int> getSampleRatesFromProfile(const alsa_device_profile* profile) {
     return sampleRates;
 }
 
+int getHapticsChannelCount(const StreamContext& context) {
+    AudioChannelLayout hapticChannelLayout = AudioChannelLayout::make<AudioChannelLayout::Tag::layoutMask>
+           (context.getChannelLayout().get<AudioChannelLayout::Tag::layoutMask>() & ~(AudioChannelLayout::LAYOUT_HAPTIC_AB));
+    LOG(DEBUG) << __func__ << ": haptics channel count " << getChannelCount(hapticChannelLayout);
+    return getChannelCount(hapticChannelLayout);
+}
+
 DeviceProxy openProxyForAttachedDevice(const DeviceProfile& deviceProfile,
                                        struct pcm_config* pcmConfig, size_t bufferFrameCount) {
     if (deviceProfile.isExternal) {

@@ -73,6 +73,7 @@ std::optional<DeviceProfile> getDeviceProfile(
         const ::aidl::android::media::audio::common::AudioPort& audioPort);
 std::optional<struct pcm_config> getPcmConfig(const StreamContext& context, bool isInput);
 std::vector<int> getSampleRatesFromProfile(const alsa_device_profile* profile);
+int getHapticsChannelCount(const StreamContext& context);
 DeviceProxy openProxyForAttachedDevice(const DeviceProfile& deviceProfile,
                                        struct pcm_config* pcmConfig, size_t bufferFrameCount);
 DeviceProxy openProxyForExternalDevice(const DeviceProfile& deviceProfile,
