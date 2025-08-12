@@ -59,7 +59,9 @@ class BluetoothAudioPort {
      * HAL must delete this BluetoothAudioPort and return EINVAL to caller
      */
     virtual bool registerPort(
-            const ::aidl::android::media::audio::common::AudioDeviceDescription&) = 0;
+            const ::aidl::android::media::audio::common::AudioDeviceDescription&,
+            const ::aidl::android::media::audio::common::AudioDeviceAddress&) = 0;
+
 
     /**
      * Unregister this BluetoothAudioPort from BluetoothAudioSessionControl.
@@ -153,7 +155,9 @@ class BluetoothAudioPortAidl : public BluetoothAudioPort {
     virtual ~BluetoothAudioPortAidl();
 
     bool registerPort(const ::aidl::android::media::audio::common::AudioDeviceDescription&
-                              description) override;
+                              description,
+                      const ::aidl::android::media::audio::common::AudioDeviceAddress&
+                              address) override;
 
     void unregisterPort() override;
 
@@ -192,6 +196,8 @@ class BluetoothAudioPortAidl : public BluetoothAudioPort {
     uint16_t mCookie;
     BluetoothStreamState mState GUARDED_BY(mCvMutex);
     ::aidl::android::hardware::bluetooth::audio::SessionType mSessionType;
+    bool mIsDualA2DPSource;
+    uint16_t mSessionIndex;
     // WR to support Mono: True if fetching Stereo and mixing into Mono
     bool mIsStereoToMono = false;
 
@@ -209,7 +215,8 @@ class BluetoothAudioPortAidl : public BluetoothAudioPort {
     // Check and initialize session type for |devices| If failed, this
     // BluetoothAudioPortAidl is not initialized and must be deleted.
     bool initSessionType(
-            const ::aidl::android::media::audio::common::AudioDeviceDescription& description);
+            const ::aidl::android::media::audio::common::AudioDeviceDescription& description,
+            const ::aidl::android::media::audio::common::AudioDeviceAddress& address);
 
     bool condWaitState(BluetoothStreamState state);
 
