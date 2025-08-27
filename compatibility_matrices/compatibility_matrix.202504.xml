@@ -120,6 +120,7 @@
         <interface>
             <name>IBluetoothHci</name>
             <instance>default</instance>
+            <instance>hci1</instance>
         </interface>
     </hal>
     <hal format="aidl">
