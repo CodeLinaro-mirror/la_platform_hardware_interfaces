@@ -172,6 +172,7 @@ static inline bool isOutputDevice(AudioDevice device) {
         case AudioDevice::AUDIO_DEVICE_OUT_BLE_SPEAKER:
         case AudioDevice::AUDIO_DEVICE_OUT_DEFAULT:
         case AudioDevice::AUDIO_DEVICE_OUT_STUB:
+        case AudioDevice::AUDIO_DEVICE_OUT_BLE_BROADCAST:
             return true;
         case AudioDevice::AUDIO_DEVICE_IN_COMMUNICATION:
         case AudioDevice::AUDIO_DEVICE_IN_AMBIENT:
