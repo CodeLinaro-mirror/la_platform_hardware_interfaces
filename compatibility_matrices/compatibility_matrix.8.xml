@@ -100,6 +100,14 @@
             <instance>default</instance>
         </interface>
     </hal>
+    <hal format="hidl" optional="true">
+        <name>android.hardware.automotive.vehicle</name>
+        <version>2.0</version>
+        <interface>
+            <name>IVehicle</name>
+            <regex-instance>.*</regex-instance>
+        </interface>
+    </hal>
     <hal format="aidl" optional="true">
         <name>android.hardware.automotive.remoteaccess</name>
         <interface>
@@ -183,6 +191,14 @@
             <instance>default</instance>
         </interface>
     </hal>
+    <hal format="hidl" optional="true">
+        <name>android.hardware.cas</name>
+        <version>1.1-2</version>
+        <interface>
+            <name>IMediaCasService</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
     <hal format="aidl" optional="true">
         <name>android.hardware.confirmationui</name>
         <version>1</version>
@@ -251,6 +267,14 @@
         <version>1-2</version>
         <interface>
             <name>IAllocator</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>android.hardware.graphics.composer</name>
+        <version>2.1-4</version>
+        <interface>
+            <name>IComposer</name>
             <instance>default</instance>
         </interface>
     </hal>
@@ -326,6 +350,22 @@
         <version>1</version>
         <interface>
             <name>IInputProcessor</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="false">
+        <name>android.frameworks.displayservice</name>
+        <version>1.0</version>
+        <interface>
+            <name>IDisplayService</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>android.hardware.keymaster</name>
+        <version>4.0-1</version>
+        <interface>
+            <name>IKeymasterDevice</name>
             <instance>default</instance>
         </interface>
     </hal>
