@@ -120,6 +120,7 @@
         <interface>
             <name>IBluetoothHci</name>
             <instance>default</instance>
+            <instance>hci1</instance>
         </interface>
     </hal>
     <hal format="aidl">
@@ -128,6 +129,7 @@
         <interface>
             <name>IBluetoothAudioProviderFactory</name>
             <instance>default</instance>
+            <instance>new</instance>
         </interface>
     </hal>
     <hal format="aidl">

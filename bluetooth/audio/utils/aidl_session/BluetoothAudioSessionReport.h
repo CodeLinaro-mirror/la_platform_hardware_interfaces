@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #pragma once
@@ -34,9 +39,10 @@ class BluetoothAudioSessionReport {
       const SessionType& session_type,
       const std::shared_ptr<IBluetoothAudioPort> host_iface,
       const DataMQDesc* data_mq, const AudioConfiguration& audio_config,
-      const std::vector<LatencyMode>& latency_modes) {
+      const std::vector<LatencyMode>& latency_modes,
+      uint8_t index = 0) {
     std::shared_ptr<BluetoothAudioSession> session_ptr =
-        BluetoothAudioSessionInstance::GetSessionInstance(session_type);
+        BluetoothAudioSessionInstance::GetSessionInstance(session_type, index);
     if (session_ptr != nullptr) {
       session_ptr->OnSessionStarted(host_iface, data_mq, audio_config,
                                     latency_modes);
@@ -47,9 +53,9 @@ class BluetoothAudioSessionReport {
    * The API reports the Bluetooth stack has ended the session, and will
    * inform registered bluetooth_audio outputs
    ***/
-  static void OnSessionEnded(const SessionType& session_type) {
+  static void OnSessionEnded(const SessionType& session_type, uint8_t index = 0) {
     std::shared_ptr<BluetoothAudioSession> session_ptr =
-        BluetoothAudioSessionInstance::GetSessionInstance(session_type);
+        BluetoothAudioSessionInstance::GetSessionInstance(session_type, index);
     if (session_ptr != nullptr) {
       session_ptr->OnSessionEnded();
     }
@@ -61,9 +67,10 @@ class BluetoothAudioSessionReport {
    ***/
   static void ReportControlStatus(const SessionType& session_type,
                                   const bool& start_resp,
-                                  BluetoothAudioStatus status) {
+                                  BluetoothAudioStatus status,
+                                  uint8_t index = 0) {
     std::shared_ptr<BluetoothAudioSession> session_ptr =
-        BluetoothAudioSessionInstance::GetSessionInstance(session_type);
+        BluetoothAudioSessionInstance::GetSessionInstance(session_type, index);
     if (session_ptr != nullptr) {
       session_ptr->ReportControlStatus(start_resp, status);
     }
@@ -73,9 +80,10 @@ class BluetoothAudioSessionReport {
    * configuration, and will inform registered bluetooth_audio outputs
    ***/
   static void ReportAudioConfigChanged(const SessionType& session_type,
-                                       const AudioConfiguration& audio_config) {
+                                       const AudioConfiguration& audio_config,
+                                       uint8_t index = 0) {
     std::shared_ptr<BluetoothAudioSession> session_ptr =
-        BluetoothAudioSessionInstance::GetSessionInstance(session_type);
+        BluetoothAudioSessionInstance::GetSessionInstance(session_type, index);
     if (session_ptr != nullptr) {
       session_ptr->ReportAudioConfigChanged(audio_config);
     }
@@ -85,9 +93,10 @@ class BluetoothAudioSessionReport {
    * latency audio allowed, and will inform registered bluetooth_audio outputs
    ***/
   static void ReportLowLatencyModeAllowedChanged(
-    const SessionType& session_type, bool allowed) {
+    const SessionType& session_type, bool allowed,
+    uint8_t index = 0) {
     std::shared_ptr<BluetoothAudioSession> session_ptr =
-        BluetoothAudioSessionInstance::GetSessionInstance(session_type);
+        BluetoothAudioSessionInstance::GetSessionInstance(session_type, index);
     if (session_ptr != nullptr) {
       session_ptr->ReportLowLatencyModeAllowedChanged(allowed);
     }
