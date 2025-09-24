@@ -530,6 +530,15 @@ bool BluetoothAudioPortAidl::suspend() {
             LOG(INFO) << __func__ << debugMessage() << ", state=" << mState << " done";
         } else {
             LOG(ERROR) << __func__ << debugMessage() << ", state=" << mState << " failure";
+            if (mIsDualA2DPSource) {
+                LOG(INFO) << __func__ << " dual BT a2dp source feature, index= " << mSessionIndex;
+                if (!BluetoothAudioSessionControl::IsSessionReady(mSessionType)) {
+                    std::unique_lock lock(mCvMutex);
+                    base::ScopedLockAssertion lock_assertion(mCvMutex);
+                    mState = BluetoothStreamState::STANDBY;
+                    return true;
+                }
+            }
         }
     }
     return retval;  // false if any failure like timeout
