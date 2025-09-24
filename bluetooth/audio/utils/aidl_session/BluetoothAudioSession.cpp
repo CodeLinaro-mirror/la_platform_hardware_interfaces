@@ -444,6 +444,7 @@ size_t BluetoothAudioSession::OutWritePcmData(const void* buffer,
   do {
     std::unique_lock<std::recursive_mutex> lock(mutex_);
     if (!IsSessionReady()) {
+      total_written = bytes; // Unblock audio goto standby state for dual a2dp source
       break;
     }
     size_t num_bytes_to_write = data_mq_->availableToWrite();
