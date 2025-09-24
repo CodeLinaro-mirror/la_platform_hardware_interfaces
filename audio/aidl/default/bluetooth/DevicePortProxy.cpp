@@ -671,7 +671,10 @@ bool BluetoothAudioPortAidl::suspend() {
         return false;
     }
 
+    const bool isDualA2dpSource = getSession()->isDualA2dpSource();
+    const uint8_t sessionIndex = getSession()->getSessionIndex();
     bool retval = false;
+    bool checkSessionReady = false;
     {
         std::unique_lock lock(mCvMutex);
         base::ScopedLockAssertion lock_assertion(mCvMutex);
@@ -707,7 +710,17 @@ bool BluetoothAudioPortAidl::suspend() {
             LOG(INFO) << __func__ << debugMessage() << ", state=" << mState << " done";
         } else {
             LOG(ERROR) << __func__ << debugMessage() << ", state=" << mState << " failure";
+            if (isDualA2dpSource) {
+                LOG(INFO) << __func__ << " dual BT a2dp source feature, index= "
+                          << static_cast<int>(sessionIndex);
+                checkSessionReady = true;
+            }
         }
+    }
+    if (checkSessionReady && !getSession()->isSessionReady()) {
+        std::lock_guard guard(mCvMutex);
+        mState = BluetoothStreamState::STANDBY;
+        return true;
     }
     return retval;  // false if any failure like timeout
 }
