@@ -319,7 +319,7 @@ typedef struct {
     u32 max_concurrent_tdls_session_count;
 } wifi_chip_capabilities;
 
-#define MAX_IFACE_COMBINATIONS 16
+#define MAX_IFACE_COMBINATIONS 20
 #define MAX_IFACE_LIMITS 8
 
 /* Wifi interface limit
