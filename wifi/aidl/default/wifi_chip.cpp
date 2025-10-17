@@ -270,6 +270,11 @@ WifiChip::WifiChip(int32_t chip_id, bool is_primary,
 }
 
 void WifiChip::retrieveDynamicIfaceCombination() {
+    // Return directly when using wlan chip qca6174
+    char wlan_chip[PROPERTY_VALUE_MAX];
+    if (!property_get("ro.vendor.wlan.chip", wlan_chip, NULL)) return;
+    if (strcmp(wlan_chip, "qca6174") == 0) return;
+
     if (using_dynamic_iface_combination_) return;
 
     legacy_hal::wifi_iface_concurrency_matrix legacy_matrix;
