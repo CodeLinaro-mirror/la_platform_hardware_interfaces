@@ -270,10 +270,9 @@ WifiChip::WifiChip(int32_t chip_id, bool is_primary,
 }
 
 void WifiChip::retrieveDynamicIfaceCombination() {
-    // Return directly when using wlan chip qca6174
-    char wlan_chip[PROPERTY_VALUE_MAX];
-    if (!property_get("ro.vendor.wlan.chip", wlan_chip, NULL)) return;
-    if (strcmp(wlan_chip, "qca6174") == 0) return;
+    // Return directly when first_api_level <= 34(U 14 UpsideDownCake)
+    int32_t first_api_level = property_get_int32("ro.product.first_api_level", 0);
+    if (first_api_level <= 34) return;
 
     if (using_dynamic_iface_combination_) return;
 
