@@ -170,7 +170,7 @@ StreamAlsa::StreamAlsa(StreamContext* context, const Metadata& metadata, int rea
     } else {
         if (property_get_bool("vendor.audio.gaming.enabled", false /* default_value */)) {
             size_t bytesWritten = splitAndWriteAudioHapticsStream(buffer, frameCount, latencyMs);
-            if (bytesWritten <= 0) {
+            if (bytesWritten < 0) {
                 LOG(ERROR) << __func__ << ": write failed, ret: " << bytesWritten;
                 std::this_thread::sleep_for(std::chrono::milliseconds((frameCount * 1000) / 48000/* hardcoded device sample rate*/));
             }
