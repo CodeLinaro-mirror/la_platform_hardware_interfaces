@@ -217,12 +217,14 @@ bool BluetoothAudioPortAidl::initSession(const AudioDeviceDescription& descripti
     SessionType sessionType = SessionType::UNKNOWN;
     SessionType fallbackSessionType = SessionType::UNKNOWN;
     if (description.type == AudioDeviceType::OUT_BUS &&
+        description.connection.empty() &&
         address.getTag() == AudioDeviceAddress::Tag::id &&
         address.get<AudioDeviceAddress::Tag::id>() == "BUS18_BT_HEADPHONE_1") {
         mSession = std::make_unique<BluetoothSession>(
                 SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH, true, 0);
         return true;
     } else if (description.type == AudioDeviceType::OUT_BUS &&
+               description.connection.empty() &&
                address.getTag() == AudioDeviceAddress::Tag::id &&
                address.get<AudioDeviceAddress::Tag::id>() == "BUS19_BT_HEADPHONE_2") {
         mSession = std::make_unique<BluetoothSession>(
