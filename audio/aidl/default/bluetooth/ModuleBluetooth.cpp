@@ -29,7 +29,7 @@ using aidl::android::hardware::bluetooth::audio::PcmConfiguration;
 using aidl::android::media::audio::common::AudioChannelLayout;
 using aidl::android::media::audio::common::AudioConfigBase;
 using aidl::android::media::audio::common::AudioDeviceDescription;
-using aidl::android::media::audio::common::AudioDeviceAddress;
+using aidl::android::media::audio::common::AudioDevice;
 using aidl::android::media::audio::common::AudioDeviceType;
 using aidl::android::media::audio::common::AudioFormatDescription;
 using aidl::android::media::audio::common::AudioFormatType;
@@ -289,12 +289,12 @@ ndk::ScopedAStatus ModuleBluetooth::createProxy(const AudioPort& audioPort, int3
                                   std::make_shared<BluetoothAudioPortAidlOut>());
     const auto& devicePort = audioPort.ext.get<AudioPortExt::device>();
     const auto device = devicePort.device.type;
-    const auto address = devicePort.device.address;
+    const auto audiodevice = devicePort.device;
     bool registrationSuccess = false;
 
     // To adapt with dual ad2p source, need to extend one more argument for bus addr
     for (int i = 0; i < kCreateProxyRetries && !registrationSuccess; ++i) {
-        registrationSuccess = proxy.ptr->registerPort(device, address);
+        registrationSuccess = proxy.ptr->registerPort(device, audiodevice);
         usleep(kCreateProxyRetrySleepMs * 1000);
     }
     if (!registrationSuccess) {
