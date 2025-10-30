@@ -35,8 +35,10 @@ using aidl::android::hardware::bluetooth::audio::PortStatusCallbacks;
 using aidl::android::hardware::bluetooth::audio::PresentationPosition;
 using aidl::android::hardware::bluetooth::audio::SessionType;
 using aidl::android::media::audio::common::AudioDeviceDescription;
+using aidl::android::media::audio::common::AudioDevice;
 using aidl::android::media::audio::common::AudioDeviceAddress;
 using aidl::android::media::audio::common::AudioDeviceType;
+
 using android::base::StringPrintf;
 
 namespace android::bluetooth::audio::aidl {
@@ -79,13 +81,13 @@ BluetoothAudioPortAidl::~BluetoothAudioPortAidl() {
 }
 
 bool BluetoothAudioPortAidl::registerPort(const AudioDeviceDescription& description,
-                                          const AudioDeviceAddress& address) {
+                                          const AudioDevice& Audiodevices) {
     if (inUse()) {
         LOG(ERROR) << __func__ << debugMessage() << " already in use";
         return false;
     }
 
-    if (!initSessionType(description, address)) return false;
+    if (!initSessionType(description, Audiodevices)) return false;
 
     auto control_result_cb = [port = this](uint16_t cookie, bool start_resp,
                                            const BluetoothAudioStatus& status) {
@@ -110,17 +112,32 @@ bool BluetoothAudioPortAidl::registerPort(const AudioDeviceDescription& descript
     return isOk;
 }
 
+bool isDeviceAddressAvailable(const AudioDevice& audioDevices)
+{
+    if (audioDevices.type.connection == "") {
+        LOG(VERBOSE) << __func__ << " connection is NULL, so fetch the device bus address" ;
+        return true;
+    } else if ((audioDevices.type.connection.compare("bt-sco")) ||
+               (audioDevices.type.connection.compare("bt-a2dp"))) {
+        LOG(INFO) << __func__ << " connection might be bt-sco or bt-a2dp" ;
+        return false;
+    }
+    return false;
+}
+
 bool BluetoothAudioPortAidl::initSessionType(const AudioDeviceDescription& description,
-                                             const AudioDeviceAddress& address) {
+                                             const AudioDevice& Audiodevices) {
     std::lock_guard guard(mCvMutex);
 
-    if (description.type == AudioDeviceType::OUT_BUS && address.get<AudioDeviceAddress::Tag::id>() == "BUS18_BT_HEADPHONE_1") {
+    const auto address = Audiodevices.address;
+
+    if (description.type == AudioDeviceType::OUT_BUS && isDeviceAddressAvailable(Audiodevices) && address.get<AudioDeviceAddress::Tag::id>() == "BUS18_BT_HEADPHONE_1") {
         mIsDualA2DPSource = true;
         mSessionIndex = 0;
         mSessionType = SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH;
         setState(BluetoothStreamState::STARTED); // BluetoothStreamState might not need to be force-set when BT STACK adaption complete
         return true;
-    } else if (description.type == AudioDeviceType::OUT_BUS && address.get<AudioDeviceAddress::Tag::id>() == "BUS19_BT_HEADPHONE_2") {
+    } else if (description.type == AudioDeviceType::OUT_BUS && isDeviceAddressAvailable(Audiodevices) && address.get<AudioDeviceAddress::Tag::id>() == "BUS19_BT_HEADPHONE_2") {
         mIsDualA2DPSource = true;
         mSessionIndex = 1;
         mSessionType = SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH;
