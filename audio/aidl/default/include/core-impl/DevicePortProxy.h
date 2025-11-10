@@ -60,7 +60,7 @@ class BluetoothAudioPort {
      */
     virtual bool registerPort(
             const ::aidl::android::media::audio::common::AudioDeviceDescription&,
-            const ::aidl::android::media::audio::common::AudioDeviceAddress&) = 0;
+            const ::aidl::android::media::audio::common::AudioDevice&) = 0;
 
 
     /**
@@ -156,8 +156,8 @@ class BluetoothAudioPortAidl : public BluetoothAudioPort {
 
     bool registerPort(const ::aidl::android::media::audio::common::AudioDeviceDescription&
                               description,
-                      const ::aidl::android::media::audio::common::AudioDeviceAddress&
-                              address) override;
+                      const ::aidl::android::media::audio::common::AudioDevice&
+                              Audiodevices) override;
 
     void unregisterPort() override;
 
@@ -216,7 +216,7 @@ class BluetoothAudioPortAidl : public BluetoothAudioPort {
     // BluetoothAudioPortAidl is not initialized and must be deleted.
     bool initSessionType(
             const ::aidl::android::media::audio::common::AudioDeviceDescription& description,
-            const ::aidl::android::media::audio::common::AudioDeviceAddress& address);
+            const ::aidl::android::media::audio::common::AudioDevice& Audiodevices);
 
     bool condWaitState(BluetoothStreamState state);
 

@@ -270,6 +270,10 @@ WifiChip::WifiChip(int32_t chip_id, bool is_primary,
 }
 
 void WifiChip::retrieveDynamicIfaceCombination() {
+    // Return directly when first_api_level <= 34(U 14 UpsideDownCake)
+    int32_t first_api_level = property_get_int32("ro.product.first_api_level", 0);
+    if (first_api_level <= 34) return;
+
     if (using_dynamic_iface_combination_) return;
 
     legacy_hal::wifi_iface_concurrency_matrix legacy_matrix;
