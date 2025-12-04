@@ -475,8 +475,6 @@ Result Effect::analyzeStatus(const char* funcName, const char* subFuncName,
 
 Return<void> Effect::getConfigImpl(int commandCode, const char* commandName,
                                    GetConfigCallback _hidl_cb) {
-    RETURN_RESULT_IF_EFFECT_CLOSED(EffectConfig());
-
     uint32_t halResultSize = sizeof(effect_config_t);
     effect_config_t halConfig{};
     status_t status = OK;
@@ -644,6 +642,7 @@ Result Effect::sendCommand(int commandCode, const char* commandName, uint32_t si
         std::lock_guard<std::mutex> lock(mLock);
         RETURN_IF_EFFECT_CLOSED();
         status = (*mHandle)->command(mHandle, commandCode, size, data, 0, NULL);
+    }
 
     return analyzeCommandStatus(commandName, sContextCallToCommand, status);
 }
@@ -655,7 +654,6 @@ Result Effect::sendCommandReturningData(int commandCode, const char* commandName
 
 Result Effect::sendCommandReturningData(int commandCode, const char* commandName, uint32_t size,
                                         void* data, uint32_t* replySize, void* replyData) {
-    RETURN_IF_EFFECT_CLOSED();
     uint32_t expectedReplySize = *replySize;
     status_t status = OK;
     {
@@ -898,7 +896,6 @@ Return<Result> Effect::offload(const EffectOffloadParameter& param) {
 }
 
 Return<void> Effect::getDescriptor(getDescriptor_cb _hidl_cb) {
-    RETURN_RESULT_IF_EFFECT_CLOSED(EffectDescriptor());
     effect_descriptor_t halDescriptor;
     memset(&halDescriptor, 0, sizeof(effect_descriptor_t));
     status_t status = OK;
@@ -1028,8 +1025,6 @@ std::tuple<Result, effect_handle_t> Effect::closeImpl() {
         handle = mHandle;
         mHandle = kInvalidEffectHandle;
     }
-    effect_handle_t handle = mHandle;
-    mHandle = kInvalidEffectHandle;
 #if MAJOR_VERSION <= 5
     return {Result::OK, handle};
 #elif MAJOR_VERSION >= 6
