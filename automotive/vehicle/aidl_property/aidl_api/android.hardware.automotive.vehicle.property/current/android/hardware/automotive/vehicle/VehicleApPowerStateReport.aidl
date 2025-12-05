@@ -44,4 +44,5 @@ enum VehicleApPowerStateReport {
   SHUTDOWN_CANCELLED = 0x8,
   HIBERNATION_ENTRY = 0x9,
   HIBERNATION_EXIT = 0xA,
+  DEEP_SLEEP_CANCEL = 0xB,
 }

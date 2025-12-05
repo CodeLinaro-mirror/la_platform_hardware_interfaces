@@ -107,4 +107,9 @@ enum VehicleApPowerStateReport {
      * VehicleApPowerStateReq#SHUTDOWN_PREPARE. Other power state requests are ignored.
      */
     HIBERNATION_EXIT = 0xA,
+    /**
+     * AP has canceled deep sleep entry and will remain active.
+     * After reporting this state, AP will accept VehicleApPowerStateReq#ON
+     */
+    DEEP_SLEEP_CANCEL = 0xB,
 }
