@@ -305,7 +305,9 @@ void BluetoothAudioPortAidl::lowLatencyAllowedHandler(uint16_t cookie, bool allo
 void BluetoothAudioPortAidl::sessionChangedHandler(uint16_t cookie) {
     std::lock_guard guard(mCvMutex);
     if (mIsDualA2DPSource) {
-      LOG(INFO) << " sessionChangedHandler Return for dual A2dp";
+      LOG(INFO) << " session_changed_cb: dual A2dp: previous_state "
+                << mState << "to new state: STANDBY";
+      mState = BluetoothStreamState::STANDBY;
       return;
     }
     if (!inUse()) {
