@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #pragma once
@@ -26,7 +31,7 @@ namespace audio {
 
 class A2dpSoftwareAudioProvider : public BluetoothAudioProvider {
  public:
-  A2dpSoftwareAudioProvider();
+  A2dpSoftwareAudioProvider(uint8_t index = 0);
 
   bool isValid(const SessionType& sessionType) override;
 
@@ -45,12 +50,12 @@ class A2dpSoftwareAudioProvider : public BluetoothAudioProvider {
 
 class A2dpSoftwareEncodingAudioProvider : public A2dpSoftwareAudioProvider {
  public:
-  A2dpSoftwareEncodingAudioProvider();
+  A2dpSoftwareEncodingAudioProvider(uint8_t index = 0);
 };
 
 class A2dpSoftwareDecodingAudioProvider : public A2dpSoftwareAudioProvider {
  public:
-  A2dpSoftwareDecodingAudioProvider();
+  A2dpSoftwareDecodingAudioProvider(uint8_t index = 0);
 };
 
 }  // namespace audio
