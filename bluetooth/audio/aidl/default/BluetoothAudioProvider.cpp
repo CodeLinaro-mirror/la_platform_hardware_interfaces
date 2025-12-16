@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "BTAudioProviderStub"
@@ -31,6 +36,7 @@ namespace audio {
 
 struct BluetoothAudioProviderContext {
   SessionType session_type;
+  uint8_t index;
 };
 
 static void binderUnlinkedCallbackAidl(void* cookie) {
@@ -46,10 +52,11 @@ static void binderDiedCallbackAidl(void* cookie) {
       static_cast<BluetoothAudioProviderContext*>(cookie);
   CHECK_NE(ctx, nullptr);
 
-  BluetoothAudioSessionReport::OnSessionEnded(ctx->session_type);
+  BluetoothAudioSessionReport::OnSessionEnded(ctx->session_type, ctx->index);
 }
 
-BluetoothAudioProvider::BluetoothAudioProvider() {
+BluetoothAudioProvider::BluetoothAudioProvider(uint8_t index)
+    : index_(index) {
   death_recipient_ = ::ndk::ScopedAIBinder_DeathRecipient(
       AIBinder_DeathRecipient_new(binderDiedCallbackAidl));
   AIBinder_DeathRecipient_setOnUnlinked(death_recipient_.get(),
@@ -72,7 +79,7 @@ ndk::ScopedAStatus BluetoothAudioProvider::startSession(
   audio_config_ = std::make_unique<AudioConfiguration>(audio_config);
   stack_iface_ = host_if;
   BluetoothAudioProviderContext* cookie =
-      new BluetoothAudioProviderContext{session_type_};
+      new BluetoothAudioProviderContext{session_type_, index_};
 
   AIBinder_linkToDeath(stack_iface_->asBinder().get(), death_recipient_.get(),
                        cookie);
@@ -85,7 +92,7 @@ ndk::ScopedAStatus BluetoothAudioProvider::endSession() {
   LOG(INFO) << __func__ << " - SessionType=" << toString(session_type_);
 
   if (stack_iface_ != nullptr) {
-    BluetoothAudioSessionReport::OnSessionEnded(session_type_);
+    BluetoothAudioSessionReport::OnSessionEnded(session_type_, index_);
 
     AIBinder_unlinkToDeath(stack_iface_->asBinder().get(),
                            death_recipient_.get(), this);
@@ -106,7 +113,7 @@ ndk::ScopedAStatus BluetoothAudioProvider::streamStarted(
     LOG(INFO) << __func__ << " - SessionType=" << toString(session_type_)
               << ", status=" << toString(status);
     BluetoothAudioSessionReport::ReportControlStatus(session_type_, true,
-                                                     status);
+                                                     status, index_);
   } else {
     LOG(WARNING) << __func__ << " - SessionType=" << toString(session_type_)
                  << ", status=" << toString(status) << " has NO session";
@@ -122,7 +129,7 @@ ndk::ScopedAStatus BluetoothAudioProvider::streamSuspended(
 
   if (stack_iface_ != nullptr) {
     BluetoothAudioSessionReport::ReportControlStatus(session_type_, false,
-                                                     status);
+                                                     status, index_);
   } else {
     LOG(WARNING) << __func__ << " - SessionType=" << toString(session_type_)
                  << ", status=" << toString(status) << " has NO session";
@@ -146,7 +153,8 @@ ndk::ScopedAStatus BluetoothAudioProvider::updateAudioConfiguration(
 
   audio_config_ = std::make_unique<AudioConfiguration>(audio_config);
   BluetoothAudioSessionReport::ReportAudioConfigChanged(session_type_,
-                                                        *audio_config_);
+                                                        *audio_config_,
+                                                        index_);
   LOG(INFO) << __func__ << " - SessionType=" << toString(session_type_)
             << " | audio_config=" << audio_config.toString();
   return ndk::ScopedAStatus::ok();
@@ -161,7 +169,7 @@ ndk::ScopedAStatus BluetoothAudioProvider::setLowLatencyModeAllowed(
   }
   LOG(INFO) << __func__ << " - allowed " << allowed;
   BluetoothAudioSessionReport::ReportLowLatencyModeAllowedChanged(
-    session_type_, allowed);
+    session_type_, allowed, index_);
   return ndk::ScopedAStatus::ok();
 }
 

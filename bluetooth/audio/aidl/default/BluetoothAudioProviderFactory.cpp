@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "BTAudioProviderFactoryAIDL"
@@ -42,17 +47,18 @@ static const std::string kLeAudioOffloadProviderName =
 static const std::string kHfpOffloadProviderName =
     "HFP_OFFLOAD_HARDWARE_OFFLOAD_PROVIDER";
 
-BluetoothAudioProviderFactory::BluetoothAudioProviderFactory() {}
+BluetoothAudioProviderFactory::BluetoothAudioProviderFactory(uint8_t index)
+    : index_(index) {}
 
 ndk::ScopedAStatus BluetoothAudioProviderFactory::openProvider(
     const SessionType session_type,
     std::shared_ptr<IBluetoothAudioProvider>* _aidl_return) {
-  LOG(INFO) << __func__ << " - SessionType=" << toString(session_type);
+  LOG(INFO) << __func__ << " - SessionType=" << toString(session_type) << ", index_: " << index_;
   std::shared_ptr<BluetoothAudioProvider> provider = nullptr;
 
   switch (session_type) {
     case SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH:
-      provider = ndk::SharedRefBase::make<A2dpSoftwareEncodingAudioProvider>();
+      provider = ndk::SharedRefBase::make<A2dpSoftwareEncodingAudioProvider>(index_);
       break;
     case SessionType::A2DP_HARDWARE_OFFLOAD_ENCODING_DATAPATH:
       provider = ndk::SharedRefBase::make<A2dpOffloadEncodingAudioProvider>(
@@ -115,6 +121,7 @@ ndk::ScopedAStatus BluetoothAudioProviderFactory::openProvider(
 ndk::ScopedAStatus BluetoothAudioProviderFactory::getProviderCapabilities(
     const SessionType session_type,
     std::vector<AudioCapabilities>* _aidl_return) {
+  LOG(INFO) << __func__ << " - SessionType=" << toString(session_type);
   if (session_type == SessionType::A2DP_HARDWARE_OFFLOAD_ENCODING_DATAPATH ||
       session_type == SessionType::A2DP_HARDWARE_OFFLOAD_DECODING_DATAPATH) {
     auto codec_capabilities =
@@ -206,6 +213,10 @@ ndk::ScopedAStatus BluetoothAudioProviderFactory::getProviderInfo(
 
   // Unsupported for other sessions
   return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+}
+
+uint8_t BluetoothAudioProviderFactory::getIndex() const {
+    return index_;
 }
 
 }  // namespace audio
