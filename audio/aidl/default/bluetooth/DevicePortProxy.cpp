@@ -74,9 +74,9 @@ BluetoothAudioPortAidl::BluetoothAudioPortAidl(std::optional<bool> supportsLowLa
     : mCookie(::aidl::android::hardware::bluetooth::audio::kObserversCookieUndefined),
       mState(BluetoothStreamState::DISABLED),
       mSessionType(SessionType::UNKNOWN),
-      mSupportsLowLatency(supportsLowLatency),
       mIsDualA2DPSource(false),
-      mSessionIndex(0) {}
+      mSessionIndex(0),
+      mSupportsLowLatency(supportsLowLatency) {}
 
 BluetoothAudioPortAidl::~BluetoothAudioPortAidl() {
     unregisterPort();
@@ -135,7 +135,6 @@ bool BluetoothAudioPortAidl::initSessionType(const AudioDeviceDescription& descr
                                              const AudioDevice& Audiodevices) {
     ::aidl::android::hardware::bluetooth::audio::SessionType fallbackSessionType =
             SessionType::UNKNOWN;
-    std::lock_guard guard(mCvMutex);
 
     const auto address = Audiodevices.address;
 
@@ -480,7 +479,7 @@ bool BluetoothAudioPortAidl::start() {
             mState = BluetoothStreamState::STARTING;
             lock.unlock();
             const bool startSuccess =
-                    BluetoothAudioSessionControl::StartStream(mSessionType, low_latency, mIsDualA2DPSource, mSessionIndex);
+                    BluetoothAudioSessionControl::StartStream(mSessionType, mIsDualA2DPSource, mSessionIndex);
             lock.lock();
             if (startSuccess && mState == BluetoothStreamState::STARTING) {
                 retval = condWaitState(&lock);
