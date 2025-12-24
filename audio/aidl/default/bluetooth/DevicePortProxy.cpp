@@ -475,7 +475,6 @@ bool BluetoothAudioPortAidl::start() {
                 std::vector<LatencyMode> latency_modes;
                 getRecommendedLatencyModes(&latency_modes, &mSupportsLowLatency);
             }
-            const bool low_latency = mSupportsLowLatency.value_or(false);
             mState = BluetoothStreamState::STARTING;
             lock.unlock();
             const bool startSuccess =
@@ -549,8 +548,6 @@ bool BluetoothAudioPortAidl::suspend() {
             if (mIsDualA2DPSource) {
                 LOG(INFO) << __func__ << " dual BT a2dp source feature, index= " << mSessionIndex;
                 if (!BluetoothAudioSessionControl::IsSessionReady(mSessionType)) {
-                    std::unique_lock lock(mCvMutex);
-                    base::ScopedLockAssertion lock_assertion(mCvMutex);
                     mState = BluetoothStreamState::STANDBY;
                     return true;
                 }
