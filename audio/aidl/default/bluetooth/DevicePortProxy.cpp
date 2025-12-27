@@ -36,7 +36,10 @@ using aidl::android::hardware::bluetooth::audio::PortStatusCallbacks;
 using aidl::android::hardware::bluetooth::audio::PresentationPosition;
 using aidl::android::hardware::bluetooth::audio::SessionType;
 using aidl::android::media::audio::common::AudioDeviceDescription;
+using aidl::android::media::audio::common::AudioDevice;
+using aidl::android::media::audio::common::AudioDeviceAddress;
 using aidl::android::media::audio::common::AudioDeviceType;
+
 using android::base::StringPrintf;
 
 namespace android::bluetooth::audio::aidl {
@@ -71,19 +74,22 @@ BluetoothAudioPortAidl::BluetoothAudioPortAidl(std::optional<bool> supportsLowLa
     : mCookie(::aidl::android::hardware::bluetooth::audio::kObserversCookieUndefined),
       mState(BluetoothStreamState::DISABLED),
       mSessionType(SessionType::UNKNOWN),
+      mIsDualA2DPSource(false),
+      mSessionIndex(0),
       mSupportsLowLatency(supportsLowLatency) {}
 
 BluetoothAudioPortAidl::~BluetoothAudioPortAidl() {
     unregisterPort();
 }
 
-bool BluetoothAudioPortAidl::registerPort(const AudioDeviceDescription& description) {
+bool BluetoothAudioPortAidl::registerPort(const AudioDeviceDescription& description,
+                                          const AudioDevice& Audiodevices) {
     if (inUse()) {
         LOG(ERROR) << __func__ << debugMessage() << " already in use";
         return false;
     }
 
-    if (!initSessionType(description)) return false;
+    if (!initSessionType(description, Audiodevices)) return false;
 
     auto control_result_cb = [port = this](uint16_t cookie, bool start_resp,
                                            const BluetoothAudioStatus& status) {
@@ -102,7 +108,7 @@ bool BluetoothAudioPortAidl::registerPort(const AudioDeviceDescription& descript
             .session_changed_cb_ = session_changed_cb,
             .low_latency_mode_allowed_cb_ = low_latency_allowed_cb,
     };
-    mCookie = BluetoothAudioSessionControl::RegisterControlResultCback(mSessionType, cbacks);
+    mCookie = BluetoothAudioSessionControl::RegisterControlResultCback(mSessionType, cbacks, mSessionIndex);
     auto isOk = (mCookie != ::aidl::android::hardware::bluetooth::audio::kObserversCookieUndefined);
     if (isOk) {
         std::lock_guard guard(mCvMutex);
@@ -112,10 +118,39 @@ bool BluetoothAudioPortAidl::registerPort(const AudioDeviceDescription& descript
     return isOk;
 }
 
-bool BluetoothAudioPortAidl::initSessionType(const AudioDeviceDescription& description) {
+bool isDeviceAddressAvailable(const AudioDevice& audioDevices)
+{
+    if (audioDevices.type.connection == "") {
+        LOG(VERBOSE) << __func__ << " connection is NULL, so fetch the device bus address" ;
+        return true;
+    } else if ((audioDevices.type.connection.compare("bt-sco")) ||
+               (audioDevices.type.connection.compare("bt-a2dp"))) {
+        LOG(INFO) << __func__ << " connection might be bt-sco or bt-a2dp" ;
+        return false;
+    }
+    return false;
+}
+
+bool BluetoothAudioPortAidl::initSessionType(const AudioDeviceDescription& description,
+                                             const AudioDevice& Audiodevices) {
     ::aidl::android::hardware::bluetooth::audio::SessionType fallbackSessionType =
             SessionType::UNKNOWN;
-    if (description.connection == AudioDeviceDescription::CONNECTION_BT_A2DP &&
+
+    const auto address = Audiodevices.address;
+
+    if (description.type == AudioDeviceType::OUT_BUS && isDeviceAddressAvailable(Audiodevices) && address.get<AudioDeviceAddress::Tag::id>() == "BUS18_BT_HEADPHONE_1") {
+        mIsDualA2DPSource = true;
+        mSessionIndex = 0;
+        mSessionType = SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH;
+        setState(BluetoothStreamState::STARTED); // BluetoothStreamState might not need to be force-set when BT STACK adaption complete
+        return true;
+    } else if (description.type == AudioDeviceType::OUT_BUS && isDeviceAddressAvailable(Audiodevices) && address.get<AudioDeviceAddress::Tag::id>() == "BUS19_BT_HEADPHONE_2") {
+        mIsDualA2DPSource = true;
+        mSessionIndex = 1;
+        mSessionType = SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH;
+        setState(BluetoothStreamState::STARTED);
+        return true;
+    } else if (description.connection == AudioDeviceDescription::CONNECTION_BT_A2DP &&
         (description.type == AudioDeviceType::OUT_DEVICE ||
          description.type == AudioDeviceType::OUT_HEADPHONE ||
          description.type == AudioDeviceType::OUT_SPEAKER)) {
@@ -155,7 +190,7 @@ bool BluetoothAudioPortAidl::initSessionType(const AudioDeviceDescription& descr
         return false;
     }
 
-    if (!BluetoothAudioSessionControl::IsSessionReady(mSessionType)) {
+    if (!BluetoothAudioSessionControl::IsSessionReady(mSessionType, mSessionIndex)) {
         if (fallbackSessionType != SessionType::UNKNOWN) {
             LOG(WARNING) << __func__
                          << ": Retry fallback session_type=" << toString(fallbackSessionType)
@@ -181,7 +216,7 @@ void BluetoothAudioPortAidl::unregisterPort() {
         LOG(WARNING) << __func__ << debugMessage() << ": BluetoothAudioPortAidl is not in use";
         return;
     }
-    BluetoothAudioSessionControl::UnregisterControlResultCback(mSessionType, mCookie);
+    BluetoothAudioSessionControl::UnregisterControlResultCback(mSessionType, mCookie, mSessionIndex);
     mCookie = ::aidl::android::hardware::bluetooth::audio::kObserversCookieUndefined;
     LOG(VERBOSE) << __func__ << debugMessage() << " port unregistered";
 }
@@ -269,6 +304,10 @@ void BluetoothAudioPortAidl::lowLatencyAllowedHandler(uint16_t cookie, bool allo
 
 void BluetoothAudioPortAidl::sessionChangedHandler(uint16_t cookie) {
     std::lock_guard guard(mCvMutex);
+    if (mIsDualA2DPSource) {
+      LOG(INFO) << " sessionChangedHandler Return for dual A2dp";
+      return;
+    }
     if (!inUse()) {
         LOG(ERROR) << "session_changed_cb: BluetoothAudioPortAidl is not in use";
         return;
@@ -297,7 +336,7 @@ bool BluetoothAudioPortAidl::getPreferredDataIntervalUs(size_t& interval_us) con
     }
 
     const AudioConfiguration& hal_audio_cfg =
-            BluetoothAudioSessionControl::GetAudioConfig(mSessionType);
+            BluetoothAudioSessionControl::GetAudioConfig(mSessionType, mIsDualA2DPSource, mSessionIndex);
     if (hal_audio_cfg.getTag() != AudioConfiguration::pcmConfig) {
         LOG(ERROR) << __func__ << debugMessage() << ": unsupported audio cfg tag";
         return false;
@@ -333,7 +372,7 @@ bool BluetoothAudioPortAidl::loadAudioConfig(PcmConfiguration& audio_cfg) {
     }
 
     const AudioConfiguration& hal_audio_cfg =
-            BluetoothAudioSessionControl::GetAudioConfig(mSessionType);
+            BluetoothAudioSessionControl::GetAudioConfig(mSessionType, mIsDualA2DPSource, mSessionIndex);
     if (hal_audio_cfg.getTag() != AudioConfiguration::pcmConfig) {
         LOG(ERROR) << __func__ << debugMessage()
                    << ": unsupported audio cfg tag: " << toString(hal_audio_cfg.getTag());
@@ -400,6 +439,12 @@ bool BluetoothAudioPortAidl::condWaitState(std::unique_lock<std::mutex>* lock) {
 }
 
 bool BluetoothAudioPortAidl::start() {
+    if (mIsDualA2DPSource) {
+        LOG(INFO) << __func__ << " dual BT a2dp source feature, index= " << mSessionIndex;
+        if (!BluetoothAudioSessionControl::IsSessionReady(mSessionType)) {
+          return true;
+        }
+    }
     if (!inUse()) {
         LOG(ERROR) << __func__ << debugMessage() << ": BluetoothAudioPortAidl is not in use";
         return false;
@@ -430,11 +475,10 @@ bool BluetoothAudioPortAidl::start() {
                 std::vector<LatencyMode> latency_modes;
                 getRecommendedLatencyModes(&latency_modes, &mSupportsLowLatency);
             }
-            const bool low_latency = mSupportsLowLatency.value_or(false);
             mState = BluetoothStreamState::STARTING;
             lock.unlock();
             const bool startSuccess =
-                    BluetoothAudioSessionControl::StartStream(mSessionType, low_latency);
+                    BluetoothAudioSessionControl::StartStream(mSessionType, mIsDualA2DPSource, mSessionIndex);
             lock.lock();
             if (startSuccess && mState == BluetoothStreamState::STARTING) {
                 retval = condWaitState(&lock);
@@ -485,7 +529,7 @@ bool BluetoothAudioPortAidl::suspend() {
         } else if (mState == BluetoothStreamState::STARTED) {
             mState = BluetoothStreamState::SUSPENDING;
             lock.unlock();
-            const bool suspendSuccess = BluetoothAudioSessionControl::SuspendStream(mSessionType);
+            const bool suspendSuccess = BluetoothAudioSessionControl::SuspendStream(mSessionType, mSessionIndex);
             lock.lock();
             if (suspendSuccess && mState == BluetoothStreamState::SUSPENDING) {
                 retval = condWaitState(&lock);
@@ -501,6 +545,13 @@ bool BluetoothAudioPortAidl::suspend() {
             LOG(INFO) << __func__ << debugMessage() << ", state=" << mState << " done";
         } else {
             LOG(ERROR) << __func__ << debugMessage() << ", state=" << mState << " failure";
+            if (mIsDualA2DPSource) {
+                LOG(INFO) << __func__ << " dual BT a2dp source feature, index= " << mSessionIndex;
+                if (!BluetoothAudioSessionControl::IsSessionReady(mSessionType)) {
+                    mState = BluetoothStreamState::STANDBY;
+                    return true;
+                }
+            }
         }
     }
     return retval;  // false if any failure like timeout
@@ -515,7 +566,7 @@ void BluetoothAudioPortAidl::stop() {
     BluetoothStreamState previous_state = mState;
     LOG(VERBOSE) << __func__ << debugMessage() << ", state=" << mState << " request";
     if (mState != BluetoothStreamState::DISABLED) {
-        BluetoothAudioSessionControl::StopStream(mSessionType);
+        BluetoothAudioSessionControl::StopStream(mSessionType, mSessionIndex);
         mState = BluetoothStreamState::DISABLED;
         LOG(INFO) << __func__ << debugMessage() << ", " << previous_state << " -> " << mState;
     }
@@ -533,7 +584,7 @@ size_t BluetoothAudioPortAidlOut::writeData(const void* buffer, size_t bytes) co
     }
 
     if (!mIsStereoToMono) {
-        return BluetoothAudioSessionControl::OutWritePcmData(mSessionType, buffer, bytes);
+        return BluetoothAudioSessionControl::OutWritePcmData(mSessionType, buffer, bytes, mSessionIndex);
     }
 
     // WAR to mix the stereo into Mono (16 bits per sample)
@@ -544,7 +595,7 @@ size_t BluetoothAudioPortAidlOut::writeData(const void* buffer, size_t bytes) co
     downmix_to_mono_i16_from_stereo_i16(dst.get(), src, write_frames);
     // a frame is 16 bits, and the size of a mono frame is equal to half a stereo.
     auto totalWrite = BluetoothAudioSessionControl::OutWritePcmData(mSessionType, dst.get(),
-                                                                    write_frames * 2);
+                                                                    write_frames * 2, mSessionIndex);
     return totalWrite * 2;
 }
 
@@ -570,7 +621,7 @@ size_t BluetoothAudioPortAidlIn::readData(void* buffer, size_t bytes) const {
         return 0;
     }
 
-    return BluetoothAudioSessionControl::InReadPcmData(mSessionType, buffer, bytes);
+    return BluetoothAudioSessionControl::InReadPcmData(mSessionType, buffer, bytes, mSessionIndex);
 }
 
 bool BluetoothAudioPortAidl::getPresentationPosition(
@@ -580,7 +631,8 @@ bool BluetoothAudioPortAidl::getPresentationPosition(
         return false;
     }
     bool retval = BluetoothAudioSessionControl::GetPresentationPosition(mSessionType,
-                                                                        presentation_position);
+                                                                        presentation_position,
+                                                                        mSessionIndex);
     LOG(VERBOSE) << __func__ << debugMessage() << ", state=" << getState()
                  << presentation_position.toString();
 
@@ -595,7 +647,7 @@ bool BluetoothAudioPortAidl::updateSourceMetadata(const SourceMetadata& source_m
     LOG(DEBUG) << __func__ << debugMessage() << ", state=" << getState() << ", "
                << source_metadata.tracks.size() << " track(s)";
     if (source_metadata.tracks.size() == 0) return true;
-    return BluetoothAudioSessionControl::UpdateSourceMetadata(mSessionType, source_metadata);
+    return BluetoothAudioSessionControl::UpdateSourceMetadata(mSessionType, source_metadata, mSessionIndex);
 }
 
 bool BluetoothAudioPortAidl::updateSinkMetadata(const SinkMetadata& sink_metadata) const {
@@ -606,7 +658,7 @@ bool BluetoothAudioPortAidl::updateSinkMetadata(const SinkMetadata& sink_metadat
     LOG(DEBUG) << __func__ << debugMessage() << ", state=" << getState() << ", "
                << sink_metadata.tracks.size() << " track(s)";
     if (sink_metadata.tracks.size() == 0) return true;
-    return BluetoothAudioSessionControl::UpdateSinkMetadata(mSessionType, sink_metadata);
+    return BluetoothAudioSessionControl::UpdateSinkMetadata(mSessionType, sink_metadata, mSessionIndex);
 }
 
 BluetoothStreamState BluetoothAudioPortAidl::getState() const {
