@@ -61,6 +61,7 @@ constexpr uint64_t kOpHandleSentinel = 0xFFFFFFFFFFFFFFFF;
 const string FEATURE_KEYSTORE_APP_ATTEST_KEY = "android.hardware.keystore.app_attest_key";
 const string FEATURE_STRONGBOX_KEYSTORE = "android.hardware.strongbox_keystore";
 const string FEATURE_HARDWARE_KEYSTORE = "android.hardware.hardware_keystore";
+const string FEATURE_DEVICE_ID_ATTESTATION = "android.software.device_id_attestation";
 
 const string ML_DSA_65_OID = "2.16.840.1.101.3.4.3.18";
 const string ML_DSA_87_OID = "2.16.840.1.101.3.4.3.19";
@@ -245,7 +246,8 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
 
     string MacMessage(const string& message, Digest digest, size_t mac_length);
 
-    void CheckAesIncrementalEncryptOperation(BlockMode block_mode, int message_size);
+    void CheckAesIncrementalEncryptOperation(BlockMode block_mode, int message_size,
+                                             bool final_chunk_via_finish = false);
 
     void AesCheckEncryptOneByteAtATime(const string& key, BlockMode block_mode,
                                        PaddingMode padding_mode, const string& iv,
@@ -269,8 +271,6 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
                             const string& signature, const AuthorizationSet& params);
     void LocalVerifyMessage(const string& message, const string& signature,
                             const AuthorizationSet& params);
-    void LocalVerifyMlDsaRaw(const std::string& message, const std::string& signature,
-                             MlDsaVariant variant, const vector<uint8_t>& pubkey);
 
     string LocalRsaEncryptMessage(const string& message, const AuthorizationSet& params);
     string EncryptMessage(const vector<uint8_t>& key_blob, const string& message,
@@ -488,18 +488,6 @@ string hex2str(string a);
 string bin2hex(const vector<uint8_t>& data);
 std::vector<uint8_t> random_vector(size_t len);
 
-// Information held in the SubjectPublicKeyInfo of a certificate.
-struct SubjectPublicKeyInfo {
-    bool is_mldsa() { return (oid == ML_DSA_65_OID || oid == ML_DSA_87_OID); }
-
-    // OBJECT IDENTIFIER as a dotted string.
-    string oid;
-    // Raw bytes of the public key.
-    vector<uint8_t> pubkey;
-    // Parameters are not included.
-};
-
-void extract_spki(X509* certificate, SubjectPublicKeyInfo* info, bool require_no_params = true);
 X509_Ptr parse_cert_blob(const vector<uint8_t>& blob);
 ASN1_OCTET_STRING* get_attestation_record(X509* certificate);
 vector<uint8_t> make_name_from_str(const string& name);

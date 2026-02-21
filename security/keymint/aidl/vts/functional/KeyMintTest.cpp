@@ -2090,6 +2090,61 @@ TEST_P(NewKeyGenerationTest, EcdsaAttestationIdAllTags) {
 }
 
 /*
+ * NewKeyGenerationTest.DeviceIdAttestationDisabled
+ *
+ * Verifies that ID attestation attempts return an error when the device ID attestation feature
+ * is disabled.
+ */
+TEST_P(NewKeyGenerationTest, DeviceIdAttestationDisabled) {
+    if (check_feature(FEATURE_DEVICE_ID_ATTESTATION)) {
+        GTEST_SKIP() << "Device ID attestation is enabled";
+    }
+
+    const AuthorizationSetBuilder base_builder = AuthorizationSetBuilder()
+                                                         .Authorization(TAG_NO_AUTH_REQUIRED)
+                                                         .EcdsaSigningKey(EcCurve::P_256)
+                                                         .Digest(Digest::NONE)
+                                                         .AttestationChallenge("hello")
+                                                         .AttestationApplicationId("foo")
+                                                         .SetDefaultValidity();
+
+    // Various ATTESTATION_ID_* tags with real values from the system properties.
+    auto id_tags = AuthorizationSetBuilder();
+    add_attestation_id(&id_tags, TAG_ATTESTATION_ID_BRAND, "brand");
+    add_attestation_id(&id_tags, TAG_ATTESTATION_ID_DEVICE, "device");
+    add_attestation_id(&id_tags, TAG_ATTESTATION_ID_PRODUCT, "name");
+    add_attestation_id(&id_tags, TAG_ATTESTATION_ID_MANUFACTURER, "manufacturer");
+    add_attestation_id(&id_tags, TAG_ATTESTATION_ID_MODEL, "model");
+    add_tag_from_prop(&id_tags, TAG_ATTESTATION_ID_SERIAL, "ro.serialno");
+
+    string imei = get_imei(0);
+    if (!imei.empty()) {
+        id_tags.Authorization(TAG_ATTESTATION_ID_IMEI, imei.data(), imei.size());
+    }
+    string second_imei = get_imei(1);
+    if (!second_imei.empty() && isSecondImeiIdAttestationRequired()) {
+        id_tags.Authorization(TAG_ATTESTATION_ID_SECOND_IMEI, second_imei.data(),
+                              second_imei.size());
+    }
+
+    for (const auto& tag_param : id_tags) {
+        SCOPED_TRACE(testing::Message() << "tag-" << tag_param.tag);
+        vector<uint8_t> key_blob;
+        vector<KeyCharacteristics> key_characteristics;
+        AuthorizationSetBuilder builder = base_builder;
+        builder.push_back(tag_param);
+        auto result = GenerateKey(builder, &key_blob, &key_characteristics);
+
+        // If the feature is disabled, the HAL MUST return CANNOT_ATTEST_IDS
+        // or ATTESTATION_IDS_NOT_PROVISIONED, even if the ID is correct.
+        EXPECT_TRUE(result == ErrorCode::CANNOT_ATTEST_IDS ||
+                    result == ErrorCode::ATTESTATION_IDS_NOT_PROVISIONED)
+                << "Expected failure for tag " << tag_param.tag
+                << " when feature is disabled, but got " << result;
+    }
+}
+
+/*
  * NewKeyGenerationTest.EcdsaAttestationUniqueId
  *
  * Verifies that creation of an attested ECDSA key with a UNIQUE_ID included.
@@ -6191,12 +6246,54 @@ TEST_P(EncryptionOperationsTest, AesEcbIncremental) {
 }
 
 /*
+ * EncryptionOperationsTest.AesEcbIncrementalProcessLastChunkInFinish
+ *
+ * Verifies that AES works for ECB block mode, when provided data in various size increments. This
+ * test sends the last chunk via finish.
+ */
+TEST_P(EncryptionOperationsTest, AesEcbIncrementalProcessLastChunkInFinish) {
+    int vendor_api_level = get_vendor_api_level();
+    int last_unsupported_api_level = AVendorSupport_getVendorApiLevelOf(36);
+    if (SecLevel() == SecurityLevel::STRONGBOX && vendor_api_level <= last_unsupported_api_level) {
+        // Skipped for StrongBox: Some implementations, including the reference implementation,
+        // mistakenly require strict block alignment for the final data segment in AES/DES ECB and
+        // CBC modes. While the specification allows for non-aligned data in the finish operation,
+        // these implementations erroneously reject it and return KM_ERROR_INVALID_INPUT_LENGTH.
+        GTEST_SKIP() << "This test applies only to vendor API level > "
+                     << last_unsupported_api_level
+                     << ", but the vendor API level on this device is: " << vendor_api_level;
+    }
+    CheckAesIncrementalEncryptOperation(BlockMode::ECB, 240, true /* final_chunk_via_finish */);
+}
+
+/*
  * EncryptionOperationsTest.AesCbcIncremental
  *
  * Verifies that AES works for CBC block mode, when provided data in various size increments.
  */
 TEST_P(EncryptionOperationsTest, AesCbcIncremental) {
     CheckAesIncrementalEncryptOperation(BlockMode::CBC, 240);
+}
+
+/*
+ * EncryptionOperationsTest.AesCbcIncrementalProcessLastChunkInFinish
+ *
+ * Verifies that AES works for CBC block mode, when provided data in various size increments. This
+ * test sends the last chunk via finish.
+ */
+TEST_P(EncryptionOperationsTest, AesCbcIncrementalProcessLastChunkInFinish) {
+    int vendor_api_level = get_vendor_api_level();
+    int last_unsupported_api_level = AVendorSupport_getVendorApiLevelOf(36);
+    if (SecLevel() == SecurityLevel::STRONGBOX && vendor_api_level <= last_unsupported_api_level) {
+        // Skipped for StrongBox: Some implementations, including the reference implementation,
+        // mistakenly require strict block alignment for the final data segment in AES/DES ECB and
+        // CBC modes. While the specification allows for non-aligned data in the finish operation,
+        // these implementations erroneously reject it and return KM_ERROR_INVALID_INPUT_LENGTH.
+        GTEST_SKIP() << "This test applies only to vendor API level > "
+                     << last_unsupported_api_level
+                     << ", but the vendor API level on this device is: " << vendor_api_level;
+    }
+    CheckAesIncrementalEncryptOperation(BlockMode::CBC, 240, true /* final_chunk_via_finish */);
 }
 
 /*
@@ -6209,12 +6306,32 @@ TEST_P(EncryptionOperationsTest, AesCtrIncremental) {
 }
 
 /*
+ * EncryptionOperationsTest.AesCtrIncrementalProcessLastChunkInFinish
+ *
+ * Verifies that AES works for CTR block mode, when provided data in various size increments. This
+ * test sends the last chunk via finish.
+ */
+TEST_P(EncryptionOperationsTest, AesCtrIncrementalProcessLastChunkInFinish) {
+    CheckAesIncrementalEncryptOperation(BlockMode::CTR, 240, true /* final_chunk_via_finish */);
+}
+
+/*
  * EncryptionOperationsTest.AesGcmIncremental
  *
  * Verifies that AES works for GCM block mode, when provided data in various size increments.
  */
 TEST_P(EncryptionOperationsTest, AesGcmIncremental) {
     CheckAesIncrementalEncryptOperation(BlockMode::GCM, 240);
+}
+
+/*
+ * EncryptionOperationsTest.AesGcmIncrementalProcessLastChunkInFinish
+ *
+ * Verifies that AES works for GCM block mode, when provided data in various size increments. This
+ * test sends the last chunk via finish.
+ */
+TEST_P(EncryptionOperationsTest, AesGcmIncrementalProcessLastChunkInFinish) {
+    CheckAesIncrementalEncryptOperation(BlockMode::GCM, 240, true /* final_chunk_via_finish */);
 }
 
 /*

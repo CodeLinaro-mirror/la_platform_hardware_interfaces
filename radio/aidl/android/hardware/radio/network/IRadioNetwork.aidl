@@ -473,6 +473,11 @@ oneway interface IRadioNetwork {
     /**
      * Starts a network scan.
      *
+     * On devices launching with VINTF target level 202604 or later, for all Radio Access Networks,
+     * the channels specified in {@link RadioAccessSpecifier} must correspond to the bands
+     * specified in {@link RadioAccessSpecifier}. On older devices, this requirement is not
+     * enforced but strongly recommended.
+     *
      * @param serial Serial number of request.
      * @param request Defines the radio networks/bands/channels which need to be scanned.
      *
@@ -831,7 +836,9 @@ oneway interface IRadioNetwork {
      * {@link disablePrioritizedNetworkScan}. After successful attachment, if the network
      * is lost, modem must go back to prioritized scanning.
      *
-     * <p> Note that the cell reselection priority must not be changed based upon scanRequest.
+     * <p>The modem should do the prioritized scanning only when it is in out of service state.
+     * <p> Note: A "limited service" state is considered out-of-service for this operation.
+     * <p> Note: The cell reselection priority must not be changed based upon scanRequest.
      *
      * @param serial Serial number of request.
      * @param scanRequest The prioritized scan request info.
