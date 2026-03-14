@@ -686,6 +686,12 @@ size_t BluetoothAudioSession::OutWritePcmData(const void* buffer,
     do {
       std::unique_lock<std::recursive_mutex> lock(mutex_);
       if (!IsSessionReadyInternal()) {
+        // In dual A2DP source scenario, OutWritePcmData continues writing audio data
+        // even after the BluetoothAudioSession has been stopped. This results in the
+        // function returning 0 repeatedly, causing continuous PCM writes and preventing
+        // the stream from entering suspended state.
+        // Return the data size to avoid this issue.
+        total_written = bytes;
         break;
       }
       size_t num_bytes_to_write = data_mq_->availableToWrite();
