@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <memory.h>
@@ -471,6 +475,8 @@ Result Effect::analyzeStatus(const char* funcName, const char* subFuncName,
 
 Return<void> Effect::getConfigImpl(int commandCode, const char* commandName,
                                    GetConfigCallback _hidl_cb) {
+    RETURN_RESULT_IF_EFFECT_CLOSED(EffectConfig());
+
     uint32_t halResultSize = sizeof(effect_config_t);
     effect_config_t halConfig{};
     status_t status = OK;
@@ -638,7 +644,7 @@ Result Effect::sendCommand(int commandCode, const char* commandName, uint32_t si
         std::lock_guard<std::mutex> lock(mLock);
         RETURN_IF_EFFECT_CLOSED();
         status = (*mHandle)->command(mHandle, commandCode, size, data, 0, NULL);
-    }
+
     return analyzeCommandStatus(commandName, sContextCallToCommand, status);
 }
 
@@ -649,6 +655,7 @@ Result Effect::sendCommandReturningData(int commandCode, const char* commandName
 
 Result Effect::sendCommandReturningData(int commandCode, const char* commandName, uint32_t size,
                                         void* data, uint32_t* replySize, void* replyData) {
+    RETURN_IF_EFFECT_CLOSED();
     uint32_t expectedReplySize = *replySize;
     status_t status = OK;
     {
@@ -891,6 +898,7 @@ Return<Result> Effect::offload(const EffectOffloadParameter& param) {
 }
 
 Return<void> Effect::getDescriptor(getDescriptor_cb _hidl_cb) {
+    RETURN_RESULT_IF_EFFECT_CLOSED(EffectDescriptor());
     effect_descriptor_t halDescriptor;
     memset(&halDescriptor, 0, sizeof(effect_descriptor_t));
     status_t status = OK;
@@ -909,6 +917,11 @@ Return<void> Effect::getDescriptor(getDescriptor_cb _hidl_cb) {
 
 Return<void> Effect::command(uint32_t commandId, const hidl_vec<uint8_t>& data,
                              uint32_t resultMaxSize, command_cb _hidl_cb) {
+    std::lock_guard<std::mutex> lock(mLock);
+    if (mHandle == kInvalidEffectHandle) {
+        _hidl_cb(-ENODATA, hidl_vec<uint8_t>());
+        return Void();
+    }
     uint32_t halDataSize;
     std::unique_ptr<uint8_t[]> halData = hidlVecToHal(data, &halDataSize);
     uint32_t halResultSize = resultMaxSize;
@@ -929,7 +942,6 @@ Return<void> Effect::command(uint32_t commandId, const hidl_vec<uint8_t>& data,
             [[fallthrough]];  // allow 'gtid' overload (checked halDataSize and resultMaxSize).
         default:
             {
-                std::lock_guard<std::mutex> lock(mLock);
                 if (mHandle == kInvalidEffectHandle) {
                     _hidl_cb(-ENODATA, hidl_vec<uint8_t>());
                     return Void();
@@ -1016,6 +1028,8 @@ std::tuple<Result, effect_handle_t> Effect::closeImpl() {
         handle = mHandle;
         mHandle = kInvalidEffectHandle;
     }
+    effect_handle_t handle = mHandle;
+    mHandle = kInvalidEffectHandle;
 #if MAJOR_VERSION <= 5
     return {Result::OK, handle};
 #elif MAJOR_VERSION >= 6
