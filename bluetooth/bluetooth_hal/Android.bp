@@ -292,6 +292,20 @@ cc_library_static {
 }
 
 cc_library_static {
+    name: "libbluetooth_hal_lmp_event",
+    vendor_available: true,
+    defaults: ["libbluetooth_hal_extension_defaults"],
+    srcs: [
+        "extensions/ccc/bluetooth_lmp_event.cc",
+    ],
+    shared_libs: [
+        "android.hardware.bluetooth.lmp_event-V1-ndk",
+    ],
+    cflags: ["-DUSE_CCC_V1"],
+    export_include_dirs: ["include/public"],
+}
+
+cc_library_static {
     name: "libbluetooth_hal_channel_avoidance",
     vendor_available: true,
     defaults: ["libbluetooth_hal_extension_defaults"],
@@ -662,6 +676,7 @@ cc_test {
     name: "bluetooth_hal_hci_packetizer_test",
     defaults: ["bluetooth_hal_test_defaults"],
     srcs: [
+        "util/logging.cc",
         "transport/vendor_packet_validator.cc",
         "transport/vendor_packet_validator_interface.cc",
         "transport/hci_packet_rescuer.cc",
@@ -682,6 +697,7 @@ cc_test {
     name: "bluetooth_hal_hci_packet_rescuer_test",
     defaults: ["bluetooth_hal_test_defaults"],
     srcs: [
+        "util/logging.cc",
         "transport/vendor_packet_validator.cc",
         "transport/vendor_packet_validator_interface.cc",
         "transport/hci_packet_rescuer.cc",
@@ -700,6 +716,7 @@ cc_test {
     name: "bluetooth_hal_transport_factory_test",
     defaults: ["bluetooth_hal_test_defaults"],
     srcs: [
+        "util/logging.cc",
         "transport/device_control/uart_manager.cc",
         "transport/device_control/power_manager.cc",
         "transport/transport_factory.cc",
@@ -731,6 +748,7 @@ cc_test {
     name: "bluetooth_hal_transport_uart_h4_test",
     defaults: ["bluetooth_hal_test_defaults"],
     srcs: [
+        "util/logging.cc",
         "config/hal_config_loader.cc",
         "transport/device_control/uart_manager.cc",
         "transport/device_control/power_manager.cc",
@@ -762,6 +780,7 @@ cc_test {
     name: "bluetooth_hal_data_processor_test",
     defaults: ["bluetooth_hal_test_defaults"],
     srcs: [
+        "util/logging.cc",
         "transport/vendor_packet_validator.cc",
         "transport/vendor_packet_validator_interface.cc",
         "transport/hci_packet_rescuer.cc",
@@ -827,6 +846,28 @@ cc_test {
     ],
     shared_libs: [
         "libbase",
+    ],
+}
+
+cc_test {
+    name: "bluetooth_hal_chip_provisioner_test",
+    defaults: ["bluetooth_hal_test_defaults"],
+    srcs: [
+        "chip/chip_provisioner.cc",
+        "chip/chip_provisioner_test.cc",
+        "hci_router_client.cc",
+        ":test_mock_router_srcs",
+        ":test_mock_util_srcs",
+        ":test_mock_hal_config_srcs",
+        ":test_mock_firmware_config_srcs",
+    ],
+    static_libs: [
+        "libgmock",
+        "hal_proto_lib",
+    ],
+    shared_libs: [
+        "libbase",
+        "libprotobuf-cpp-full",
     ],
 }
 

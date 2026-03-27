@@ -85,6 +85,7 @@ using ::android::contexthub::data_flow::NotificationManager;
 using ::android::contexthub::data_flow::Producer;
 using ::android::contexthub::data_flow::Region;
 using ::android::contexthub::data_flow::RegionManager;
+using ::android::contexthub::data_flow::RemoteEndpointId;
 using ::android::contexthub::data_flow::RemoteNotifyArgs;
 using ::android::contexthub::data_flow::internal::ProducerBase;
 using ::android::hardware::contexthub::vts_utils::kNonExistentAppId;
@@ -1255,11 +1256,10 @@ class RegisterOffloadSinkCallback : public IEndpointCommunication::BnRegisterOff
 
         ConsumerPolicyBuilder policy;
         policy.setStreaming();
-        const char* kConsumerName = "HalEchoConsumer";
-        pw::ConstByteSpan nameSpan(reinterpret_cast<const std::byte*>(kConsumerName), 15);
+        RemoteEndpointId sinkId = {
+                .aidlId = {.hubId = mHalEndpointId.hubId, .endpointId = mHalEndpointId.id}};
         pw::Result<uint32_t> consDescOffsetRes;
-        consDescOffsetRes =
-                mProducer->getConsumerManager().addConsumer(nameSpan, policy, sinkRegion);
+        consDescOffsetRes = mProducer->getConsumerManager().addConsumer(sinkId, policy, sinkRegion);
         if (!consDescOffsetRes.ok()) {
             ALOGE("VTS: mProducer->getConsumerManager().addConsumer() failed with status: %s",
                   consDescOffsetRes.status().str());
@@ -1283,28 +1283,40 @@ class RegisterOffloadSinkCallback : public IEndpointCommunication::BnRegisterOff
 TEST_P(ContextHubDataFlowEchoTest, TestDataFlowEchoVerifyContent) {
     if (!registerDefaultHub()) GTEST_SKIP() << "Not implemented";
 
+    std::unordered_set<int64_t> dataFlowSupportedHubs;
+    std::vector<HubInfo> hubs;
+    ASSERT_TRUE(mContextHub->getHubs(&hubs).isOk());
+    bool dataFlowsSupported = false;
+    for (const auto& hub : hubs) {
+        if (hub.sharedDataCapabilities.has_value() &&
+            hub.sharedDataCapabilities->dataFlowsSupported) {
+            dataFlowSupportedHubs.insert(hub.hubId);
+        }
+    }
+
     std::vector<EndpointInfo> endpoints;
     mContextHub->getEndpoints(&endpoints);
     if (endpoints.empty()) {
         GTEST_SKIP() << "No endpoints returned by HAL";
     }
     EndpointId halEndpointId;
-    bool foundEchoEndpoint = false;
+    bool foundSupportedEchoEndpoint = false;
     for (const auto& endpoint : endpoints) {
         for (const auto& service : endpoint.services) {
-            if (service.serviceDescriptor == "android.hardware.contexthub.test.EchoService") {
-                halEndpointId = endpoints[0].id;
-                foundEchoEndpoint = true;
+            if (service.serviceDescriptor == "android.hardware.contexthub.test.EchoService" &&
+                dataFlowSupportedHubs.find(endpoint.id.hubId) != dataFlowSupportedHubs.end()) {
+                halEndpointId = endpoint.id;
+                foundSupportedEchoEndpoint = true;
                 break;
             }
         }
     }
-    if (!foundEchoEndpoint) {
-        GTEST_SKIP() << "Endpoint with echo service not implemented.";
+    if (!foundSupportedEchoEndpoint) {
+        GTEST_SKIP() << "Endpoint supporting data flow with echo service not implemented.";
         return;
     }
 
-    // 1. Allocate shared data region and act as producer.
+    // 1. Allocate shared data region and act as source.
     SharedDataRegionRequirements reqs;
     reqs.sizeBytes = 16384;  // 16KB
     reqs.targetHubIds = {kDefaultHubId, halEndpointId.hubId};
@@ -1327,14 +1339,18 @@ TEST_P(ContextHubDataFlowEchoTest, TestDataFlowEchoVerifyContent) {
             << "mapHostProducerRegion failed: " << hostProdRegionRes.status().str();
     AllocatorRegion& hostRegion = hostProdRegionRes.value();
 
-    // 3. Create Producer
+    // 3. Create source
+    EndpointId hostEndpoint{.id = 0x1234, .hubId = kDefaultHubId};
+    RemoteEndpointId remoteEndpointId = {
+            .aidlId = {.hubId = hostEndpoint.hubId, .endpointId = hostEndpoint.id}};
     DataNotifier dataNotifier;
     constexpr size_t kQueueBlockCapacity = 1024;
-    auto producerRes = Producer<uint8_t>::createRemote(hostRegion, kQueueBlockCapacity,
-                                                       16,  // max blocks
-                                                       1,   // min blocks
-                                                       dataNotifier,
-                                                       RemoteNotifyArgs{[](pw::ConstByteSpan) {}});
+    auto producerRes = Producer<uint8_t>::createRemote(
+            hostRegion, kQueueBlockCapacity,
+            16,  // max blocks
+            1,   // min blocks
+            dataNotifier,
+            RemoteNotifyArgs{.fn = [](const RemoteEndpointId&) {}, .id = remoteEndpointId});
     ASSERT_TRUE(producerRes.ok()) << "Producer createRemote failed with status: "
                                   << producerRes.status().str();
     std::optional<Producer<uint8_t>> producerOpt;
@@ -1350,10 +1366,7 @@ TEST_P(ContextHubDataFlowEchoTest, TestDataFlowEchoVerifyContent) {
     dfInfo.region.id = regionId;
     dfInfo.metadataOffsetBytes = queueOffset;
 
-    // 5. Register Producer
-    EndpointId hostEndpoint;
-    hostEndpoint.hubId = kDefaultHubId;
-    hostEndpoint.id = 0x1234;
+    // 5. Register source
     int32_t flowIdVal = -1;
     ASSERT_TRUE(mHubInterface->registerDataFlowHostSource(hostEndpoint, dfInfo, &flowIdVal).isOk());
     ALOGD("VTS: Host Source Registered (FlowID=%d)", flowIdVal);
@@ -1415,7 +1428,8 @@ TEST_P(ContextHubDataFlowEchoTest, TestDataFlowEchoVerifyContent) {
 
     auto consumerRes = Consumer<uint8_t>::createRemote(
             echoRegion, std::nullopt, echoHandle.info->metadataOffsetBytes,
-            echoHandle.metadataOffsetBytes, RemoteNotifyArgs{[](pw::ConstByteSpan) {}});
+            echoHandle.metadataOffsetBytes,
+            RemoteNotifyArgs{.fn = [](const RemoteEndpointId&) {}, .id = remoteEndpointId});
     ASSERT_TRUE(consumerRes.ok()) << "failed to create remote consumer: "
                                   << consumerRes.status().str();
     std::optional<Consumer<uint8_t>> consumerOpt;
@@ -1444,7 +1458,7 @@ TEST_P(ContextHubDataFlowEchoTest, TestDataFlowEchoVerifyContent) {
 
     // Cleanup
     consumerOpt->disable();
-    // Reset the std::optional to explicitly deconstruct consumer and producer.
+    // Reset the std::optional to explicitly deconstruct sink and source.
     // This should happen before the queue deallocation, or else if will have segmentation fault.
     consumerOpt.reset();
     producerOpt.reset();
