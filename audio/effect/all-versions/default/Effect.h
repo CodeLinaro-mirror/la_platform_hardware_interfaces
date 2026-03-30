@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef ANDROID_HARDWARE_AUDIO_EFFECT_EFFECT_H
@@ -23,6 +27,7 @@
 
 #include <atomic>
 #include <memory>
+#include <tuple>
 #include <vector>
 
 #include <fmq/EventFlag.h>
@@ -186,6 +191,7 @@ struct Effect : public IEffect {
 
     // Sets the limit on the maximum size of vendor-provided data structures.
     static constexpr size_t kMaxDataSize = 1 << 20;
+    static constexpr effect_handle_t kInvalidEffectHandle = nullptr;
 
     static const char* sContextResultOfCommand;
     static const char* sContextCallToCommand;
@@ -208,6 +214,7 @@ struct Effect : public IEffect {
     static size_t alignedSizeIn(size_t s);
     template <typename T>
     std::unique_ptr<uint8_t[]> hidlVecToHal(const hidl_vec<T>& vec, uint32_t* halDataSize);
+    std::tuple<Result, effect_handle_t> closeImpl();
     void effectAuxChannelsConfigFromHal(const channel_config_t& halConfig,
                                         EffectAuxChannelsConfig* config);
     static void effectAuxChannelsConfigToHal(const EffectAuxChannelsConfig& config,
@@ -218,7 +225,8 @@ struct Effect : public IEffect {
                                const void** valueData, std::vector<uint8_t>* halParamBuffer);
 
     Result analyzeCommandStatus(const char* commandName, const char* context, status_t status);
-    void getConfigImpl(int commandCode, const char* commandName, GetConfigCallback cb);
+    Return<void> getConfigImpl(int commandCode, const char* commandName,
+                               GetConfigCallback _hidl_cb);
     Result getCurrentConfigImpl(uint32_t featureId, uint32_t configSize,
                                 GetCurrentConfigSuccessCallback onSuccess);
     Result getSupportedConfigsImpl(uint32_t featureId, uint32_t maxConfigs, uint32_t configSize,
