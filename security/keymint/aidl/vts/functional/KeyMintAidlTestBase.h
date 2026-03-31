@@ -196,6 +196,9 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
 
     void CheckedDeleteKey();
 
+    void GetUniqueId(const std::string& app_id, uint64_t datetime, vector<uint8_t>* unique_id,
+                     bool reset = false);
+
     ErrorCode Begin(KeyPurpose purpose, const vector<uint8_t>& key_blob,
                     const AuthorizationSet& in_params, AuthorizationSet* out_params,
                     std::shared_ptr<IKeyMintOperation>& op);
@@ -246,7 +249,8 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
 
     string MacMessage(const string& message, Digest digest, size_t mac_length);
 
-    void CheckAesIncrementalEncryptOperation(BlockMode block_mode, int message_size);
+    void CheckAesIncrementalEncryptOperation(BlockMode block_mode, int message_size,
+                                             bool final_chunk_via_finish = false);
 
     void AesCheckEncryptOneByteAtATime(const string& key, BlockMode block_mode,
                                        PaddingMode padding_mode, const string& iv,

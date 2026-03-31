@@ -778,6 +778,46 @@ void KeyMintAidlTestBase::CheckedDeleteKey() {
     EXPECT_TRUE(result == ErrorCode::OK || result == ErrorCode::UNIMPLEMENTED) << result << endl;
 }
 
+void KeyMintAidlTestBase::GetUniqueId(const std::string& app_id, uint64_t datetime,
+                                      vector<uint8_t>* unique_id, bool reset) {
+    auto challenge = "hello";
+    auto subject = "cert subj 2";
+    vector<uint8_t> subject_der(make_name_from_str(subject));
+    uint64_t serial_int = 0x1010;
+    vector<uint8_t> serial_blob(build_serial_blob(serial_int));
+    AuthorizationSetBuilder builder = AuthorizationSetBuilder()
+                                              .Authorization(TAG_NO_AUTH_REQUIRED)
+                                              .Authorization(TAG_INCLUDE_UNIQUE_ID)
+                                              .EcdsaSigningKey(EcCurve::P_256)
+                                              .Digest(Digest::NONE)
+                                              .AttestationChallenge(challenge)
+                                              .Authorization(TAG_CERTIFICATE_SERIAL, serial_blob)
+                                              .Authorization(TAG_CERTIFICATE_SUBJECT, subject_der)
+                                              .AttestationApplicationId(app_id)
+                                              .Authorization(TAG_CREATION_DATETIME, datetime)
+                                              .SetDefaultValidity();
+    if (reset) {
+        builder.Authorization(TAG_RESET_SINCE_ID_ROTATION);
+    }
+    auto result = GenerateKey(builder);
+    ASSERT_EQ(ErrorCode::OK, result);
+    ASSERT_GT(key_blob_.size(), 0U);
+
+    EXPECT_TRUE(ChainSignaturesAreValid(cert_chain_));
+    ASSERT_GT(cert_chain_.size(), 0);
+    verify_subject_and_serial(cert_chain_[0], serial_int, subject, /* self_signed = */ false);
+
+    AuthorizationSet hw_enforced = HwEnforcedAuthorizations(key_characteristics_);
+    AuthorizationSet sw_enforced = SwEnforcedAuthorizations(key_characteristics_);
+
+    // Check that the unique ID field in the extension is non-empty.
+    EXPECT_TRUE(verify_attestation_record(AidlVersion(), challenge, app_id, sw_enforced,
+                                          hw_enforced, SecLevel(),
+                                          cert_chain_[0].encodedCertificate, unique_id));
+    EXPECT_GT(unique_id->size(), 0);
+    CheckedDeleteKey();
+}
+
 ErrorCode KeyMintAidlTestBase::Begin(KeyPurpose purpose, const vector<uint8_t>& key_blob,
                                      const AuthorizationSet& in_params,
                                      AuthorizationSet* out_params,
@@ -959,7 +999,8 @@ string KeyMintAidlTestBase::MacMessage(const string& message, Digest digest, siz
 }
 
 void KeyMintAidlTestBase::CheckAesIncrementalEncryptOperation(BlockMode block_mode,
-                                                              int message_size) {
+                                                              int message_size,
+                                                              bool final_chunk_via_finish) {
     auto builder = AuthorizationSetBuilder()
                            .Authorization(TAG_NO_AUTH_REQUIRED)
                            .AesEncryptionKey(128)
@@ -982,8 +1023,15 @@ void KeyMintAidlTestBase::CheckAesIncrementalEncryptOperation(BlockMode block_mo
 
         string ciphertext;
         string to_send;
-        for (size_t i = 0; i < message.size(); i += increment) {
-            EXPECT_EQ(ErrorCode::OK, Update(message.substr(i, increment), &ciphertext));
+        for (size_t i = 0; i < message_size; i += increment) {
+            // If the final_chunk_via_finish is enabled then check if the current iteration would go
+            // past the end of the message
+            if (final_chunk_via_finish && (i + increment) >= message_size) {
+                to_send = message.substr(i, increment);
+                break;
+            } else {
+                EXPECT_EQ(ErrorCode::OK, Update(message.substr(i, increment), &ciphertext));
+            }
         }
         EXPECT_EQ(ErrorCode::OK, Finish(to_send, &ciphertext))
                 << "Error sending " << to_send << " with block mode " << block_mode;
@@ -1019,9 +1067,18 @@ void KeyMintAidlTestBase::CheckAesIncrementalEncryptOperation(BlockMode block_mo
         EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::DECRYPT, params))
                 << "Decrypt begin() failed for block mode " << block_mode;
 
+        to_send.clear();
         string plaintext;
-        for (size_t i = 0; i < ciphertext.size(); i += increment) {
-            EXPECT_EQ(ErrorCode::OK, Update(ciphertext.substr(i, increment), &plaintext));
+        size_t ciphertext_size = ciphertext.size();
+        for (size_t i = 0; i < ciphertext_size; i += increment) {
+            // If the final_chunk_via_finish is enabled then check if the current iteration would go
+            // past the end of the message
+            if (final_chunk_via_finish && (i + increment) >= ciphertext_size) {
+                to_send = ciphertext.substr(i, increment);
+                break;
+            } else {
+                EXPECT_EQ(ErrorCode::OK, Update(ciphertext.substr(i, increment), &plaintext));
+            }
         }
         ErrorCode error = Finish(to_send, &plaintext);
         ASSERT_EQ(ErrorCode::OK, error) << "Decryption failed for block mode " << block_mode
