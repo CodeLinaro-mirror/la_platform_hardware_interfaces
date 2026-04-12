@@ -29,6 +29,14 @@ cc_library {
     host_supported: true,
     vendor_available: true,
     export_include_dirs: ["include"],
+    cflags: [
+        "-fstack-protector-strong",
+    ],
+    target: {
+        vendor: {
+            cflags: ["-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=2"],
+        },
+    },
     header_libs: [
         "libbase_headers",
         "libsystem_headers",
