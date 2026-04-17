@@ -35,6 +35,7 @@
 
 #include "data_flow/host/notification_manager.h"
 #include "data_flow/host/region_manager.h"
+#include "data_flow/host/remote_consumer.h"
 #include "data_flow/queue.h"
 
 namespace aidl::android::hardware::contexthub {
@@ -49,7 +50,12 @@ using ::android::contexthub::data_flow::NotificationManager;
 using ::android::contexthub::data_flow::Producer;
 using ::android::contexthub::data_flow::queueLayout;
 using ::android::contexthub::data_flow::RegionManager;
+using ::android::contexthub::data_flow::RemoteEndpointId;
 using ::android::contexthub::data_flow::RemoteNotifyArgs;
+using ::android::contexthub::data_flow::UntypedConsumer;
+using ::android::contexthub::data_flow::UntypedProducer;
+using ::android::contexthub::data_flow::VariableDataConsumer;
+using ::android::contexthub::data_flow::VariableDataProducer;
 using ::android::contexthub::data_flow::internal::ProducerBase;
 using ::ndk::ScopedAStatus;
 using ::ndk::ScopedFileDescriptor;
@@ -882,15 +888,18 @@ void ContextHub::HubInterface::createEchoDataFlow(
         return;
     }
 
-    auto consumerRes = Consumer<uint8_t>::createRemote(
-            echoRegion, echoMetadataRegion, dataFlow.info.metadataOffsetBytes, sinkMetadataOffset,
-            RemoteNotifyArgs{[](pw::ConstByteSpan) {}});
+    RemoteEndpointId offloadEndpointId = {
+            .aidlId{.hubId = in_sinkId.hubId, .endpointId = in_sinkId.id}};
+    pw::Result<std::variant<UntypedConsumer, VariableDataConsumer>> consumerRes =
+            createRemoteConsumer(echoRegion, echoMetadataRegion, dataFlow.info.metadataOffsetBytes,
+                                 sinkMetadataOffset,
+                                 RemoteNotifyArgs{.fn = [](const RemoteEndpointId&) {},
+                                                  .id = offloadEndpointId});
     if (!consumerRes.ok()) {
-        ALOGE("Echo: Consumer<uint8_t>::createRemote failed, status: %s",
-              consumerRes.status().str());
+        ALOGE("Echo: createRemoteConsumer failed, status: %s", consumerRes.status().str());
         return;
     }
-    std::optional<Consumer<uint8_t>> consumerOpt;
+    std::optional<std::variant<UntypedConsumer, VariableDataConsumer>> consumerOpt;
     consumerOpt.emplace(std::move(consumerRes.value()));
 
     // Send the message to the endpoint (do nothing) and send the message delivery status back to
@@ -936,20 +945,43 @@ void ContextHub::HubInterface::createEchoDataFlow(
     AllocatorRegion& hostRegion = hostProdRegionRes.value();
 
     // Create Producer
-    DataNotifier dataNotifier;
     constexpr size_t kQueueBlockCapacity = 1024;
-    auto producerRes = Producer<uint8_t>::createRemote(hostRegion, kQueueBlockCapacity,
-                                                       16,  // max blocks
-                                                       1,   // min blocks
-                                                       dataNotifier,
-                                                       RemoteNotifyArgs{[](pw::ConstByteSpan) {}});
-    if (!producerRes.ok()) {
-        ALOGE("Echo: Producer<uint8_t>::createRemote failed");
-        return;
+    constexpr size_t kMaxBlockCount = 16;
+    constexpr size_t kMinBlockCount = 1;
+    std::optional<std::variant<UntypedProducer, VariableDataProducer>> producerOpt;
+    if (consumerOpt->index() == 0) {
+        pw::Result<UntypedProducer> producerRes = UntypedProducer::createRemote(
+                hostRegion, kQueueBlockCapacity,
+                std::get<UntypedConsumer>(*consumerOpt).getElementSize(),
+                std::get<UntypedConsumer>(*consumerOpt).getElementAlignment(), kMaxBlockCount,
+                kMinBlockCount, mDataNotifier,
+                RemoteNotifyArgs{.fn = [](const RemoteEndpointId&) {}, .id = offloadEndpointId},
+                /*memAccess=*/nullptr);
+        if (!producerRes.ok()) {
+            ALOGE("Echo: UntypedProducer::createRemote failed, status: %s",
+                  producerRes.status().str());
+            return;
+        }
+        producerOpt.emplace(std::move(producerRes.value()));
+    } else {
+        pw::Result<VariableDataProducer> producerRes = VariableDataProducer::createRemote(
+                hostRegion, kQueueBlockCapacity, kMaxBlockCount, kMinBlockCount, mDataNotifier,
+                RemoteNotifyArgs{.fn = [](const RemoteEndpointId&) {}, .id = offloadEndpointId},
+                /* memAccess= */ nullptr);
+        if (!producerRes.ok()) {
+            ALOGE("Echo: VariableDataProducer::createRemote failed, status: %s",
+                  producerRes.status().str());
+            return;
+        }
+        producerOpt.emplace(std::move(producerRes.value()));
     }
-    std::optional<Producer<uint8_t>> producerOpt;
-    producerOpt.emplace(std::move(producerRes.value()));
-    size_t queueOffset = producerOpt->getQueueOffset();
+
+    size_t queueOffset;
+    if (producerOpt->index() == 0) {
+        queueOffset = std::get<UntypedProducer>(*producerOpt).getQueueOffset();
+    } else {
+        queueOffset = std::get<VariableDataProducer>(*producerOpt).getQueueOffset();
+    }
     ALOGD("Echo: Queue allocated at offset: %zu", queueOffset);
 
     // ========================================================================
@@ -986,10 +1018,18 @@ void ContextHub::HubInterface::createEchoDataFlow(
     ConsumerPolicyBuilder policy;
     policy.setStreaming();
 
-    const char* kConsumerName = "VtsEchoConsumer";
-    pw::ConstByteSpan nameSpan(reinterpret_cast<const std::byte*>(kConsumerName), 15);
-    pw::Result<uint32_t> consDescOffsetRes =
-            producerOpt->getConsumerManager().addConsumer(nameSpan, policy, &hostRegion);
+    RemoteEndpointId consumerId = {
+            .aidlId{.hubId = hostSourceId.hubId, .endpointId = hostSourceId.id}};
+    pw::Result<uint32_t> consDescOffsetRes;
+    if (producerOpt->index() == 0) {
+        consDescOffsetRes = std::get<UntypedProducer>(*producerOpt)
+                                    .getConsumerManager()
+                                    .addConsumer(consumerId, policy, &hostRegion);
+    } else {
+        consDescOffsetRes = std::get<VariableDataProducer>(*producerOpt)
+                                    .getConsumerManager()
+                                    .addConsumer(consumerId, policy, &hostRegion);
+    }
     if (!consDescOffsetRes.ok()) {
         ALOGE("Echo: addConsumer failed");
         return;
@@ -1047,6 +1087,7 @@ void ContextHub::HubInterface::createEchoDataFlow(
     std::thread([this, lifebuoy, producerOpt = std::move(producerOpt),
                  consumerOpt = std::move(consumerOpt), notificationManager, waiterPtr, hostSourceId,
                  flowIdVal, sinkContextId, outputSharedRegionId]() mutable {
+        std::vector<std::byte> buffer;
         while (!waiterPtr->isStopped()) {
             waiterPtr->waitAndDispatch();
 
@@ -1055,18 +1096,66 @@ void ContextHub::HubInterface::createEchoDataFlow(
             }
 
             while (true) {
-                auto popRes = consumerOpt->pop();
+                pw::Status popRes = pw::Status::Unknown();
+                pw::ByteSpan values;
+                if (consumerOpt->index() == 0) {
+                    auto& consumer = std::get<UntypedConsumer>(*consumerOpt);
+                    pw::Result<size_t> numElementsRes = consumer.size();
+                    if (!numElementsRes.ok()) {
+                        ALOGE("Unable to get the number of elements for the fixed sized consumer: "
+                              "%s",
+                              numElementsRes.status().str());
+                        break;
+                    }
+
+                    if (numElementsRes.value() > 0) {
+                        ALOGD("Popping %zu elements from the fixed sized consumer",
+                              numElementsRes.value());
+
+                        size_t elementSize = consumer.getElementSize();
+                        size_t numBytes = numElementsRes.value() * elementSize;
+                        buffer.resize(numBytes);
+                        values = pw::ByteSpan(buffer.data(), numBytes);
+                        popRes = std::get<UntypedConsumer>(*consumerOpt).pop(values);
+                    }
+                } else {
+                    auto& consumer = std::get<VariableDataConsumer>(*consumerOpt);
+                    pw::Result<size_t> headSizeRes = consumer.getHeadSize();
+                    if (!headSizeRes.ok()) {
+                        ALOGE("Unable to get the head size for the variable sized consumer: %s",
+                              headSizeRes.status().str());
+                        break;
+                    }
+
+                    if (headSizeRes.value() > 0) {
+                        ALOGD("Popping %zu bytes from the variable sized consumer",
+                              headSizeRes.value());
+
+                        buffer.resize(headSizeRes.value());
+                        values = pw::ByteSpan(buffer.data(), headSizeRes.value());
+                        popRes = consumer.pop(values);
+                    }
+                }
                 if (!popRes.ok()) {
                     break;
                 }
-                auto value = popRes.value();
-                producerOpt->push(value);
+
+                if (producerOpt->index() == 0) {
+                    std::get<UntypedProducer>(*producerOpt).push(values);
+                } else {
+                    std::get<VariableDataProducer>(*producerOpt).push(values);
+                }
                 notificationManager->notifyOffloadConsumer(hostSourceId, true);
             }
         }
 
         // Clean up
-        consumerOpt->disable();
+        if (consumerOpt->index() == 0) {
+            std::get<UntypedConsumer>(*consumerOpt).disable();
+        } else {
+            std::get<VariableDataConsumer>(*consumerOpt).disable();
+        }
+
         // Reset the std::optional to explicitly deconstruct consumer and producer.
         // This should happen before the queue deallocation, or else if will have segmentation
         // fault.
