@@ -230,7 +230,7 @@ ErrMsgOr<cppbor::Array> constructCoseSign1(int32_t supportedEekCurve, const byte
     if (supportedEekCurve == RpcHardwareInfo::CURVE_P256) {
         return constructECDSACoseSign1(key, {} /* protectedParams */, payload, aad);
     } else {
-        return cppcose::constructCoseSign1(key, payload, aad);
+        return cppcose::constructEdDsaCoseSign1(key, {} /* protectedParams */, payload, aad);
     }
 }
 
@@ -1003,7 +1003,7 @@ ErrMsgOr<int> countTrailingRkpVmMarkersInCsr(const std::vector<uint8_t>& encoded
         return diceChain.error().message();
     }
 
-    auto result = diceChain->countTrailingRkpVmMarkers();
+    auto result = diceChain->countTrailingRkpVmMarkers(instanceName);
     if (!result.ok()) {
         return result.error().message();
     }
