@@ -1846,7 +1846,7 @@ std::string WifiChip::allocateApIfaceName() {
     //single wlan chip case
     if (property_get(kDualWlanProperty, buffer, nullptr) == 0) {
         // Check if we have a dedicated iface for AP.
-        std::vector<std::string> ifnames = getPredefinedApIfaceNames(true);
+        ifnames = getPredefinedApIfaceNames(true);
     } else {
         //dual wlan chip case
         getPredefinedApIfaceNamesForDualWlan();
