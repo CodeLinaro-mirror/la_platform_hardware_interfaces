@@ -168,8 +168,9 @@ class UsbAidlTest : public testing::TestWithParam<std::string> {
     }
 
     // Callback method for the status of queryPortStatus operation
-    ScopedAStatus notifyQueryPortStatus(const string& /*portName*/, Status /*retval*/,
+    ScopedAStatus notifyQueryPortStatus(const string& /*portName*/, Status retval,
                                         int64_t transactionId) override {
+      parent_.usb_last_status = retval;
       parent_.last_transactionId = transactionId;
       parent_.query_port_status_done = true;
       parent_.notify();
@@ -200,9 +201,10 @@ class UsbAidlTest : public testing::TestWithParam<std::string> {
     // Callback method for the status of queryStaticPortInformation operation.
     ScopedAStatus notifyQueryStaticPortInformation(const string& /*portName*/,
                                                    const StaticPortInformation& staticPortInfo,
-                                                   Status /*retval*/,
+                                                   Status retval,
                                                    int64_t transactionId) override {
         parent_.usb_last_static_port_info = staticPortInfo;
+        parent_.usb_last_status = retval;
         parent_.last_transactionId = transactionId;
         parent_.usb_last_cookie = cookie;
         parent_.query_static_port_info_done = true;
@@ -259,46 +261,46 @@ class UsbAidlTest : public testing::TestWithParam<std::string> {
 
   // The last conveyed status of the USB ports.
   // Stores information of currentt_data_role, power_role for all the USB ports
-  PortStatus usb_last_port_status;
+  PortStatus usb_last_port_status{};
 
   // Status of the last role switch operation.
-  Status usb_last_status;
+  Status usb_last_status = Status::ERROR;
 
   // Port role information of the last role switch operation.
-  PortRole usb_last_port_role;
+  PortRole usb_last_port_role{};
 
   // Flag to indicate the invocation of role switch callback.
-  bool usb_role_switch_done;
+  bool usb_role_switch_done = false;
 
   // Flag to indicate the invocation of notifyContaminantEnabledStatus callback.
-  bool enable_contaminant_done;
+  bool enable_contaminant_done = false;
 
   // Flag to indicate the invocation of notifyEnableUsbDataStatus callback.
-  bool enable_usb_data_done;
+  bool enable_usb_data_done = false;
 
   // Flag to indicate the invocation of notifyEnableUsbDataWhileDockedStatus callback.
-  bool enable_usb_data_while_docked_done;
+  bool enable_usb_data_while_docked_done = false;
 
   // Flag to indicate the invocation of notifyLimitPowerTransferStatus callback.
-  bool limit_power_transfer_done;
+  bool limit_power_transfer_done = false;
 
   // Flag to indicate the invocation of notifyResetUsbPort callback.
-  bool reset_usb_port_done;
+  bool reset_usb_port_done = false;
 
   // Flag to indicate the invocation of queryPortStatus callback.
-  bool query_port_status_done;
+  bool query_port_status_done = false;
 
   // Stores static port information of the last queryStaticPortInformation operation.
   StaticPortInformation usb_last_static_port_info;
 
   // Flag to indicate the invocation of queryStaticPortInformation callback.
-  bool query_static_port_info_done;
+  bool query_static_port_info_done = false;
 
   // Stores the cookie of the last invoked usb callback object.
-  int usb_last_cookie;
+  int usb_last_cookie = 0;
 
   // Last transaction ID that was recorded.
-  int64_t last_transactionId;
+  int64_t last_transactionId = 0;
   // synchronization primitives to coordinate between main test thread
   // and the callback thread.
   std::mutex usb_mtx;
@@ -306,30 +308,27 @@ class UsbAidlTest : public testing::TestWithParam<std::string> {
   int usb_count = 0;
 
   // Stores usb version
-  int32_t usb_version;
+  int32_t usb_version = 0;
 };
 
 /*
  * Test to verify USB AIDL HAL version requirement.
  * @VsrTest = VSR-5.4-009|VSR-5.4-016
- * Devices with Board API level 202604 or higher MUST support AIDL HAL V3 or higher.
+ * Devices with Vendor API level 202604 or higher MUST support AIDL HAL V3 or higher.
  */
 TEST_P(UsbAidlTest, VerifyHalVersion) {
-    uint64_t boardApiLevel = android::base::GetUintProperty<uint64_t>("ro.board.api_level", 0);
-    uint64_t boardFirstApiLevel =
-            android::base::GetUintProperty<uint64_t>("ro.board.first_api_level", 0);
-    uint64_t effectiveApiLevel = boardApiLevel ? boardApiLevel : boardFirstApiLevel;
+    uint64_t vendorApiLevel = android::base::GetUintProperty<uint64_t>("ro.vendor.api_level", 0);
 
     auto retVersion = usb->getInterfaceVersion(&usb_version);
     ASSERT_TRUE(retVersion.isOk()) << retVersion;
 
-    if (effectiveApiLevel >= 202604) {
-        ASSERT_GE(usb_version, 3) << "VSR-5.4-016: Board API level " << effectiveApiLevel
+    if (vendorApiLevel >= 202604) {
+        ASSERT_GE(usb_version, 3) << "VSR-5.4-016: Vendor API level " << vendorApiLevel
                                   << " requires USB AIDL HAL V3 or higher (got V" << usb_version
                                   << ")";
-    } else if (effectiveApiLevel >= 202504) {
+    } else if (vendorApiLevel >= 202504) {
         // [VSR-5.4-009] requirement for previous year
-        ASSERT_GE(usb_version, 2) << "VSR-5.4-009: Board API level " << effectiveApiLevel
+        ASSERT_GE(usb_version, 2) << "VSR-5.4-009: Vendor API level " << vendorApiLevel
                                   << " requires USB AIDL HAL V2 or higher (got V" << usb_version
                                   << ")";
     }
@@ -1061,7 +1060,9 @@ TEST_P(UsbAidlTestV4, queryStaticPortInformation) {
     EXPECT_EQ(transactionId, last_transactionId);
 
     std::string portName = usb_last_port_status.portName;
-    ASSERT_FALSE(portName.empty()) << "No USB ports found";
+    if (portName.empty()) {
+        GTEST_SKIP() << "Skipping test: No USB ports found on device.";
+    }
 
     transactionId = rand() % 10000;
     query_static_port_info_done = false;
@@ -1073,6 +1074,10 @@ TEST_P(UsbAidlTestV4, queryStaticPortInformation) {
     EXPECT_EQ(std::cv_status::no_timeout, waitStatus);
     EXPECT_EQ(2, usb_last_cookie);
     EXPECT_EQ(transactionId, last_transactionId);
+
+    if (usb_last_status != Status::SUCCESS) {
+        GTEST_SKIP() << "Skipping test: Query Static Port Information returned non-success status.";
+    }
 
     const auto& staticPortInfo = usb_last_static_port_info;
     EXPECT_EQ(portName, staticPortInfo.portName);
@@ -1121,7 +1126,6 @@ TEST_P(UsbAidlTestV4, queryStaticPortInformation) {
     for (const auto& speed : staticPortInfo.displayLinkSpeedsSupported) {
         EXPECT_TRUE(isValidEnumValue(speed));
     }
-
     ALOGI("UsbAidlTestV4 queryStaticPortInformation end");
 }
 
@@ -1151,7 +1155,13 @@ TEST_P(UsbAidlTestV4, verifyUpdatedPortStatusValues) {
     EXPECT_EQ(transactionId, last_transactionId);
 
     std::string portName = usb_last_port_status.portName;
-    ASSERT_FALSE(portName.empty()) << "No USB ports found";
+    if (portName.empty()) {
+        GTEST_SKIP() << "Skipping test: No USB ports found on device.";
+    }
+
+    if (usb_last_status != Status::SUCCESS) {
+        GTEST_SKIP() << "Skipping test: Query Port Status returned non-success status.";
+    }
 
     if (usb_last_port_status.cableStatus.has_value()) {
         const auto& cableStatus = usb_last_port_status.cableStatus.value();

@@ -26,6 +26,14 @@ package {
 cc_library_shared {
     name: "android.hardware.audio.common-util",
     defaults: ["hidl_defaults"],
+    cflags: [
+        "-fstack-protector-strong",
+    ],
+    target: {
+        vendor: {
+            cflags: ["-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=2"],
+        },
+    },
     vendor_available: true,
     srcs: [
         "EffectMap.cpp",

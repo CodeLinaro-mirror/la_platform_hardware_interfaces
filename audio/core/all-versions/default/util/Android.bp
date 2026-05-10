@@ -11,6 +11,14 @@ package {
 cc_defaults {
     name: "android.hardware.audio-util_default",
     defaults: ["hidl_defaults"],
+    cflags: [
+        "-fstack-protector-strong",
+    ],
+    target: {
+        vendor: {
+            cflags: ["-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=2"],
+        },
+    },
 
     vendor_available: true,
 
