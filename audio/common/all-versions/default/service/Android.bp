@@ -111,9 +111,5 @@ phony {
 }
 phony {
     name: "android.hardware.audio@2.0-service_64",
-    target: {
-        android_arm64: {
-            required: ["android.hardware.audio.service_64"],
-        },
-    },
+    required: ["android.hardware.audio.service_64"],
 }
