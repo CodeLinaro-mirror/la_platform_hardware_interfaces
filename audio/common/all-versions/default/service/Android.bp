@@ -120,10 +120,6 @@ phony {
 // QTI_BEGIN: 2021-05-07: Audio: enable 64bit compilation
 phony {
     name: "android.hardware.audio@2.0-service_64",
-    target: {
-        android_arm64: {
-            required: ["android.hardware.audio.service_64"],
-        },
-    },
+    required: ["android.hardware.audio.service_64"],
 }
 // QTI_END: 2021-05-07: Audio: enable 64bit compilation
