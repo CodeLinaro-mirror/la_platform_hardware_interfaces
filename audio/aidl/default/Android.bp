@@ -37,7 +37,25 @@ cc_defaults {
     ],
     cflags: [
         "-DBACKEND_NDK",
+        "-fstack-protector-strong",
+        "-fno-builtin-__memcpy_chk",
+        "-fno-builtin-__memset_chk",
+        "-fno-builtin-__memmove_chk",
+        "-fno-builtin-__strcpy_chk",
+        "-fno-builtin-__snprintf_chk",
     ],
+    ldflags: [
+        "-Wl,-u,__memcpy_chk",
+        "-Wl,-u,__memset_chk",
+        "-Wl,-u,__memmove_chk",
+        "-Wl,-u,__strcpy_chk",
+        "-Wl,-u,__snprintf_chk",
+    ],
+    target: {
+        vendor: {
+            cflags: ["-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=2"],
+        },
+    },
 }
 
 cc_library {
@@ -165,6 +183,19 @@ cc_library {
         "-Wextra",
         "-Werror",
         "-DBACKEND_NDK",
+        "-fstack-protector-strong",
+        "-fno-builtin-__memcpy_chk",
+        "-fno-builtin-__memset_chk",
+        "-fno-builtin-__memmove_chk",
+        "-fno-builtin-__strcpy_chk",
+        "-fno-builtin-__snprintf_chk",
+    ],
+    ldflags: [
+        "-Wl,-u,__memcpy_chk",
+        "-Wl,-u,__memset_chk",
+        "-Wl,-u,__memmove_chk",
+        "-Wl,-u,__strcpy_chk",
+        "-Wl,-u,__snprintf_chk",
     ],
     vendor: true,
     host_supported: true,
@@ -173,6 +204,9 @@ cc_library {
             shared_libs: [
                 "libapexsupport",
             ],
+        },
+        vendor: {
+            cflags: ["-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=2"],
         },
     },
 }
@@ -388,7 +422,25 @@ cc_defaults {
         "-Werror",
         "-Wthread-safety",
         "-DBACKEND_NDK",
+        "-fstack-protector-strong",
+        "-fno-builtin-__memcpy_chk",
+        "-fno-builtin-__memset_chk",
+        "-fno-builtin-__memmove_chk",
+        "-fno-builtin-__strcpy_chk",
+        "-fno-builtin-__snprintf_chk",
     ],
+    ldflags: [
+        "-Wl,-u,__memcpy_chk",
+        "-Wl,-u,__memset_chk",
+        "-Wl,-u,__memmove_chk",
+        "-Wl,-u,__strcpy_chk",
+        "-Wl,-u,__snprintf_chk",
+    ],
+    target: {
+        vendor: {
+            cflags: ["-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=2"],
+        },
+    },
 }
 
 cc_library_static {
@@ -419,7 +471,25 @@ cc_library_static {
         "-Werror",
         "-Wthread-safety",
         "-DBACKEND_NDK",
+        "-fstack-protector-strong",
+        "-fno-builtin-__memcpy_chk",
+        "-fno-builtin-__memset_chk",
+        "-fno-builtin-__memmove_chk",
+        "-fno-builtin-__strcpy_chk",
+        "-fno-builtin-__snprintf_chk",
     ],
+    ldflags: [
+        "-Wl,-u,__memcpy_chk",
+        "-Wl,-u,__memset_chk",
+        "-Wl,-u,__memmove_chk",
+        "-Wl,-u,__strcpy_chk",
+        "-Wl,-u,__snprintf_chk",
+    ],
+    target: {
+        vendor: {
+            cflags: ["-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=2"],
+        },
+    },
     export_include_dirs: ["include"],
     host_supported: true,
     vendor: true,
