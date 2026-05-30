@@ -254,6 +254,10 @@ void EvsVideoEmulatedCamera::onCodecOutputAvailable(const int32_t index,
     mapper.unlock(renderBufferHandle);
 
     // Issue the (asynchronous) callback to the client -- can't be holding the lock
+    {
+        std::lock_guard lock(mMutex);
+        notifyFrameDelivered_unsafe(renderBufferId);
+    }
     if (mStream && mStream->deliverFrame(renderBufferDescs).isOk()) {
         LOG(DEBUG) << __func__ << ": Delivered " << renderBufferHandle
                    << ", id = " << renderBufferId;
