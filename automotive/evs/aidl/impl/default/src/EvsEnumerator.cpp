@@ -193,12 +193,31 @@ ScopedAStatus EvsEnumerator::getCameraList(std::vector<CameraDesc>* _aidl_return
 
 ScopedAStatus EvsEnumerator::getStreamList(const CameraDesc& desc,
                                            std::vector<Stream>* _aidl_return) {
+    LOG(DEBUG) << __FUNCTION__;
+    if (!checkPermission()) {
+        return ScopedAStatus::fromServiceSpecificError(
+                static_cast<int>(EvsResult::PERMISSION_DENIED));
+    }
+
     using AidlPixelFormat = ::aidl::android::hardware::graphics::common::PixelFormat;
 
-    camera_metadata_t* pMetadata = const_cast<camera_metadata_t*>(
-            reinterpret_cast<const camera_metadata_t*>(desc.metadata.data()));
+    bool metadata_valid = false;
+    const camera_metadata_t* pMetadata =
+            reinterpret_cast<const camera_metadata_t*>(desc.metadata.data());
+    if (pMetadata) {
+        size_t expected_size = desc.metadata.size();
+        if (validate_camera_metadata_structure(pMetadata, &expected_size) == 0) {
+            metadata_valid = true;
+        }
+    }
+
+    if (!metadata_valid) {
+        LOG(ERROR) << "Invalid camera metadata received";
+        return ScopedAStatus::fromServiceSpecificError(static_cast<int>(EvsResult::INVALID_ARG));
+    }
+
     camera_metadata_entry_t streamConfig;
-    if (!find_camera_metadata_entry(pMetadata, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
+    if (!find_camera_metadata_entry(const_cast<camera_metadata_t*>(pMetadata), ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
                                     &streamConfig)) {
         const unsigned numStreamConfigs = streamConfig.count / sizeof(StreamConfiguration);
         _aidl_return->resize(numStreamConfigs);
