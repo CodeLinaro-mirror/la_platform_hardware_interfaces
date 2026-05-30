@@ -243,6 +243,10 @@ void EvsMockCamera::generateFrames() {
             frames.push_back(std::move(newBuffer));
 
             // Issue the (asynchronous) callback to the client -- can't be holding the lock
+            {
+                std::lock_guard lock(mMutex);
+                notifyFrameDelivered_unsafe(bufferId);
+            }
             if (mStream && mStream->deliverFrame(frames).isOk()) {
                 LOG(DEBUG) << "Delivered " << bufferHandle << ", id = " << bufferId;
             } else {
