@@ -156,7 +156,8 @@ StreamBluetooth::~StreamBluetooth() {
 ::android::status_t StreamBluetooth::transfer(void* buffer, size_t frameCount,
                                               size_t* actualFrameCount, int32_t* latencyMs) {
     std::lock_guard guard(mLock);
-    if (!mEnabled) {
+    if (!mEnabled || mBtDeviceProxy == nullptr) {
+        LOG(INFO) << __func__ << "simulate BT write";
         *actualFrameCount = frameCount;
         *latencyMs = kBluetoothDefaultRemoteDelayMs;
         usleep((float)(frameCount * 1000000) / (float)getContext().getSampleRate());

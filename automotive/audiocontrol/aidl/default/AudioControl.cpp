@@ -32,6 +32,8 @@
 
 #include <private/android_filesystem_config.h>
 
+#include <unistd.h>
+
 #include <numeric>
 
 #include <stdio.h>
@@ -140,8 +142,32 @@ using ::aidl::android::media::audio::common::AudioPortMixExt;
 using ::aidl::android::media::audio::common::AudioProfile;
 using ::aidl::android::media::audio::common::PcmType;
 
-const static std::string kAudioConfigFile = "/vendor/etc/car_audio_configuration.xml";
+const static std::string kCarAudioConfigFileName   = "car_audio_configuration.xml";
+const static std::string kCarAudioConfigFileDualBt = "car_audio_configuration_dualbt.xml";
 const static std::string kFadeConfigFile = "/vendor/etc/car_audio_fade_configuration.xml";
+
+static const std::vector<std::string> kCarAudioConfigSearchPaths = {
+    "/vendor/etc",
+};
+
+// Search config paths for the dual-BT variant first; fall back to the
+// standard file name if not found in any location.
+static std::string resolveCarAudioConfigPath() {
+    for (const auto& xmlFileName : {kCarAudioConfigFileDualBt, kCarAudioConfigFileName}) {
+        for (const auto& dir : kCarAudioConfigSearchPaths) {
+            std::string path = dir + '/' + xmlFileName;
+            if (access(path.c_str(), F_OK) == 0) {
+                LOG(INFO) << "Using car audio config: " << path;
+                return path;
+            }
+        }
+    }
+    // No file found anywhere; return the canonical vendor path so the
+    // downstream XML parser produces a clear "file not found" error.
+    std::string fallback = "/vendor/etc/" + kCarAudioConfigFileName;
+    LOG(WARNING) << "No car audio config found in search paths, falling back to: " << fallback;
+    return fallback;
+}
 
 
 AudioPortExt createDeviceExt(AudioDeviceType devType, int32_t flags,
@@ -188,7 +214,7 @@ AudioGain createGain(int32_t mode, AudioChannelLayout channelMask, int32_t minVa
 }
 }  // namespace
 
-AudioControl::AudioControl() : AudioControl(kAudioConfigFile, kFadeConfigFile) {}
+AudioControl::AudioControl() : AudioControl(resolveCarAudioConfigPath(), kFadeConfigFile) {}
 
 AudioControl::AudioControl(const std::string& carAudioConfig, const std::string& audioFadeConfig)
     : mCarAudioConfigurationConverter(std::make_shared<CarAudioConfigurationXmlConverter>(
