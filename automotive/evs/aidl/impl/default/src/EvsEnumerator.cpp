@@ -144,15 +144,13 @@ ScopedAStatus EvsEnumerator::getCameraList(std::vector<CameraDesc>* _aidl_return
                 static_cast<int>(EvsResult::PERMISSION_DENIED));
     }
 
-    {
-        std::unique_lock<std::mutex> lock(sLock);
-        if (sCameraList.size() < 1) {
-            // No qualified device has been found.  Wait until new device is ready,
-            // for 10 seconds.
-            if (!sCameraSignal.wait_for(lock, kEnumerationTimeout,
-                                        [] { return sCameraList.size() > 0; })) {
-                LOG(DEBUG) << "Timer expired.  No new device has been added.";
-            }
+    std::unique_lock<std::mutex> lock(sLock);
+    if (sCameraList.size() < 1) {
+        // No qualified device has been found.  Wait until new device is ready,
+        // for 10 seconds.
+        if (!sCameraSignal.wait_for(lock, kEnumerationTimeout,
+                                    [] { return sCameraList.size() > 0; })) {
+            LOG(DEBUG) << "Timer expired.  No new device has been added.";
         }
     }
 
@@ -236,23 +234,29 @@ ScopedAStatus EvsEnumerator::openCamera(const std::string& id, const Stream& cfg
                 static_cast<int>(EvsResult::PERMISSION_DENIED));
     }
 
-    // Is this a recognized camera id?
-    CameraRecord* pRecord = findCameraById(id);
-    if (!pRecord) {
-        LOG(ERROR) << id << " does not exist!";
-        return ScopedAStatus::fromServiceSpecificError(static_cast<int>(EvsResult::INVALID_ARG));
+    std::shared_ptr<EvsCameraBase> pActiveCamera;
+    {
+        std::lock_guard lock(sLock);
+        // Is this a recognized camera id?
+        CameraRecord* pRecord = findCameraById(id);
+        if (!pRecord) {
+            LOG(ERROR) << id << " does not exist!";
+            return ScopedAStatus::fromServiceSpecificError(static_cast<int>(EvsResult::INVALID_ARG));
+        }
+
+        // Has this camera already been instantiated by another caller?
+        pActiveCamera = pRecord->activeInstance.lock();
     }
 
-    // Has this camera already been instantiated by another caller?
-    std::shared_ptr<EvsCameraBase> pActiveCamera = pRecord->activeInstance.lock();
     if (pActiveCamera) {
         LOG(WARNING) << "Killing previous camera because of new caller";
         closeCamera(pActiveCamera);
     }
 
     // Construct a camera instance for the caller
+    std::shared_ptr<EvsCameraBase> pNewCamera;
     if (!sConfigManager) {
-        pActiveCamera = EvsMockCamera::Create(id.data());
+        pNewCamera = EvsMockCamera::Create(id.data());
     } else {
         auto& cameraInfo = sConfigManager->getCameraInfo(id);
         switch (cameraInfo->deviceType) {
@@ -261,11 +265,11 @@ ScopedAStatus EvsEnumerator::openCamera(const std::string& id, const Stream& cfg
             // Default to MOCK for backward compatibility.
             case DeviceType::NONE:
             case DeviceType::MOCK:
-                pActiveCamera = EvsMockCamera::Create(id.data(), cameraInfo, &cfg);
+                pNewCamera = EvsMockCamera::Create(id.data(), cameraInfo, &cfg);
                 break;
 
             case DeviceType::VIDEO:
-                pActiveCamera = EvsVideoEmulatedCamera::Create(id.data(), cameraInfo, &cfg);
+                pNewCamera = EvsVideoEmulatedCamera::Create(id.data(), cameraInfo, &cfg);
                 break;
 
             default:
@@ -276,14 +280,28 @@ ScopedAStatus EvsEnumerator::openCamera(const std::string& id, const Stream& cfg
         }
     }
 
-    pRecord->activeInstance = pActiveCamera;
-    if (!pActiveCamera) {
+    if (!pNewCamera) {
         LOG(ERROR) << "Failed to create new EVS camera object for " << id;
         return ScopedAStatus::fromServiceSpecificError(
                 static_cast<int>(EvsResult::UNDERLYING_SERVICE_ERROR));
     }
 
-    *obj = pActiveCamera;
+    std::shared_ptr<EvsCameraBase> pOldCamera;
+    {
+        std::lock_guard lock(sLock);
+        CameraRecord* pRecord = findCameraById(id);
+        if (pRecord) {
+            pOldCamera = pRecord->activeInstance.lock();
+            pRecord->activeInstance = pNewCamera;
+        }
+    }
+
+    if (pOldCamera && pOldCamera != pActiveCamera) {
+        LOG(WARNING) << "Killing previous camera because of new caller";
+        closeCamera(pOldCamera);
+    }
+
+    *obj = pNewCamera;
     return ScopedAStatus::ok();
 }
 
@@ -458,26 +476,32 @@ ScopedAStatus EvsEnumerator::registerStatusCallback(
 
 void EvsEnumerator::closeCamera_impl(const std::shared_ptr<IEvsCamera>& pCamera,
                                      const std::string& cameraId) {
-    // Find the named camera
-    CameraRecord* pRecord = findCameraById(cameraId);
+    std::shared_ptr<EvsCameraBase> pActiveCamera;
+    {
+        std::lock_guard lock(sLock);
+        // Find the named camera
+        CameraRecord* pRecord = findCameraById(cameraId);
 
-    // Is the display being destroyed actually the one we think is active?
-    if (!pRecord) {
-        LOG(ERROR) << "Asked to close a camera whose name isn't recognized";
-    } else {
-        std::shared_ptr<EvsCameraBase> pActiveCamera = pRecord->activeInstance.lock();
-        if (!pActiveCamera) {
-            LOG(WARNING) << "Somehow a camera is being destroyed "
-                         << "when the enumerator didn't know one existed";
-        } else if (pActiveCamera != pCamera) {
-            // This can happen if the camera was aggressively reopened,
-            // orphaning this previous instance
-            LOG(WARNING) << "Ignoring close of previously orphaned camera "
-                         << "- why did a client steal?";
-        } else {
-            // Shutdown the active camera
-            pActiveCamera->shutdown();
+        // Is the display being destroyed actually the one we think is active?
+        if (!pRecord) {
+            LOG(ERROR) << "Asked to close a camera whose name isn't recognized";
+            return;
         }
+
+        pActiveCamera = pRecord->activeInstance.lock();
+    }
+
+    if (!pActiveCamera) {
+        LOG(WARNING) << "Somehow a camera is being destroyed "
+                     << "when the enumerator didn't know one existed";
+    } else if (pActiveCamera != pCamera) {
+        // This can happen if the camera was aggressively reopened,
+        // orphaning this previous instance
+        LOG(WARNING) << "Ignoring close of previously orphaned camera "
+                     << "- why did a client steal?";
+    } else {
+        // Shutdown the active camera
+        pActiveCamera->shutdown();
     }
 
     return;
