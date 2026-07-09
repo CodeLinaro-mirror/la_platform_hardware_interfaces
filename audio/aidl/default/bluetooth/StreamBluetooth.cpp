@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include <inttypes.h>
 #include <algorithm>
@@ -302,7 +307,21 @@ ndk::ScopedAStatus StreamBluetooth::getRecommendedLatencyModes(
     LOG(DEBUG) << __func__;
     std::vector<LatencyMode> modes;
     std::lock_guard guard(mLock);
-    if (!mBtDeviceProxy || !mBtDeviceProxy->getRecommendedLatencyModes(&modes)) {
+
+    // BT proxy not available — device declared as attached in audio_policy XML
+    // but not physically connected (e.g. Dual A2DP source scenario).
+    // Return EX_UNSUPPORTED_OPERATION so the VTS test skips this port
+    // entirely, avoiding subsequent setLatencyMode() calls which would
+    // also fail without a valid proxy.
+    if (!mBtDeviceProxy) {
+        LOG(DEBUG) << __func__
+                   << ": BT proxy not available, latency modes unsupported";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    }
+
+    // BT proxy exists but failed to fetch recommended latency modes —
+    // this is a genuine illegal state.
+    if (!mBtDeviceProxy->getRecommendedLatencyModes(&modes)) {
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     *_aidl_return = bt2audio_LatencyModes(modes);
