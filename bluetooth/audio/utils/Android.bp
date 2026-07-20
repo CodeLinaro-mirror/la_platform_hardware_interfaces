@@ -11,6 +11,26 @@ cc_library_shared {
     name: "libbluetooth_audio_session",
     defaults: ["hidl_defaults"],
     vendor: true,
+    cflags: [
+        "-fstack-protector-strong",
+        "-fno-builtin-__memcpy_chk",
+        "-fno-builtin-__memset_chk",
+        "-fno-builtin-__memmove_chk",
+        "-fno-builtin-__strcpy_chk",
+        "-fno-builtin-__snprintf_chk",
+    ],
+    ldflags: [
+        "-Wl,-u,__memcpy_chk",
+        "-Wl,-u,__memset_chk",
+        "-Wl,-u,__memmove_chk",
+        "-Wl,-u,__strcpy_chk",
+        "-Wl,-u,__snprintf_chk",
+    ],
+    target: {
+        vendor: {
+            cflags: ["-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=2"],
+        },
+    },
     srcs: [
         "session/BluetoothAudioSession.cpp",
         "session/BluetoothAudioSession_2_1.cpp",
@@ -37,6 +57,26 @@ cc_library_shared {
     name: "libbluetooth_audio_session_aidl",
     vendor_available: true,
     host_supported: true,
+    cflags: [
+        "-fstack-protector-strong",
+        "-fno-builtin-__memcpy_chk",
+        "-fno-builtin-__memset_chk",
+        "-fno-builtin-__memmove_chk",
+        "-fno-builtin-__strcpy_chk",
+        "-fno-builtin-__snprintf_chk",
+    ],
+    ldflags: [
+        "-Wl,-u,__memcpy_chk",
+        "-Wl,-u,__memset_chk",
+        "-Wl,-u,__memmove_chk",
+        "-Wl,-u,__strcpy_chk",
+        "-Wl,-u,__snprintf_chk",
+    ],
+    target: {
+        vendor: {
+            cflags: ["-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=2"],
+        },
+    },
     srcs: [
         "aidl_session/a2dp/A2dpOffloadCodecAac.cpp",
         "aidl_session/a2dp/A2dpOffloadCodecFactory.cpp",
