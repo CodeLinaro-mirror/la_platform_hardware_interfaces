@@ -63,6 +63,23 @@ aidl_interface {
                 "com.android.bt",
             ],
             min_sdk_version: "31",
+            cflags: [
+                "-fstack-protector-all",
+                "-U_FORTIFY_SOURCE",
+                "-D_FORTIFY_SOURCE=2",
+                "-fno-builtin-__memcpy_chk",
+                "-fno-builtin-__memset_chk",
+                "-fno-builtin-__memmove_chk",
+                "-fno-builtin-__strcpy_chk",
+                "-fno-builtin-__snprintf_chk",
+            ],
+            ldflags: [
+                "-Wl,-u,__memcpy_chk",
+                "-Wl,-u,__memset_chk",
+                "-Wl,-u,__memmove_chk",
+                "-Wl,-u,__strcpy_chk",
+                "-Wl,-u,__snprintf_chk",
+            ],
         },
         rust: {
             enabled: true,
@@ -178,6 +195,25 @@ aidl_interface {
         java: {
             sdk_version: "module_current",
         },
+        ndk: {
+            cflags: [
+                "-fstack-protector-all",
+                "-U_FORTIFY_SOURCE",
+                "-D_FORTIFY_SOURCE=2",
+                "-fno-builtin-__memcpy_chk",
+                "-fno-builtin-__memset_chk",
+                "-fno-builtin-__memmove_chk",
+                "-fno-builtin-__strcpy_chk",
+                "-fno-builtin-__snprintf_chk",
+            ],
+            ldflags: [
+                "-Wl,-u,__memcpy_chk",
+                "-Wl,-u,__memset_chk",
+                "-Wl,-u,__memmove_chk",
+                "-Wl,-u,__strcpy_chk",
+                "-Wl,-u,__snprintf_chk",
+            ],
+        },
     },
     versions_with_info: [
         {
@@ -282,6 +318,25 @@ aidl_interface {
         },
         java: {
             sdk_version: "module_current",
+        },
+        ndk: {
+            cflags: [
+                "-fstack-protector-all",
+                "-U_FORTIFY_SOURCE",
+                "-D_FORTIFY_SOURCE=2",
+                "-fno-builtin-__memcpy_chk",
+                "-fno-builtin-__memset_chk",
+                "-fno-builtin-__memmove_chk",
+                "-fno-builtin-__strcpy_chk",
+                "-fno-builtin-__snprintf_chk",
+            ],
+            ldflags: [
+                "-Wl,-u,__memcpy_chk",
+                "-Wl,-u,__memset_chk",
+                "-Wl,-u,__memmove_chk",
+                "-Wl,-u,__strcpy_chk",
+                "-Wl,-u,__snprintf_chk",
+            ],
         },
     },
     versions_with_info: [
@@ -399,6 +454,25 @@ aidl_interface {
         },
         java: {
             sdk_version: "module_current",
+        },
+        ndk: {
+            cflags: [
+                "-fstack-protector-all",
+                "-U_FORTIFY_SOURCE",
+                "-D_FORTIFY_SOURCE=2",
+                "-fno-builtin-__memcpy_chk",
+                "-fno-builtin-__memset_chk",
+                "-fno-builtin-__memmove_chk",
+                "-fno-builtin-__strcpy_chk",
+                "-fno-builtin-__snprintf_chk",
+            ],
+            ldflags: [
+                "-Wl,-u,__memcpy_chk",
+                "-Wl,-u,__memset_chk",
+                "-Wl,-u,__memmove_chk",
+                "-Wl,-u,__strcpy_chk",
+                "-Wl,-u,__snprintf_chk",
+            ],
         },
     },
     versions_with_info: [
