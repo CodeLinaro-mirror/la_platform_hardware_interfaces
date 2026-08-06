@@ -29,6 +29,7 @@ soong_config_module_type {
         "avoid_iface_reset_mac_change", // WIFI_AVOID_IFACE_RESET_MAC_CHANGE
         "wifi_skip_state_toggle_off_on_for_nan", // WIFI_SKIP_STATE_TOGGLE_OFF_ON_FOR_NAN
         "hal_retry_set_mac_address", // WIFI_HAL_RETRY_SET_MAC_ADDRESS
+        "wifi_hal_init_skip_primary_wlan0_iface_up", // WIFI_HAL_INIT_SKIP_PRIMARY_WLAN0_IFACE_UP
     ],
     value_variables: [
         "hal_interface_combinations", // WIFI_HAL_INTERFACE_COMBINATIONS
@@ -64,6 +65,9 @@ wifi_hal_cc_defaults {
         },
         hal_retry_set_mac_address: {
             cppflags: ["-DWIFI_HAL_RETRY_SET_MAC_ADDRESS"],
+        },
+        wifi_hal_init_skip_primary_wlan0_iface_up: {
+            cppflags: ["-DWIFI_HAL_INIT_SKIP_PRIMARY_WLAN0_IFACE_UP"],
         },
     },
 }
