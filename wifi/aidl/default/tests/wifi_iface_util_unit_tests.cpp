@@ -87,6 +87,22 @@ TEST_F(WifiIfaceUtilTest, IfaceEventHandlers_SetMacAddress) {
     ASSERT_TRUE(iface_util_->setMacAddress(kIfaceName, mac_address));
     ASSERT_FALSE(callback_invoked);
 }
+
+TEST_F(WifiIfaceUtilTest, SetUpState_Success) {
+    EXPECT_CALL(*iface_tool_, SetUpState(testing::StrEq("wlan0"), true))
+            .WillOnce(testing::Return(true));
+    EXPECT_TRUE(iface_util_->setUpState("wlan0", true));
+
+    EXPECT_CALL(*iface_tool_, SetUpState(testing::StrEq("wlan0"), false))
+            .WillOnce(testing::Return(true));
+    EXPECT_TRUE(iface_util_->setUpState("wlan0", false));
+}
+
+TEST_F(WifiIfaceUtilTest, SetUpState_Failure) {
+    EXPECT_CALL(*iface_tool_, SetUpState(testing::StrEq("wlan0"), true))
+            .WillOnce(testing::Return(false));
+    EXPECT_FALSE(iface_util_->setUpState("wlan0", true));
+}
 }  // namespace iface_util
 }  // namespace wifi
 }  // namespace hardware
