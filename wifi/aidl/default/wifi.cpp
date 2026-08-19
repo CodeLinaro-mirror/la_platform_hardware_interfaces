@@ -284,6 +284,10 @@ ndk::ScopedAStatus Wifi::startInternal() {
             };
         }
         LOG(INFO) << "Wifi HAL started";
+    } else if (wifi_status.getServiceSpecificError() ==
+               static_cast<int32_t>(WifiStatusCode::ERROR_NOT_AVAILABLE)) {
+        // Avoid triggering the onFailure callback if the driver failed to load
+        LOG(INFO) << "Ignoring failed driver load event";
     } else {
         for (const auto& callback : event_cb_handler_.getCallbacks()) {
             WifiStatusCode errorCode =
@@ -359,8 +363,9 @@ std::pair<std::shared_ptr<IWifiChip>, ndk::ScopedAStatus> Wifi::getChipInternal(
 
 ndk::ScopedAStatus Wifi::initializeModeControllerAndLegacyHal() {
     if (!mode_controller_->initialize()) {
+        // Driver may not be available yet
         LOG(ERROR) << "Failed to initialize firmware mode controller";
-        return createWifiStatus(WifiStatusCode::ERROR_UNKNOWN);
+        return createWifiStatus(WifiStatusCode::ERROR_NOT_AVAILABLE);
     }
 
     legacy_hals_ = legacy_hal_factory_->getHals();
