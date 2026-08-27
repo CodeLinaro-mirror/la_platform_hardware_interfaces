@@ -13,17 +13,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #pragma once
 
 #include <aidl/android/hardware/audio/core/BnConfig.h>
+#include <android-base/properties.h>
 #include <system/audio_config.h>
 
 #include "AudioPolicyConfigXmlConverter.h"
 #include "EngineConfigXmlConverter.h"
 
 namespace aidl::android::hardware::audio::core {
-static const std::string kEngineConfigFileName = "audio_policy_engine_configuration.xml";
+static const std::string kEngineConfigFileName   = "audio_policy_engine_configuration.xml";
+static const std::string kEngineConfigFileNameVa = "audio_policy_engine_configuration_va.xml";
+
+static inline std::string resolveEngineConfigPath() {
+    if (::android::base::GetProperty("persist.vendor.audio.cape.enable", "") == "true") {
+        std::string vaPath = ::android::audio_find_readable_configuration_file(
+                kEngineConfigFileNameVa.c_str());
+        if (!vaPath.empty()) {
+            return vaPath;
+        }
+    }
+    return ::android::audio_find_readable_configuration_file(kEngineConfigFileName.c_str());
+}
 
 class Config : public BnConfig {
   public:
@@ -36,8 +54,7 @@ class Config : public BnConfig {
             aidl::android::media::audio::common::AudioHalEngineConfig* _aidl_return) override;
 
     internal::AudioPolicyConfigXmlConverter& mAudioPolicyConverter;
-    internal::EngineConfigXmlConverter mEngConfigConverter{
-            ::android::audio_find_readable_configuration_file(kEngineConfigFileName.c_str())};
+    internal::EngineConfigXmlConverter mEngConfigConverter{resolveEngineConfigPath()};
 };
 
 }  // namespace aidl::android::hardware::audio::core

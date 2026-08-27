@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #define LOG_TAG "AudioControl"
 // #define LOG_NDEBUG 0
@@ -27,6 +32,7 @@
 #include <android-base/logging.h>
 #include <android-base/parsebool.h>
 #include <android-base/parseint.h>
+#include <android-base/properties.h>
 #include <android-base/strings.h>
 #include <android_audio_policy_configuration_V7_0-enums.h>
 
@@ -144,16 +150,22 @@ using ::aidl::android::media::audio::common::PcmType;
 
 const static std::string kCarAudioConfigFileName   = "car_audio_configuration.xml";
 const static std::string kCarAudioConfigFileDualBt = "car_audio_configuration_dualbt.xml";
+const static std::string kCarAudioConfigFileCape = "car_audio_configuration_cape.xml";
 const static std::string kFadeConfigFile = "/vendor/etc/car_audio_fade_configuration.xml";
 
 static const std::vector<std::string> kCarAudioConfigSearchPaths = {
     "/vendor/etc",
 };
 
-// Search config paths for the dual-BT variant first; fall back to the
-// standard file name if not found in any location.
+// Search config paths for the CAPE variant first (only when persist.vendor.audio.cape.enable=true);
+// then dual-BT variant; fall back to the standard file name if not found in any location.
 static std::string resolveCarAudioConfigPath() {
-    for (const auto& xmlFileName : {kCarAudioConfigFileDualBt, kCarAudioConfigFileName}) {
+    bool capeEnabled =
+            ::android::base::GetProperty("persist.vendor.audio.cape.enable", "") == "true";
+    for (const auto& xmlFileName : {kCarAudioConfigFileCape, kCarAudioConfigFileDualBt, kCarAudioConfigFileName}) {
+        if (xmlFileName == kCarAudioConfigFileCape && !capeEnabled) {
+            continue;
+        }
         for (const auto& dir : kCarAudioConfigSearchPaths) {
             std::string path = dir + '/' + xmlFileName;
             if (access(path.c_str(), F_OK) == 0) {
