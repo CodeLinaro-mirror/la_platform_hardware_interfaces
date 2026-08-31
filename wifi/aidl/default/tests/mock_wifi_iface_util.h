@@ -39,6 +39,10 @@ class MockWifiIfaceUtil : public iface_util::WifiIfaceUtil {
     MOCK_METHOD1(unregisterIfaceEventHandlers, void(const std::string&));
     MOCK_METHOD2(setUpState, bool(const std::string&, bool));
     MOCK_METHOD1(ifNameToIndex, unsigned(const std::string&));
+    MOCK_METHOD1(createBridge, bool(const std::string&));
+    MOCK_METHOD1(deleteBridge, bool(const std::string&));
+    MOCK_METHOD2(addIfaceToBridge, bool(const std::string&, const std::string&));
+    MOCK_METHOD2(removeIfaceFromBridge, bool(const std::string&, const std::string&));
 };
 
 }  // namespace iface_util
