@@ -339,8 +339,9 @@ ndk::ScopedAStatus ModuleBluetoothBase::createProxy(const AudioPort& audioPort,
                                                     int32_t instancePortId, CachedProxy& proxy) {
     proxy.ptr = createProxyInstance(audioPort.flags.getTag() == AudioIoFlags::input);
     const auto& devicePort = audioPort.ext.get<AudioPortExt::device>();
-    const auto device = devicePort.device.type;
-    const auto address = devicePort.device.address;
+    const auto& device = devicePort.device.type;
+    const auto& audioDevice = devicePort.device;
+    const auto& address = audioDevice.address;
     bool registrationSuccess = false;
     for (int i = 0; i < kCreateProxyRetries && !registrationSuccess; ++i) {
         registrationSuccess = proxy.ptr->registerPort(device, address);
@@ -356,7 +357,7 @@ ndk::ScopedAStatus ModuleBluetoothBase::createProxy(const AudioPort& audioPort,
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     mProxies.insert(std::pair(instancePortId, proxy));
-    mProxiesWeak[device] = proxy.ptr;
+    mProxiesWeak[audioDevice] = proxy.ptr;
     return ndk::ScopedAStatus::ok();
 }
 
@@ -391,15 +392,15 @@ ndk::ScopedAStatus ModuleBluetoothBase::findOrCreateProxy(const AudioPort& audio
         return ndk::ScopedAStatus::ok();
     }
     if (audioPort.ext.getTag() == AudioPortExt::Tag::device) {
-        const auto& description = audioPort.ext.get<AudioPortExt::Tag::device>().device.type;
-        auto weakIt = mProxiesWeak.find(description);
+        const auto& audioDevice = audioPort.ext.get<AudioPortExt::Tag::device>().device;
+        auto weakIt = mProxiesWeak.find(audioDevice);
         if (weakIt != mProxiesWeak.end()) {
             if (auto existingProxy = weakIt->second.lock()) {
                 proxy.ptr = existingProxy;
                 if (proxy.ptr->loadAudioConfig(proxy.pcmConfig)) {
                     mProxies.insert(std::pair(audioPort.id, proxy));
                     LOG(DEBUG) << __func__ << ": Reused existing proxy for "
-                               << description.toString();
+                               << audioDevice.toString();
                     return ndk::ScopedAStatus::ok();
                 } else {
                     LOG(ERROR) << __func__ << ": Failed to load config from reused proxy";
