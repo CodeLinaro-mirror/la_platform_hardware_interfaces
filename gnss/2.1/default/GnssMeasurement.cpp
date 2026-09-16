@@ -129,7 +129,8 @@ void GnssMeasurement::stop() {
     mIsActive = false;
     mThreadBlocker.notify();
     if (mThread.joinable()) {
-        mFutures.push_back(std::async(std::launch::async, [this] { mThread.join(); }));
+        mFutures.push_back(std::async(
+                std::launch::async, [thread = std::move(mThread)]() mutable { thread.join(); }));
     }
 }
 
