@@ -161,7 +161,8 @@ static const std::vector<std::string> kCarAudioConfigSearchPaths = {
 // then dual-BT variant; fall back to the standard file name if not found in any location.
 static std::string resolveCarAudioConfigPath() {
     bool capeEnabled =
-            ::android::base::GetProperty("persist.vendor.audio.cape.enable", "") == "true";
+            ::android::base::GetProperty("persist.vendor.audio.cape.enable", "") == "true" &&
+            ::android::base::GetProperty("persist.vendor.audio.cape.framework.support", "") == "true";
     for (const auto& xmlFileName : {kCarAudioConfigFileCape, kCarAudioConfigFileDualBt, kCarAudioConfigFileName}) {
         if (xmlFileName == kCarAudioConfigFileCape && !capeEnabled) {
             continue;

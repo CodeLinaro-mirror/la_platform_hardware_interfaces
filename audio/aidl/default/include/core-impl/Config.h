@@ -33,7 +33,8 @@ static const std::string kEngineConfigFileName   = "audio_policy_engine_configur
 static const std::string kEngineConfigFileNameVa = "audio_policy_engine_configuration_va.xml";
 
 static inline std::string resolveEngineConfigPath() {
-    if (::android::base::GetProperty("persist.vendor.audio.cape.enable", "") == "true") {
+    if ((::android::base::GetProperty("persist.vendor.audio.cape.enable", "") == "true") &&
+        (::android::base::GetProperty("persist.vendor.audio.cape.framework.support", "") == "true")) {
         std::string vaPath = ::android::audio_find_readable_configuration_file(
                 kEngineConfigFileNameVa.c_str());
         if (!vaPath.empty()) {
