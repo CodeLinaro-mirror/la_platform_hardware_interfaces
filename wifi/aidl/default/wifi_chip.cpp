@@ -1142,6 +1142,19 @@ std::pair<std::shared_ptr<IWifiStaIface>, ndk::ScopedAStatus> WifiChip::createSt
                    << legacyErrorToString(legacy_status);
         return {nullptr, createWifiStatusFromLegacyError(legacy_status)};
     }
+#ifdef WIFI_HAL_INIT_SKIP_PRIMARY_WLAN0_IFACE_UP
+    // When WIFI_HAL_INIT_SKIP_PRIMARY_WLAN0_IFACE_UP is enabled, bringing wlan0 UP is skipped
+    // during HAL initialization (WifiLegacyHal::start) to avoid kernel interface capacity
+    // exhaustion in non-STA concurrency scenarios. Instead, wlan0 is brought UP dynamically
+    // here on-demand when creating a STA interface.
+    if (ifname == "wlan0") {
+        if (!iface_util_->setUpState(ifname, true)) {
+            LOG(ERROR) << "Failed to set WiFi interface up for " << ifname;
+            legacy_hal_.lock()->deleteVirtualInterface(ifname);
+            return {nullptr, createWifiStatus(WifiStatusCode::ERROR_UNKNOWN)};
+        }
+    }
+#endif
     std::shared_ptr<WifiStaIface> iface = WifiStaIface::create(ifname, legacy_hal_, iface_util_);
     sta_ifaces_.push_back(iface);
     for (const auto& callback : event_cb_handler_.getCallbacks()) {
