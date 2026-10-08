@@ -291,6 +291,12 @@ class WifiChipTest : public Test {
         // Vendor HAL does not override the name by default.
         EXPECT_CALL(*legacy_hal_, getSupportedIfaceName(testing::_, testing::_))
                 .WillRepeatedly(testing::Return(legacy_hal::WIFI_ERROR_UNKNOWN));
+        EXPECT_CALL(*iface_util_, createBridge(testing::_)).WillRepeatedly(testing::Return(true));
+        EXPECT_CALL(*iface_util_, deleteBridge(testing::_)).WillRepeatedly(testing::Return(true));
+        EXPECT_CALL(*iface_util_, addIfaceToBridge(testing::_, testing::_))
+                .WillRepeatedly(testing::Return(true));
+        EXPECT_CALL(*iface_util_, removeIfaceFromBridge(testing::_, testing::_))
+                .WillRepeatedly(testing::Return(true));
     }
 
     void TearDown() override {
@@ -848,6 +854,96 @@ TEST_F(WifiChip_MultiIfaceTest, CreateApStartsWithIdx1) {
     ASSERT_EQ(createIface(IfaceType::STA), "wlan1");
     ASSERT_EQ(createIface(IfaceType::STA), "wlan3");
 }
+
+////////// Bridged AP Iface Combinations //////////
+class WifiChipBridgedApIfaceCombinationTest : public WifiChipTest {
+  protected:
+    void setupBridgedApIfaceCombination() {
+        // clang-format off
+        // Mode 3 (Dual AP / Bridged AP concurrency): (1 STA + 2 AP) or (1 STA + 1 of (P2P or NAN))
+        const std::vector<IWifiChip::ChipConcurrencyCombination> combinations = {
+            {
+                {
+                    {{IfaceConcurrencyType::STA}, 1},
+                    {{IfaceConcurrencyType::AP, IfaceConcurrencyType::AP_BRIDGED}, 2}
+                }
+            },
+            {
+                {
+                    {{IfaceConcurrencyType::STA}, 1},
+                    {{IfaceConcurrencyType::P2P, IfaceConcurrencyType::NAN_IFACE}, 1}
+                }
+            }
+        };
+        const std::vector<IWifiChip::ChipMode> modes = {
+            {feature_flags::chip_mode_ids::kV3, combinations}
+        };
+        // clang-format on
+        EXPECT_CALL(*feature_flags_, getChipModes(true)).WillRepeatedly(testing::Return(modes));
+    }
+
+  public:
+    void SetUp() override {
+        setupBridgedApIfaceCombination();
+        WifiChipTest::SetUp();
+        assertNumberOfModes(1u);
+    }
+};
+
+#ifdef WIFI_HAL_INIT_SKIP_PRIMARY_WLAN0_IFACE_UP
+TEST_F(WifiChipV1_AwareIfaceCombinationTest, CreateStaIface_SkipPrimaryWlan0IfaceUp) {
+    findModeAndConfigureForIfaceType(IfaceConcurrencyType::STA);
+    EXPECT_CALL(*iface_util_, setUpState("wlan0", true)).WillOnce(testing::Return(true));
+    ASSERT_EQ(createIface(IfaceType::STA), "wlan0");
+}
+
+TEST_F(WifiChipBridgedApIfaceCombinationTest,
+       CreateBridgedApIface_WithoutSta_SkipPrimaryWlan0IfaceUp) {
+    findModeAndConfigureForIfaceType(IfaceConcurrencyType::AP_BRIDGED);
+    EXPECT_CALL(*legacy_hal_,
+                createVirtualInterface(testing::_, legacy_hal::WIFI_INTERFACE_TYPE_AP))
+            .Times(2)
+            .WillRepeatedly(testing::Return(legacy_hal::WIFI_SUCCESS));
+    EXPECT_CALL(*iface_util_, createBridge(testing::_)).WillOnce(testing::Return(true));
+    EXPECT_CALL(*iface_util_, addIfaceToBridge(testing::_, testing::_))
+            .Times(2)
+            .WillRepeatedly(testing::Return(true));
+    EXPECT_CALL(*iface_util_, setUpState("wlan0", testing::_)).Times(0);
+
+    std::shared_ptr<IWifiApIface> iface;
+    ASSERT_TRUE(chip_->createBridgedApIface(&iface).isOk());
+    ASSERT_NE(iface.get(), nullptr);
+    std::string ifname;
+    ASSERT_TRUE(iface->getName(&ifname).isOk());
+    ASSERT_FALSE(ifname.empty());
+}
+#else
+TEST_F(WifiChipV1_AwareIfaceCombinationTest, CreateStaIface_Legacy) {
+    findModeAndConfigureForIfaceType(IfaceConcurrencyType::STA);
+    EXPECT_CALL(*iface_util_, setUpState("wlan0", testing::_)).Times(0);
+    ASSERT_EQ(createIface(IfaceType::STA), "wlan0");
+}
+
+TEST_F(WifiChipBridgedApIfaceCombinationTest, CreateBridgedApIface_WithoutSta) {
+    findModeAndConfigureForIfaceType(IfaceConcurrencyType::AP_BRIDGED);
+    EXPECT_CALL(*legacy_hal_,
+                createVirtualInterface(testing::_, legacy_hal::WIFI_INTERFACE_TYPE_AP))
+            .Times(2)
+            .WillRepeatedly(testing::Return(legacy_hal::WIFI_SUCCESS));
+    EXPECT_CALL(*iface_util_, createBridge(testing::_)).WillOnce(testing::Return(true));
+    EXPECT_CALL(*iface_util_, addIfaceToBridge(testing::_, testing::_))
+            .Times(2)
+            .WillRepeatedly(testing::Return(true));
+    EXPECT_CALL(*iface_util_, setUpState("wlan0", testing::_)).Times(0);
+
+    std::shared_ptr<IWifiApIface> iface;
+    ASSERT_TRUE(chip_->createBridgedApIface(&iface).isOk());
+    ASSERT_NE(iface.get(), nullptr);
+    std::string ifname;
+    ASSERT_TRUE(iface->getName(&ifname).isOk());
+    ASSERT_FALSE(ifname.empty());
+}
+#endif
 
 }  // namespace wifi
 }  // namespace hardware

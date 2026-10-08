@@ -586,12 +586,17 @@ wifi_error WifiLegacyHal::start() {
     if (is_primary_) {
         property_set(kDriverPropName, "ok");
 
+        // When WIFI_HAL_INIT_SKIP_PRIMARY_WLAN0_IFACE_UP is enabled, skip bringing wlan0 UP
+        // here at HAL init time. Interface bring-up for wlan0 is deferred until createStaIface
+        // (WifiChip::createStaIfaceInternal) to avoid interface capacity exhaustion in non-STA
+        // concurrency modes (e.g. Dual SoftAP or standalone D2D).
+#ifndef WIFI_HAL_INIT_SKIP_PRIMARY_WLAN0_IFACE_UP
         if (!iface_tool_.lock()->SetWifiUpState(true)) {
             LOG(ERROR) << "Failed to set WiFi interface up";
             return WIFI_ERROR_UNKNOWN;
         }
+#endif
     }
-
     LOG(DEBUG) << "Starting legacy HAL";
     status = global_func_table_.wifi_initialize(&global_handle_);
     if (status != WIFI_SUCCESS || !global_handle_) {
