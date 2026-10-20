@@ -452,6 +452,13 @@ bool BluetoothAudioPortAidl::getRecommendedLatencyModes(std::vector<LatencyMode>
         LOG(ERROR) << __func__ << debugMessage() << ": BluetoothAudioPortAidl is not in use";
         return false;
     }
+
+    if (getSession()->isDualA2dpSource()) {
+        LOG(INFO) << __func__ << " dual BT a2dp source feature, index= "
+            << static_cast<int>(getSession()->getSessionIndex());
+        if (!getSession()->isSessionReady()) return EX_UNSUPPORTED_OPERATION;
+    }
+
     *latency_modes = getSession()->getSupportedLatencyModes();
     LOG(INFO) << __func__ << debugMessage() << ": "
               << ::android::internal::ToString(*latency_modes);
@@ -803,6 +810,13 @@ bool BluetoothAudioPortAidlOut::setLatencyMode(
         LOG(ERROR) << __func__ << debugMessage() << ": BluetoothAudioPortAidl is not in use";
         return false;
     }
+
+    if (getSession()->isDualA2dpSource()) {
+        LOG(INFO) << __func__ << " dual BT a2dp source feature, index= "
+            << static_cast<int>(getSession()->getSessionIndex());
+        if (!getSession()->isSessionReady()) return false;
+    }
+
     LOG(INFO) << __func__ << debugMessage() << ": " << toString(latency_mode);
     getSession()->setLatencyMode(latency_mode);
     return true;
@@ -857,6 +871,13 @@ bool BluetoothAudioPortAidl::updateSourceMetadata(const SourceMetadata& source_m
         LOG(ERROR) << __func__ << debugMessage() << ": BluetoothAudioPortAidl is not in use";
         return false;
     }
+
+    if (getSession()->isDualA2dpSource()) {
+        LOG(INFO) << __func__ << " dual BT a2dp source feature, index= "
+            << static_cast<int>(getSession()->getSessionIndex());
+        if (!getSession()->isSessionReady()) return true;
+    }
+
     LOG(DEBUG) << __func__ << debugMessage() << ", state=" << getState() << ", "
                << source_metadata.tracks.size() << " track(s)";
     if (source_metadata.tracks.size() == 0) return true;
