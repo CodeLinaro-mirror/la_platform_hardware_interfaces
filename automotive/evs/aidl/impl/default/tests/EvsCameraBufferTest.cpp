@@ -28,6 +28,7 @@ namespace aidl::android::hardware::automotive::evs::implementation {
 class EvsCameraForTest : public EvsCamera {
   public:
     using EvsCamera::increaseAvailableFrames_unsafe;
+    using EvsCamera::notifyFrameDelivered_unsafe;
     using EvsCamera::returnBuffer_unsafe;
     using EvsCamera::useBuffer_unsafe;
 
@@ -103,8 +104,11 @@ TEST(EvsCameraBufferTest, ChangeBufferPoolSize) {
 
     // 2 buffers in use.
     const auto [id1, handle1] = evsCam->useBuffer_unsafe();
+    evsCam->notifyFrameDelivered_unsafe(id1);
     const auto [id2, handle2] = evsCam->useBuffer_unsafe();
-    std::ignore = evsCam->useBuffer_unsafe();
+    evsCam->notifyFrameDelivered_unsafe(id2);
+    const auto [id3, handle3] = evsCam->useBuffer_unsafe();
+    evsCam->notifyFrameDelivered_unsafe(id3);
 
     // It allows you to set the buffer pool size to 1, but it will keep the space for the in use
     // buffers.
@@ -133,6 +137,7 @@ TEST(EvsCameraBufferTest, UseAndReturn) {
         std::unordered_set<std::intptr_t> inUseHandles;
         for (std::size_t i = 0; i < kNumOfHandles; ++i) {
             const auto [id, handle] = evsCam->useBuffer_unsafe();
+            evsCam->notifyFrameDelivered_unsafe(id);
             const std::size_t handleInt = reinterpret_cast<std::size_t>(handle);
             EXPECT_TRUE(EvsCamera::IsBufferIDValid(id));
             EXPECT_NE(handle, nullptr);
@@ -160,6 +165,7 @@ TEST(EvsCameraBufferTest, UseAndReturn) {
         std::unordered_set<std::intptr_t> inUseHandles;
         for (std::size_t i = 0; i < kNumOfHandles; ++i) {
             const auto [id, handle] = evsCam->useBuffer_unsafe();
+            evsCam->notifyFrameDelivered_unsafe(id);
             const std::size_t handleInt = reinterpret_cast<std::size_t>(handle);
             EXPECT_TRUE(EvsCamera::IsBufferIDValid(id));
             EXPECT_NE(handle, nullptr);
@@ -190,6 +196,7 @@ TEST(EvsCameraBufferTest, UseAndReturn) {
         std::unordered_set<std::intptr_t> inUseHandles;
         for (std::size_t i = 0; i < kNumOfHandles; ++i) {
             const auto [id, handle] = evsCam->useBuffer_unsafe();
+            evsCam->notifyFrameDelivered_unsafe(id);
             const std::size_t handleInt = reinterpret_cast<std::size_t>(handle);
             EXPECT_TRUE(EvsCamera::IsBufferIDValid(id));
             EXPECT_NE(handle, nullptr);
@@ -205,6 +212,26 @@ TEST(EvsCameraBufferTest, UseAndReturn) {
             evsCam->checkBufferOrder();
         }
     }
+}
+
+TEST(EvsCameraBufferTest, ReturnUndeliveredBuffer) {
+    auto evsCam = ndk::SharedRefBase::make<EvsCameraForTest>();
+    evsCam->increaseAvailableFrames_unsafe(reinterpret_cast<buffer_handle_t>(1));
+
+    const auto [id, handle] = evsCam->useBuffer_unsafe();
+    // This should fail to return because notifyFrameDelivered_unsafe() was not called.
+    evsCam->returnBuffer_unsafe(id);
+    evsCam->checkBufferOrder();
+    // After returnBuffer_unsafe() failed, it should still be inUse.
+    EXPECT_EQ(evsCam->useBuffer_unsafe().first, EvsCamera::kInvalidBufferID);
+
+    // Now mark it as delivered.
+    evsCam->notifyFrameDelivered_unsafe(id);
+    // This should succeed now.
+    evsCam->returnBuffer_unsafe(id);
+    evsCam->checkBufferOrder();
+    // Now it should be available.
+    EXPECT_NE(evsCam->useBuffer_unsafe().first, EvsCamera::kInvalidBufferID);
 }
 
 }  // namespace aidl::android::hardware::automotive::evs::implementation

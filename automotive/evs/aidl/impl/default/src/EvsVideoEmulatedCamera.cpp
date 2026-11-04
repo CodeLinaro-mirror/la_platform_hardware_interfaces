@@ -254,6 +254,10 @@ void EvsVideoEmulatedCamera::onCodecOutputAvailable(const int32_t index,
     mapper.unlock(renderBufferHandle);
 
     // Issue the (asynchronous) callback to the client -- can't be holding the lock
+    {
+        std::lock_guard lock(mMutex);
+        notifyFrameDelivered_unsafe(renderBufferId);
+    }
     if (mStream && mStream->deliverFrame(renderBufferDescs).isOk()) {
         LOG(DEBUG) << __func__ << ": Delivered " << renderBufferHandle
                    << ", id = " << renderBufferId;
@@ -413,12 +417,13 @@ ndk::ScopedAStatus EvsVideoEmulatedCamera::getCameraInfo(evs::CameraDesc* _aidl_
 
 ndk::ScopedAStatus EvsVideoEmulatedCamera::getExtendedInfo(int32_t opaqueIdentifier,
                                                            std::vector<uint8_t>* value) {
+    std::shared_lock lock(mExtInfoLock);
     const auto it = mExtInfo.find(opaqueIdentifier);
     if (it == mExtInfo.end()) {
         return ndk::ScopedAStatus::fromServiceSpecificError(
                 static_cast<int>(EvsResult::INVALID_ARG));
     } else {
-        *value = mExtInfo[opaqueIdentifier];
+        *value = it->second;
     }
     return ndk::ScopedAStatus::ok();
 }
@@ -466,6 +471,7 @@ ndk::ScopedAStatus EvsVideoEmulatedCamera::getPhysicalCameraInfo(const std::stri
 
 ndk::ScopedAStatus EvsVideoEmulatedCamera::setExtendedInfo(
         int32_t opaqueIdentifier, const std::vector<uint8_t>& opaqueValue) {
+    std::unique_lock lock(mExtInfoLock);
     mExtInfo.insert_or_assign(opaqueIdentifier, opaqueValue);
     return ndk::ScopedAStatus::ok();
 }
