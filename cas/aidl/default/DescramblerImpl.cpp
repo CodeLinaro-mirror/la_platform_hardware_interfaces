@@ -17,6 +17,7 @@
 #define LOG_TAG "android.hardware.cas-DescramblerImpl"
 
 #include <aidlcommonsupport/NativeHandle.h>
+#include <android-base/scopeguard.h>
 #include <inttypes.h>
 #include <media/cas/DescramblerAPI.h>
 #include <media/hardware/CryptoAPI.h>
@@ -87,6 +88,15 @@ ScopedAStatus DescramblerImpl::descramble(ScramblingControl scramblingControl,
                                           int32_t* _aidl_return) {
     ALOGV("%s", __FUNCTION__);
 
+    if (srcOffset < 0 || srcOffset > INT32_MAX || dstOffset < 0 || dstOffset > INT32_MAX ||
+        srcBuffer.offset < 0 || srcBuffer.offset > INT32_MAX) {
+        ALOGE("Invalid offsets: srcOffset %" PRId64 ", dstOffset %" PRId64
+              ", srcBuffer.offset %" PRId64,
+              srcOffset, dstOffset, (int64_t)srcBuffer.offset);
+        android_errorWriteLog(0x534e4554, "517593332");
+        return toStatus(BAD_VALUE);
+    }
+
     // heapbase's size is stored in int64_t, but mapMemory's mmap will map size in
     // size_t. If size is over SIZE_MAX, mapMemory mapMemory could succeed but the
     // mapped memory's actual size will be smaller than the reported size.
@@ -101,10 +111,14 @@ ScopedAStatus DescramblerImpl::descramble(ScramblingControl scramblingControl,
 
     // Validate if the offset and size in the SharedBuffer is consistent with the
     // mapped heapbase, since the offset and size is controlled by client.
-    if (srcPtr == NULL) {
+    if (srcPtr == MAP_FAILED) {
         ALOGE("Failed to map src buffer.");
         return toStatus(BAD_VALUE);
     }
+
+    auto sg = ::android::base::make_scope_guard(
+            [srcPtr, size = srcBuffer.heapBase.size]() { munmap(srcPtr, size); });
+
     if (!validateRangeForSize(srcBuffer.offset, srcBuffer.size, srcBuffer.heapBase.size)) {
         ALOGE("Invalid src buffer range: offset %" PRIu64 ", size %" PRIu64
               ", srcMem"
