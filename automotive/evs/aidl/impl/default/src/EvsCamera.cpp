@@ -304,6 +304,7 @@ std::pair<std::size_t, buffer_handle_t> EvsCamera::useBuffer_unsafe() {
     DCHECK(!buffer.inUse);
     DCHECK(buffer.handle);
     buffer.inUse = true;
+    buffer.isDelivered = false;
     return {mBufferPosToId[pos], buffer.handle};
 }
 
@@ -315,14 +316,28 @@ void EvsCamera::returnBuffer_unsafe(const std::size_t id) {
     }
     const std::size_t pos = mBufferIdToPos[id];
 
-    if (!mBuffers[pos].inUse) {
-        LOG(ERROR) << __func__ << ": Ignoring returning frame " << id << " which is already free.";
+    if (!mBuffers[pos].inUse || !mBuffers[pos].isDelivered) {
+        LOG(ERROR) << __func__ << ": Ignoring returning frame " << id
+                   << " which is not in use or not delivered.";
         return;
     }
     DCHECK_LT(pos, mFramesInUse);
     const std::size_t last_in_use_pos = --mFramesInUse;
     swapBufferFrames_unsafe(pos, last_in_use_pos);
     mBuffers[last_in_use_pos].inUse = false;
+    mBuffers[last_in_use_pos].isDelivered = false;
+}
+
+void EvsCamera::notifyFrameDelivered_unsafe(const std::size_t id) {
+    if (id >= mBuffers.size()) {
+        LOG(ERROR) << __func__ << ": ID out-of-bound. id: " << id
+                   << " max: " << mBuffers.size() - 1;
+        return;
+    }
+    const std::size_t pos = mBufferIdToPos[id];
+    if (mBuffers[pos].inUse) {
+        mBuffers[pos].isDelivered = true;
+    }
 }
 
 bool EvsCamera::increaseAvailableFrames_unsafe(const buffer_handle_t handle) {

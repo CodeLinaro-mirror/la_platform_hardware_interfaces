@@ -30,6 +30,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <shared_mutex>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -114,6 +115,7 @@ class EvsMockCamera : public EvsCamera {
 
     // For the extended info
     std::unordered_map<uint32_t, std::vector<uint8_t>> mExtInfo;
+    std::shared_mutex mExtInfoLock;
 
     // For the camera parameters.
     struct CameraParameterDesc {
