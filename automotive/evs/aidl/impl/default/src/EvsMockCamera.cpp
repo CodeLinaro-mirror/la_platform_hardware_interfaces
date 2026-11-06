@@ -93,11 +93,12 @@ ScopedAStatus EvsMockCamera::getCameraInfo(CameraDesc* _aidl_return) {
 
 ScopedAStatus EvsMockCamera::getExtendedInfo(int32_t opaqueIdentifier,
                                              std::vector<uint8_t>* opaqueValue) {
+    std::shared_lock lock(mExtInfoLock);
     const auto it = mExtInfo.find(opaqueIdentifier);
     if (it == mExtInfo.end()) {
         return ScopedAStatus::fromServiceSpecificError(static_cast<int>(EvsResult::INVALID_ARG));
     } else {
-        *opaqueValue = mExtInfo[opaqueIdentifier];
+        *opaqueValue = it->second;
     }
 
     return ScopedAStatus::ok();
@@ -105,6 +106,7 @@ ScopedAStatus EvsMockCamera::getExtendedInfo(int32_t opaqueIdentifier,
 
 ScopedAStatus EvsMockCamera::setExtendedInfo(int32_t opaqueIdentifier,
                                              const std::vector<uint8_t>& opaqueValue) {
+    std::unique_lock lock(mExtInfoLock);
     mExtInfo.insert_or_assign(opaqueIdentifier, opaqueValue);
     return ScopedAStatus::ok();
 }
