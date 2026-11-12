@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #pragma once
 
@@ -52,7 +57,7 @@ constexpr char kEnableA2dpCodecExtensibility[] = "persist.vendor.audio.a2dp_code
 
 class BluetoothAudioProvider : public BnBluetoothAudioProvider {
   public:
-    BluetoothAudioProvider();
+    BluetoothAudioProvider(uint8_t index = 0);
     ndk::ScopedAStatus startSession(const std::shared_ptr<IBluetoothAudioPort>& host_if,
                                     const AudioConfiguration& audio_config,
                                     const std::vector<LatencyMode>& latency_modes,
@@ -146,6 +151,7 @@ class BluetoothAudioProvider : public BnBluetoothAudioProvider {
     std::unique_ptr<AudioConfiguration> audio_config_ = nullptr;
     SessionType session_type_;
     std::vector<LatencyMode> latency_modes_;
+    uint8_t index_ = 0;
 };
 }  // namespace audio
 }  // namespace bluetooth

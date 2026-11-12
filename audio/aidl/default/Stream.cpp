@@ -1218,6 +1218,13 @@ void StreamOut::defaultOnClose() {
 
 ndk::ScopedAStatus StreamOut::updateMetadata(const SourceMetadata& in_sourceMetadata) {
     RETURN_STATUS_IF_ERROR(validateMetadata(in_sourceMetadata));
+    for (auto& track : in_sourceMetadata.tracks) {
+        ndk::ScopedAStatus status = validateMetadataAttributeTags(track.tags);
+        if (!status.isOk()) {
+            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+        }
+    }
+
     return updateMetadataCommon(in_sourceMetadata);
 }
 

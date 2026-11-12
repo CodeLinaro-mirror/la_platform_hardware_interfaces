@@ -19,6 +19,8 @@
 #include <map>
 #include <memory>
 
+#include <aidl/android/media/audio/common/AudioDevice.h>
+
 #include "core-impl/Bluetooth.h"
 #include "core-impl/BluetoothAudioPort.h"
 #include "core-impl/Module.h"
@@ -103,7 +105,7 @@ class ModuleBluetoothBase : public Module {
     ChildInterface<Bluetooth> mBluetooth;
     std::map<int32_t /*instantiated device port ID*/, CachedProxy> mProxies;
     std::map<int32_t /*mix port handle*/, int32_t /*instantiated device port ID*/> mConnections;
-    std::map<::aidl::android::media::audio::common::AudioDeviceDescription,
+    std::map<::aidl::android::media::audio::common::AudioDevice,
              std::weak_ptr<::android::bluetooth::audio::aidl::BluetoothAudioPort>>
             mProxiesWeak;
 };

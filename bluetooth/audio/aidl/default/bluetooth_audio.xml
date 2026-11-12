@@ -3,5 +3,6 @@
         <name>android.hardware.bluetooth.audio</name>
         <version>6</version>
         <fqname>IBluetoothAudioProviderFactory/default</fqname>
+        <fqname>IBluetoothAudioProviderFactory/new</fqname>
     </hal>
 </manifest>
