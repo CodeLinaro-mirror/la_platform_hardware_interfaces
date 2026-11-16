@@ -118,10 +118,8 @@ class EvsEnumerator final : public ::aidl::android::hardware::automotive::evs::B
 
     // NOTE:  All members values are static so that all clients operate on the same state
     //        That is to say, this is effectively a singleton despite the fact that HIDL
-    //        constructs a new instance for each client.
-    //        Because our server has a single thread in the thread pool, these values are
-    //        never accessed concurrently despite potentially having multiple instance objects
-    //        using them.
+    //        sLock guards sCameraList and activeInstance read/write sections against concurrent
+    //        accesses from binder threads.
     static std::unordered_map<std::string, CameraRecord> sCameraList;
     // Object destructs if client dies.
     static std::mutex sLock;                               // Mutex on shared camera device list.
