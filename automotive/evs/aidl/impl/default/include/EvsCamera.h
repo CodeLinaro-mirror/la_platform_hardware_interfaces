@@ -90,6 +90,8 @@ class EvsCamera : public EvsCameraBase {
 
     void returnBuffer_unsafe(const std::size_t id);
 
+    void notifyFrameDelivered_unsafe(const std::size_t id);
+
     bool increaseAvailableFrames_unsafe(const buffer_handle_t handle);
 
     bool decreaseAvailableFrames_unsafe();
@@ -110,6 +112,7 @@ class EvsCamera : public EvsCameraBase {
 
         buffer_handle_t handle{nullptr};
         bool inUse{false};
+        bool isDelivered{false};
     };
 
     enum class StreamState {
@@ -134,10 +137,9 @@ class EvsCamera : public EvsCameraBase {
     std::size_t mAvailableFrames{0};
     std::size_t mFramesInUse{0};
 
+  public:
     // We use all 1's as a reserved invalid buffer ID.
     static constexpr std::size_t kInvalidBufferID = ~static_cast<std::size_t>(0);
-
-  public:
     static bool IsBufferIDValid(const std::size_t bufferId) { return ~bufferId; }
 };
 
